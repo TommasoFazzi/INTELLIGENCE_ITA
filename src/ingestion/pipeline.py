@@ -42,7 +42,9 @@ class IngestionPipeline:
         self,
         category: Optional[str] = None,
         save_output: bool = True,
-        extract_content: bool = True
+        extract_content: bool = True,
+        filter_by_age: bool = True,
+        max_age_hours: int = 24
     ) -> List[Dict]:
         """
         Run the complete ingestion pipeline.
@@ -51,6 +53,8 @@ class IngestionPipeline:
             category: Optional category filter
             save_output: Whether to save output to file
             extract_content: Whether to extract full content from URLs
+            filter_by_age: Whether to filter articles by publication date (default: True)
+            max_age_hours: Maximum age in hours for articles (default: 24)
 
         Returns:
             List of processed articles
@@ -68,6 +72,17 @@ class IngestionPipeline:
             return []
 
         logger.info(f"✓ Parsed {len(articles)} articles from RSS feeds")
+
+        # Step 1.5: Filter articles by age (if enabled)
+        if filter_by_age:
+            logger.info(f"\n[STEP 1.5] Filtering articles (max age: {max_age_hours} hours)...")
+            articles = self.feed_parser.filter_articles_by_age(articles, max_age_hours)
+
+            if not articles:
+                logger.warning(f"No articles found within the last {max_age_hours} hours")
+                return []
+
+            logger.info(f"✓ {len(articles)} articles within {max_age_hours}h time window")
 
         # Step 2: Extract full content (optional)
         if extract_content and self.content_extractor:
@@ -165,7 +180,9 @@ if __name__ == "__main__":
     articles = pipeline.run(
         category=None,  # Use None for all categories, or specify: 'intelligence', 'tech_economy', etc.
         save_output=True,
-        extract_content=True  # Set to True to extract full content (slower)
+        extract_content=True,  # Set to True to extract full content (slower)
+        filter_by_age=True,    # Filter articles by publication date
+        max_age_hours=24       # Only include articles from the last 24 hours
     )
 
     # Print summary
