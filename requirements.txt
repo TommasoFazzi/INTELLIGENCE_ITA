@@ -6,7 +6,7 @@ pyyaml==6.0.1
 feedparser==6.0.11
 requests==2.31.0
 trafilatura==1.7.0
-newspaper3k==0.2.8
+newspaper4k>=0.9.4  # Modern fork of newspaper3k
 
 # NLP and embeddings
 spacy==3.7.2
