@@ -82,12 +82,13 @@ class FeedParser:
             Dictionary with article metadata
         """
         try:
-            # Extract published date
+            # Extract published date as UTC-aware datetime
             published = None
             if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                published = datetime(*entry.published_parsed[:6])
+                # feedparser's *_parsed tuples are in UTC, so we mark them as such
+                published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
             elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
-                published = datetime(*entry.updated_parsed[:6])
+                published = datetime(*entry.updated_parsed[:6], tzinfo=timezone.utc)
 
             # Extract content/summary
             content = ""
@@ -106,7 +107,7 @@ class FeedParser:
                 'source': feed_name or 'Unknown',
                 'authors': self._extract_authors(entry),
                 'tags': self._extract_tags(entry),
-                'fetched_at': datetime.now()
+                'fetched_at': datetime.now(timezone.utc)
             }
 
             return article
