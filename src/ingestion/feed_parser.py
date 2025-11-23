@@ -5,7 +5,7 @@ This module handles parsing RSS/Atom feeds and extracting article metadata.
 """
 
 import feedparser
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
 from pathlib import Path
 import yaml
@@ -171,6 +171,53 @@ class FeedParser:
 
         logger.info(f"Total articles extracted: {len(all_articles)}")
         return all_articles
+
+    def filter_articles_by_age(self, articles: List[Dict], max_age_hours: int = 24) -> List[Dict]:
+        """
+        Filter articles to only include those published within the specified time window.
+
+        Args:
+            articles: List of article dictionaries
+            max_age_hours: Maximum age in hours (default: 24)
+
+        Returns:
+            List of articles published within the time window
+        """
+        if not articles:
+            return []
+
+        # Get current time (timezone-aware)
+        current_time = datetime.now(timezone.utc)
+        cutoff_time = current_time - timedelta(hours=max_age_hours)
+
+        filtered_articles = []
+        skipped_count = 0
+        no_date_count = 0
+
+        for article in articles:
+            published = article.get('published')
+
+            if published is None:
+                no_date_count += 1
+                logger.debug(f"Article has no published date: {article.get('title', 'N/A')}")
+                continue
+
+            # Make published datetime timezone-aware if it's naive
+            if published.tzinfo is None:
+                published = published.replace(tzinfo=timezone.utc)
+
+            # Check if article is within the time window
+            if published >= cutoff_time:
+                filtered_articles.append(article)
+            else:
+                skipped_count += 1
+                age_hours = (current_time - published).total_seconds() / 3600
+                logger.debug(f"Skipping old article ({age_hours:.1f}h old): {article.get('title', 'N/A')}")
+
+        logger.info(f"Date filtering results: {len(filtered_articles)} articles within {max_age_hours}h, "
+                   f"{skipped_count} older articles skipped, {no_date_count} without date")
+
+        return filtered_articles
 
     def get_feeds_by_category(self) -> Dict[str, List[Dict]]:
         """
