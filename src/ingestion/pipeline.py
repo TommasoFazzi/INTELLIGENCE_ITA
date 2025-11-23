@@ -4,7 +4,7 @@ Main ingestion pipeline that orchestrates feed parsing and content extraction.
 
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 from .feed_parser import FeedParser
@@ -42,7 +42,8 @@ class IngestionPipeline:
         self,
         category: Optional[str] = None,
         save_output: bool = True,
-        extract_content: bool = True
+        extract_content: bool = True,
+        max_age_days: int = 1
     ) -> List[Dict]:
         """
         Run the complete ingestion pipeline.
@@ -51,6 +52,7 @@ class IngestionPipeline:
             category: Optional category filter
             save_output: Whether to save output to file
             extract_content: Whether to extract full content from URLs
+            max_age_days: Maximum age of articles in days (default: 1)
 
         Returns:
             List of processed articles
@@ -68,6 +70,19 @@ class IngestionPipeline:
             return []
 
         logger.info(f"✓ Parsed {len(articles)} articles from RSS feeds")
+
+        # Filter articles by age
+        if max_age_days > 0:
+            cutoff_date = datetime.now() - timedelta(days=max_age_days)
+            original_count = len(articles)
+            articles = [
+                a for a in articles
+                if a.get('published') and a['published'] >= cutoff_date
+            ]
+            filtered_count = original_count - len(articles)
+            if filtered_count > 0:
+                logger.info(f"✓ Filtered out {filtered_count} articles older than {max_age_days} day(s)")
+            logger.info(f"✓ {len(articles)} recent articles remaining")
 
         # Step 2: Extract full content (optional)
         if extract_content and self.content_extractor:
@@ -165,7 +180,8 @@ if __name__ == "__main__":
     articles = pipeline.run(
         category=None,  # Use None for all categories, or specify: 'intelligence', 'tech_economy', etc.
         save_output=True,
-        extract_content=False  # Set to True to extract full content (slower)
+        extract_content=True,  # Extract full article content (required for NLP analysis)
+        max_age_days=1  # Only articles from last 24 hours
     )
 
     # Print summary
