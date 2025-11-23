@@ -9,7 +9,7 @@ import requests
 from typing import Optional, Dict
 from datetime import datetime
 import trafilatura
-from newspaper import Article as NewspaperArticle
+from newspaper import Article as NewspaperArticle  # newspaper4k
 
 from ..utils.logger import get_logger
 

@@ -165,7 +165,7 @@ if __name__ == "__main__":
     articles = pipeline.run(
         category=None,  # Use None for all categories, or specify: 'intelligence', 'tech_economy', etc.
         save_output=True,
-        extract_content=False  # Set to True to extract full content (slower)
+        extract_content=True  # Set to True to extract full content (slower)
     )
 
     # Print summary
