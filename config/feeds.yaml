@@ -1,0 +1,116 @@
+# RSS Feed Configuration for INTELLIGENCE_ITA
+# Categories: breaking_news, intelligence, tech_economy, security
+
+feeds:
+  # BREAKING NEWS
+  - name: "The Moscow Times - India Edition"
+    url: "https://themoscowtimes.com/feeds/main.xml"
+    category: "breaking_news"
+    region: "international"
+
+  - name: "Times of India"
+    url: "https://timesofindia.indiatimes.com/rssfeedstopstories.cms"
+    category: "breaking_news"
+    region: "india"
+
+  # INTELLIGENCE & GEOPOLITICS
+  - name: "ASEAN Beat - The Diplomat"
+    url: "https://thediplomat.com/feed/"
+    category: "intelligence"
+    subcategory: "geopolitics"
+
+  - name: "Asia Times"
+    url: "https://asiatimes.com/feed/"
+    category: "intelligence"
+    subcategory: "asian_affairs"
+
+  - name: "BleepingComputer"
+    url: "https://www.bleepingcomputer.com/feed/"
+    category: "intelligence"
+    subcategory: "cybersecurity"
+
+  - name: "China Power - The Diplomat"
+    url: "https://thediplomat.com/topics/china-power/feed/"
+    category: "intelligence"
+    subcategory: "china"
+
+  - name: "CyberScoop"
+    url: "https://cyberscoop.com/feed/"
+    category: "intelligence"
+    subcategory: "cybersecurity"
+
+  - name: "Defense One - All Content"
+    url: "https://www.defenseone.com/rss/"
+    category: "intelligence"
+    subcategory: "defense"
+
+  - name: "Diálogo Américas"
+    url: "https://dialogo-americas.com/feed/"
+    category: "intelligence"
+    subcategory: "americas"
+
+  - name: "European Council on Foreign Relations"
+    url: "https://ecfr.eu/feeds/all-content/"
+    category: "intelligence"
+    subcategory: "european_affairs"
+
+  - name: "Foreign Affairs - POLITICO"
+    url: "https://www.politico.eu/feed/"
+    category: "intelligence"
+    subcategory: "european_politics"
+
+  - name: "Krebs on Security"
+    url: "https://krebsonsecurity.com/feed/"
+    category: "intelligence"
+    subcategory: "cybersecurity"
+
+  - name: "NYT > International Relations"
+    url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"
+    category: "intelligence"
+    subcategory: "international"
+
+  - name: "Security - The Diplomat"
+    url: "https://thediplomat.com/topics/security/feed/"
+    category: "intelligence"
+    subcategory: "security"
+
+  - name: "SpaceNews"
+    url: "https://spacenews.com/feed/"
+    category: "intelligence"
+    subcategory: "space_technology"
+
+  # TECH & ECONOMIA
+  - name: "Business | Euronews RSS"
+    url: "https://www.euronews.com/rss?level=theme&name=business"
+    category: "tech_economy"
+    subcategory: "business"
+
+  - name: "ECB - European Central Bank Press Releases"
+    url: "https://www.ecb.europa.eu/press/rss/pr.rss"
+    category: "tech_economy"
+    subcategory: "monetary_policy"
+
+  - name: "ECB - Monetary Policy Statements"
+    url: "https://www.ecb.europa.eu/press/rss/sp.rss"
+    category: "tech_economy"
+    subcategory: "monetary_policy"
+
+  - name: "Handelsblatt Schlagzeilen"
+    url: "https://www.handelsblatt.com/contentexport/feed/schlagzeilen"
+    category: "tech_economy"
+    subcategory: "german_business"
+
+  - name: "Il Sole 24 ORE - Finanza"
+    url: "https://www.ilsole24ore.com/rss/finanza.xml"
+    category: "tech_economy"
+    subcategory: "italian_finance"
+
+  - name: "OilPrice"
+    url: "https://oilprice.com/rss/main"
+    category: "tech_economy"
+    subcategory: "energy"
+
+  - name: "Policy - Ars Technica"
+    url: "https://feeds.arstechnica.com/arstechnica/technology-lab"
+    category: "tech_economy"
+    subcategory: "tech_policy"
