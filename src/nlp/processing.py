@@ -53,6 +53,12 @@ class NLPProcessor:
             self.nlp = spacy.load(spacy_model)
             # Increase max length for very long articles
             self.nlp.max_length = 2000000
+
+            # Add sentencizer if not present (required for xx_ent_wiki_sm and similar minimal models)
+            if "sentencizer" not in self.nlp.pipe_names and "parser" not in self.nlp.pipe_names:
+                self.nlp.add_pipe("sentencizer")
+                logger.info("✓ Added sentencizer component to pipeline (required for sentence segmentation)")
+
             logger.info(f"✓ Loaded spaCy model: {spacy_model}")
         except OSError:
             logger.error(f"spaCy model '{spacy_model}' not found. Run: python -m spacy download {spacy_model}")
