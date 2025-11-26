@@ -54,8 +54,20 @@ def main():
     parser.add_argument(
         '--top-articles',
         type=int,
-        default=40,
-        help='Number of top relevant articles to include (default: 40)'
+        default=60,
+        help='Maximum number of top relevant articles to include (default: 60)'
+    )
+    parser.add_argument(
+        '--min-similarity',
+        type=float,
+        default=0.30,
+        help='Minimum similarity threshold for article relevance (default: 0.30)'
+    )
+    parser.add_argument(
+        '--min-articles',
+        type=int,
+        default=10,
+        help='Minimum number of articles to use even if below threshold (default: 10)'
     )
 
     args = parser.parse_args()
@@ -106,12 +118,15 @@ def main():
     # Generate report
     try:
         logger.info(f"\n[STEP 3] Generating report (analyzing last {args.days} day(s))...")
-        logger.info(f"Using top {args.top_articles} most relevant articles")
+        logger.info(f"Filtering parameters: top_articles={args.top_articles}, "
+                   f"min_similarity={args.min_similarity}, min_fallback={args.min_articles}")
         report = generator.generate_report(
             focus_areas=focus_areas,
             days=args.days,
             rag_top_k=5,
-            top_articles=args.top_articles
+            top_articles=args.top_articles,
+            min_similarity=args.min_similarity,
+            min_fallback=args.min_articles
         )
 
         if not report['success']:

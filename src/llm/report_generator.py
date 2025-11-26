@@ -95,18 +95,27 @@ class ReportGenerator:
         self,
         articles: List[Dict],
         focus_areas: List[str],
-        top_n: int = 40
+        top_n: int = 60,
+        min_similarity: float = 0.30,
+        min_fallback: int = 10
     ) -> List[Dict]:
         """
-        Filter articles by relevance to focus areas using cosine similarity.
+        Filter articles by relevance using cosine similarity with quality threshold.
+
+        Implements a two-stage filtering approach:
+        1. Quality Gate: Only articles with similarity >= min_similarity
+        2. Quantity Limit: Take top N from those that passed quality gate
+        3. Safety Net: If fewer than min_fallback articles pass, take top min_fallback regardless
 
         Args:
             articles: List of articles with embeddings
             focus_areas: List of focus area strings
-            top_n: Number of top articles to keep
+            top_n: Maximum number of articles to return (default: 60)
+            min_similarity: Minimum cosine similarity threshold (default: 0.30)
+            min_fallback: Minimum articles to return even if below threshold (default: 10)
 
         Returns:
-            Filtered list of top N most relevant articles
+            Filtered list of relevant articles (between min_fallback and top_n)
         """
         import numpy as np
 
@@ -114,6 +123,7 @@ class ReportGenerator:
             return []
 
         logger.info(f"Filtering {len(articles)} articles by relevance to focus areas...")
+        logger.info(f"Parameters: top_n={top_n}, min_similarity={min_similarity}, min_fallback={min_fallback}")
 
         # Generate query embedding from focus areas
         query_text = " ".join(focus_areas)
@@ -121,12 +131,15 @@ class ReportGenerator:
 
         # Calculate similarity for each article
         articles_with_similarity = []
+        no_embedding_count = 0
+
         for article in articles:
             # Get article's full text embedding
             full_text_embedding = article.get('full_text_embedding')
 
             if full_text_embedding is None:
-                logger.warning(f"Article '{article.get('title', 'Unknown')}' has no embedding, skipping")
+                no_embedding_count += 1
+                logger.debug(f"Article '{article.get('title', 'Unknown')}' has no embedding, skipping")
                 continue
 
             # Convert to numpy array if needed
@@ -143,16 +156,52 @@ class ReportGenerator:
                 'similarity': float(similarity)
             })
 
+        if no_embedding_count > 0:
+            logger.warning(f"{no_embedding_count} articles had no embeddings and were skipped")
+
+        if not articles_with_similarity:
+            logger.error("No articles with embeddings found for filtering")
+            return []
+
         # Sort by similarity (descending)
         articles_with_similarity.sort(key=lambda x: x['similarity'], reverse=True)
 
-        # Take top N
-        top_articles = [item['article'] for item in articles_with_similarity[:top_n]]
+        # Log similarity distribution
+        similarities = [x['similarity'] for x in articles_with_similarity]
+        logger.info(f"Similarity distribution - Min: {min(similarities):.3f}, Max: {max(similarities):.3f}, "
+                   f"Mean: {np.mean(similarities):.3f}, Median: {np.median(similarities):.3f}")
 
-        avg_similarity = np.mean([item['similarity'] for item in articles_with_similarity[:top_n]])
-        logger.info(f"✓ Selected top {len(top_articles)} articles (avg similarity: {avg_similarity:.3f})")
+        # Stage 1: Filter by quality threshold
+        above_threshold = [x for x in articles_with_similarity if x['similarity'] >= min_similarity]
+        below_threshold_count = len(articles_with_similarity) - len(above_threshold)
 
-        return top_articles
+        if below_threshold_count > 0:
+            logger.info(f"Filtered out {below_threshold_count} articles below similarity threshold {min_similarity}")
+
+        # Stage 2: Apply quantity limit (with fallback safety net)
+        if len(above_threshold) >= min_fallback:
+            # Normal path: take top N from articles above threshold
+            selected_articles = above_threshold[:top_n]
+            logger.info(f"✓ Selected {len(selected_articles)} articles from {len(above_threshold)} above threshold")
+
+            # Warning if we're using fewer articles than expected
+            if len(selected_articles) < 30:
+                logger.warning(f"⚠ LOW RELEVANCE: Only {len(selected_articles)} articles met quality threshold. "
+                             f"This suggests limited relevant news today.")
+        else:
+            # Fallback path: not enough articles above threshold, take top min_fallback regardless
+            selected_articles = articles_with_similarity[:min_fallback]
+            logger.warning(f"⚠ FALLBACK MODE ACTIVATED: Only {len(above_threshold)} articles above threshold {min_similarity}. "
+                          f"Using emergency fallback: top {min_fallback} articles regardless of quality.")
+
+        # Log final selection details
+        if selected_articles:
+            similarity_range = f"{selected_articles[-1]['similarity']:.3f} to {selected_articles[0]['similarity']:.3f}"
+            avg_similarity = np.mean([x['similarity'] for x in selected_articles])
+            logger.info(f"Final selection: {len(selected_articles)} articles "
+                       f"(similarity range: {similarity_range}, avg: {avg_similarity:.3f})")
+
+        return [item['article'] for item in selected_articles]
 
     def format_rag_context(self, rag_results: List[Dict]) -> str:
         """
@@ -241,7 +290,9 @@ class ReportGenerator:
         days: int = 1,
         rag_queries: Optional[List[str]] = None,
         rag_top_k: int = 5,
-        top_articles: int = 40
+        top_articles: int = 60,
+        min_similarity: float = 0.30,
+        min_fallback: int = 10
     ) -> Dict[str, Any]:
         """
         Generate intelligence report with RAG context.
@@ -251,7 +302,9 @@ class ReportGenerator:
             days: Number of days to look back for recent articles
             rag_queries: Custom RAG search queries. If None, auto-generates from focus areas
             rag_top_k: Number of historical chunks per RAG query
-            top_articles: Number of top relevant articles to include (filters by similarity)
+            top_articles: Maximum number of top relevant articles to include (default: 60)
+            min_similarity: Minimum cosine similarity threshold for relevance (default: 0.30)
+            min_fallback: Minimum articles to return even if below threshold (default: 10)
 
         Returns:
             Dictionary with report content and metadata
@@ -286,7 +339,9 @@ class ReportGenerator:
         recent_articles = self.filter_relevant_articles(
             articles=all_recent_articles,
             focus_areas=focus_areas,
-            top_n=top_articles
+            top_n=top_articles,
+            min_similarity=min_similarity,
+            min_fallback=min_fallback
         )
 
         if not recent_articles:
@@ -455,7 +510,9 @@ Analyze today's news articles and provide a comprehensive intelligence report. U
         save: bool = True,
         save_to_db: bool = True,
         output_dir: str = "reports",
-        top_articles: int = 40
+        top_articles: int = 60,
+        min_similarity: float = 0.30,
+        min_fallback: int = 10
     ) -> Dict[str, Any]:
         """
         Run complete daily report generation pipeline.
@@ -465,7 +522,9 @@ Analyze today's news articles and provide a comprehensive intelligence report. U
             save: Whether to save report to file
             save_to_db: Whether to save report to database (for HITL review)
             output_dir: Directory for saved reports
-            top_articles: Number of top relevant articles to include
+            top_articles: Maximum number of top relevant articles to include (default: 60)
+            min_similarity: Minimum cosine similarity threshold (default: 0.30)
+            min_fallback: Minimum articles to return even if below threshold (default: 10)
 
         Returns:
             Report dictionary with added 'report_id' if saved to database
@@ -477,7 +536,9 @@ Analyze today's news articles and provide a comprehensive intelligence report. U
             focus_areas=focus_areas,
             days=1,  # Last 24 hours
             rag_top_k=5,  # Top 5 historical chunks per focus area
-            top_articles=top_articles
+            top_articles=top_articles,
+            min_similarity=min_similarity,
+            min_fallback=min_fallback
         )
 
         if not report['success']:
