@@ -131,6 +131,41 @@ class DatabaseManager:
         CREATE INDEX IF NOT EXISTS idx_articles_full_embedding ON articles
             USING hnsw (full_text_embedding vector_cosine_ops);
 
+        -- Reports table (Phase 4: LLM-generated reports)
+        CREATE TABLE IF NOT EXISTS reports (
+            id SERIAL PRIMARY KEY,
+            report_date DATE NOT NULL,
+            generated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            model_used TEXT,
+            draft_content TEXT NOT NULL,          -- Original LLM-generated report
+            final_content TEXT,                   -- Human-edited version (NULL if not reviewed)
+            status TEXT DEFAULT 'draft',          -- draft, reviewed, approved
+            metadata JSONB,                       -- focus_areas, article_count, etc.
+            sources JSONB,                        -- Links to source articles and chunks
+            human_reviewed_at TIMESTAMP WITH TIME ZONE,
+            human_reviewer TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Report feedback table (Phase 5: Human-in-the-Loop)
+        CREATE TABLE IF NOT EXISTS report_feedback (
+            id SERIAL PRIMARY KEY,
+            report_id INTEGER REFERENCES reports(id) ON DELETE CASCADE,
+            section_name TEXT,                    -- e.g., "Executive Summary", "Cybersecurity"
+            feedback_type TEXT NOT NULL,          -- 'correction', 'addition', 'removal', 'rating'
+            original_text TEXT,                   -- What LLM originally wrote
+            corrected_text TEXT,                  -- What human changed it to
+            comment TEXT,                         -- Human explanation/notes
+            rating INTEGER CHECK (rating >= 1 AND rating <= 5),  -- 1-5 stars for quality
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Report indexes
+        CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(report_date DESC);
+        CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+        CREATE INDEX IF NOT EXISTS idx_report_feedback_report_id ON report_feedback(report_id);
+
         -- Update timestamp trigger
         CREATE OR REPLACE FUNCTION update_updated_at_column()
         RETURNS TRIGGER AS $$
@@ -143,6 +178,12 @@ class DatabaseManager:
         DROP TRIGGER IF EXISTS update_articles_updated_at ON articles;
         CREATE TRIGGER update_articles_updated_at
             BEFORE UPDATE ON articles
+            FOR EACH ROW
+            EXECUTE FUNCTION update_updated_at_column();
+
+        DROP TRIGGER IF EXISTS update_reports_updated_at ON reports;
+        CREATE TRIGGER update_reports_updated_at
+            BEFORE UPDATE ON reports
             FOR EACH ROW
             EXECUTE FUNCTION update_updated_at_column();
         """
@@ -413,6 +454,303 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting statistics: {e}")
             return {}
+
+    def get_recent_articles(self, days: int = 1, category: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get recent articles from database.
+
+        Args:
+            days: Number of days to look back
+            category: Optional category filter
+
+        Returns:
+            List of article dictionaries
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    query = """
+                        SELECT
+                            id, title, link, published_date, source, category,
+                            subcategory, summary, full_text, entities, nlp_metadata, full_text_embedding
+                        FROM articles
+                        WHERE published_date > NOW() - INTERVAL '%s days'
+                    """
+
+                    params = [days]
+
+                    if category:
+                        query += " AND category = %s"
+                        params.append(category)
+
+                    query += " ORDER BY published_date DESC"
+
+                    cur.execute(query, params)
+
+                    articles = []
+                    for row in cur.fetchall():
+                        articles.append({
+                            'id': row[0],
+                            'title': row[1],
+                            'link': row[2],
+                            'published_date': row[3],
+                            'source': row[4],
+                            'category': row[5],
+                            'subcategory': row[6],
+                            'summary': row[7],
+                            'full_text': row[8],
+                            'entities': row[9],
+                            'nlp_metadata': row[10],
+                            'full_text_embedding': row[11]
+                        })
+
+                    return articles
+
+        except Exception as e:
+            logger.error(f"Error getting recent articles: {e}")
+            return []
+
+    def save_report(self, report: Dict[str, Any]) -> Optional[int]:
+        """
+        Save LLM-generated report to database.
+
+        Args:
+            report: Report dictionary from ReportGenerator
+
+        Returns:
+            Report ID if saved successfully, None otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO reports
+                        (report_date, model_used, draft_content, status, metadata, sources)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    """, (
+                        datetime.now().date(),
+                        report.get('metadata', {}).get('model_used', 'unknown'),
+                        report.get('report_text', ''),
+                        'draft',
+                        Json(report.get('metadata', {})),
+                        Json(report.get('sources', {}))
+                    ))
+
+                    report_id = cur.fetchone()[0]
+                    logger.info(f"✓ Report saved to database with ID: {report_id}")
+                    return report_id
+
+        except Exception as e:
+            logger.error(f"Error saving report: {e}")
+            return None
+
+    def get_report(self, report_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get report by ID.
+
+        Args:
+            report_id: Report ID
+
+        Returns:
+            Report dictionary or None if not found
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT id, report_date, generated_at, model_used,
+                               draft_content, final_content, status, metadata, sources,
+                               human_reviewed_at, human_reviewer
+                        FROM reports
+                        WHERE id = %s
+                    """, (report_id,))
+
+                    row = cur.fetchone()
+                    if not row:
+                        return None
+
+                    return {
+                        'id': row[0],
+                        'report_date': row[1],
+                        'generated_at': row[2],
+                        'model_used': row[3],
+                        'draft_content': row[4],
+                        'final_content': row[5],
+                        'status': row[6],
+                        'metadata': row[7],
+                        'sources': row[8],
+                        'human_reviewed_at': row[9],
+                        'human_reviewer': row[10]
+                    }
+
+        except Exception as e:
+            logger.error(f"Error getting report: {e}")
+            return None
+
+    def get_all_reports(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Get all reports ordered by date (most recent first).
+
+        Args:
+            limit: Maximum number of reports to return
+
+        Returns:
+            List of report dictionaries
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT id, report_date, generated_at, model_used, status,
+                               metadata, human_reviewed_at
+                        FROM reports
+                        ORDER BY report_date DESC, generated_at DESC
+                        LIMIT %s
+                    """, (limit,))
+
+                    reports = []
+                    for row in cur.fetchall():
+                        reports.append({
+                            'id': row[0],
+                            'report_date': row[1],
+                            'generated_at': row[2],
+                            'model_used': row[3],
+                            'status': row[4],
+                            'metadata': row[5],
+                            'human_reviewed_at': row[6]
+                        })
+
+                    return reports
+
+        except Exception as e:
+            logger.error(f"Error getting reports: {e}")
+            return []
+
+    def update_report(
+        self,
+        report_id: int,
+        final_content: str,
+        status: str = 'reviewed',
+        reviewer: Optional[str] = None
+    ) -> bool:
+        """
+        Update report with human-edited content.
+
+        Args:
+            report_id: Report ID
+            final_content: Human-edited report text
+            status: Report status (reviewed, approved)
+            reviewer: Name/email of reviewer
+
+        Returns:
+            True if updated successfully, False otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE reports
+                        SET final_content = %s,
+                            status = %s,
+                            human_reviewed_at = CURRENT_TIMESTAMP,
+                            human_reviewer = %s
+                        WHERE id = %s
+                    """, (final_content, status, reviewer, report_id))
+
+                    logger.info(f"✓ Report {report_id} updated with status: {status}")
+                    return True
+
+        except Exception as e:
+            logger.error(f"Error updating report: {e}")
+            return False
+
+    def save_feedback(
+        self,
+        report_id: int,
+        section_name: Optional[str],
+        feedback_type: str,
+        original_text: Optional[str] = None,
+        corrected_text: Optional[str] = None,
+        comment: Optional[str] = None,
+        rating: Optional[int] = None
+    ) -> Optional[int]:
+        """
+        Save human feedback for a report section.
+
+        Args:
+            report_id: Report ID
+            section_name: Section being reviewed (e.g., "Executive Summary")
+            feedback_type: Type of feedback (correction, addition, removal, rating)
+            original_text: Original LLM text
+            corrected_text: Human-corrected text
+            comment: Human notes/explanation
+            rating: Quality rating 1-5
+
+        Returns:
+            Feedback ID if saved successfully, None otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO report_feedback
+                        (report_id, section_name, feedback_type, original_text,
+                         corrected_text, comment, rating)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    """, (
+                        report_id, section_name, feedback_type,
+                        original_text, corrected_text, comment, rating
+                    ))
+
+                    feedback_id = cur.fetchone()[0]
+                    logger.debug(f"✓ Feedback saved with ID: {feedback_id}")
+                    return feedback_id
+
+        except Exception as e:
+            logger.error(f"Error saving feedback: {e}")
+            return None
+
+    def get_report_feedback(self, report_id: int) -> List[Dict[str, Any]]:
+        """
+        Get all feedback for a report.
+
+        Args:
+            report_id: Report ID
+
+        Returns:
+            List of feedback dictionaries
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT id, section_name, feedback_type, original_text,
+                               corrected_text, comment, rating, created_at
+                        FROM report_feedback
+                        WHERE report_id = %s
+                        ORDER BY created_at ASC
+                    """, (report_id,))
+
+                    feedback = []
+                    for row in cur.fetchall():
+                        feedback.append({
+                            'id': row[0],
+                            'section_name': row[1],
+                            'feedback_type': row[2],
+                            'original_text': row[3],
+                            'corrected_text': row[4],
+                            'comment': row[5],
+                            'rating': row[6],
+                            'created_at': row[7]
+                        })
+
+                    return feedback
+
+        except Exception as e:
+            logger.error(f"Error getting feedback: {e}")
+            return []
 
     def close(self):
         """Close all connections in the pool."""

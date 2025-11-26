@@ -30,7 +30,7 @@ class NLPProcessor:
 
     def __init__(
         self,
-        spacy_model: str = "it_core_news_lg",
+        spacy_model: str = "xx_ent_wiki_sm",
         embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
         batch_size: int = 32,
         chunk_size: int = 500,
@@ -40,7 +40,7 @@ class NLPProcessor:
         Initialize hybrid NLP processor.
 
         Args:
-            spacy_model: spaCy model name for Italian NLP
+            spacy_model: spaCy model name for multilingual NLP (supports 50+ languages)
             embedding_model: Sentence Transformers model for embeddings
             batch_size: Batch size for processing
             chunk_size: Approximate words per chunk for RAG

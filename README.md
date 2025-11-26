@@ -124,19 +124,38 @@ GEMINI_API_KEY=your_api_key_here
 
 ## 🔧 Utilizzo
 
-### Fase 1: Ingestione Dati (Attualmente Implementata)
-
-Il sistema può già raccogliere notizie da 25+ fonti configurate in `config/feeds.yaml`:
+### Pipeline Completa (Esecuzione Giornaliera)
 
 ```bash
-# Test parsing feed RSS (solo metadata)
+# 1. Ingestion: Raccolta articoli ultimi 24h
 python -m src.ingestion.pipeline
 
-# Estrazione completa con full-text (più lento)
+# 2. NLP Processing: Embedding e chunking
+python scripts/process_nlp.py
+
+# 3. Database: Caricamento in PostgreSQL
+python scripts/load_to_database.py
+
+# 4. Report Generation: LLM + RAG
+python scripts/generate_report.py
+
+# 5. HITL Review: Dashboard interattiva
+./scripts/run_dashboard.sh
+```
+
+### Fase 1: Data Ingestion
+
+Raccolta notizie da 23 feed RSS con filtro temporale:
+
+```bash
+# Articoli ultimi 24h (default)
+python -m src.ingestion.pipeline
+
+# Articoli ultimi 3 giorni
 python -c "
 from src.ingestion.pipeline import IngestionPipeline
 pipeline = IngestionPipeline()
-articles = pipeline.run(extract_content=True)
+articles = pipeline.run(extract_content=True, max_age_days=3)
 "
 ```
 
@@ -146,12 +165,99 @@ from src.ingestion.pipeline import IngestionPipeline
 
 pipeline = IngestionPipeline()
 
-# Solo notizie di intelligence/geopolitica
-articles = pipeline.run(category='intelligence')
+# Solo intelligence/geopolitica
+articles = pipeline.run(category='intelligence', max_age_days=1)
 
 # Solo economia e tech
-articles = pipeline.run(category='tech_economy')
+articles = pipeline.run(category='tech_economy', max_age_days=1)
 ```
+
+### Fase 2: NLP Processing
+
+Elaborazione con embedding e chunking:
+
+```bash
+# Processing automatico (trova ultimo file di ingestion)
+python scripts/process_nlp.py
+
+# Processing di file specifico
+python scripts/process_nlp.py --input data/articles_20251123_100000.json
+
+# Processing con custom chunk size
+python scripts/process_nlp.py --chunk-size 1000 --chunk-overlap 100
+```
+
+**Output:** `data/articles_nlp_YYYYMMDD_HHMMSS.json`
+- Clean text, entities, embeddings, chunks
+
+### Fase 3: Database Storage
+
+Caricamento in PostgreSQL con pgvector:
+
+```bash
+# Init schema (prima volta)
+python scripts/load_to_database.py --init-only
+
+# Carica ultimo file NLP
+python scripts/load_to_database.py
+
+# Carica file specifico
+python scripts/load_to_database.py --input data/articles_nlp_20251123.json
+
+# Statistiche database
+python -c "
+from src.storage.database import DatabaseManager
+db = DatabaseManager()
+stats = db.get_statistics()
+print(f'Articoli: {stats[\"total_articles\"]}')
+print(f'Chunks: {stats[\"total_chunks\"]}')
+"
+```
+
+### Fase 4: Report Generation
+
+Generazione report intelligence con LLM + RAG:
+
+```bash
+# Report giornaliero (default)
+python scripts/generate_report.py
+
+# Report ultimi 3 giorni
+python scripts/generate_report.py --days 3
+
+# Con modello più potente
+python scripts/generate_report.py --model gemini-1.5-pro
+
+# Solo visualizza (non salvare file)
+python scripts/generate_report.py --no-save
+```
+
+**Output:**
+- `reports/intelligence_report_YYYYMMDD_HHMMSS.json` (strutturato)
+- `reports/intelligence_report_YYYYMMDD_HHMMSS.md` (markdown)
+
+### Fase 5: HITL Review
+
+Dashboard interattiva per revisione:
+
+```bash
+# Avvia dashboard Streamlit
+./scripts/run_dashboard.sh
+
+# Oppure manualmente
+source venv/bin/activate
+streamlit run src/hitl/dashboard.py
+```
+
+**Apre browser su:** http://localhost:8501
+
+**Workflow nella dashboard:**
+1. Clicca "➕ Genera Nuovo Report" (oppure seleziona esistente)
+2. Tab "Bozza LLM": leggi versione originale
+3. Tab "Versione Finale": modifica il testo
+4. Aggiungi rating (1-5 stelle) e commenti
+5. Clicca "💾 Salva Bozza" o "✅ Approva"
+6. Tab "Fonti & Feedback": vedi articoli usati e storico modifiche
 
 ### Output Esempio
 
@@ -199,33 +305,45 @@ Il sistema salva i dati in `data/articles_YYYYMMDD_HHMMSS.json`:
 
 **Totale: 23 fonti attive**
 
-## 🛠️ Prossimi Sviluppi
+## 🛠️ Stato Sviluppo
 
-### Fase 2: NLP Processing (Prossimo Step)
-- [ ] Pulizia e normalizzazione testo (spaCy)
-- [ ] Named Entity Recognition (NER) per categorizzazione
-- [ ] Generazione embedding con Sentence Transformers
-- [ ] Salvataggio in database vettoriale (pgvector)
+### ✅ Fase 1: Data Ingestion (COMPLETATA)
+- [x] Parser RSS multi-fonte (23 feed attivi)
+- [x] Estrazione full-text con Trafilatura + Newspaper3k
+- [x] Filtro per data (solo articoli ultimi 24h)
+- [x] Export JSON con metadata completo
 
-### Fase 3: Storage & RAG
-- [ ] Schema database PostgreSQL
-- [ ] Implementazione ricerca semantica
-- [ ] Sistema di categorizzazione automatica
+### ✅ Fase 2: NLP Processing (COMPLETATA)
+- [x] Pulizia e normalizzazione testo (spaCy)
+- [x] Named Entity Recognition (PERSON, ORG, GPE, DATE)
+- [x] Chunking semantico con overlap (500 words, 50 overlap)
+- [x] Embedding generation (384-dim, paraphrase-multilingual-MiniLM-L12-v2)
 
-### Fase 4: LLM Report Generation
-- [ ] Prompt engineering per insight cross-settoriali
-- [ ] Integrazione API LLM (Gemini/GPT)
-- [ ] Template report giornaliero
+### ✅ Fase 3: Storage & RAG (COMPLETATA)
+- [x] Schema PostgreSQL con pgvector
+- [x] Connection pooling e batch inserts
+- [x] Semantic search con HNSW index
+- [x] 134 articoli + 183 chunks caricati
 
-### Fase 5: Human-in-the-Loop (HITL)
-- [ ] Interfaccia web (Streamlit) per revisione
-- [ ] Sistema di feedback e correzioni
-- [ ] Loop di miglioramento continuo
+### ✅ Fase 4: LLM Report Generation (COMPLETATA)
+- [x] Integrazione Google Gemini API
+- [x] RAG context retrieval (semantic search su chunks storici)
+- [x] Prompt engineering strutturato
+- [x] Export JSON + Markdown
+- [x] Script CLI: `scripts/generate_report.py`
 
-### Fase 6: Automazione
-- [ ] Scheduler per esecuzione giornaliera
-- [ ] Sistema di notifiche
-- [ ] Dashboard di monitoraggio
+### ✅ Fase 5: Human-in-the-Loop (COMPLETATA)
+- [x] Streamlit dashboard per revisione report
+- [x] Editor interattivo con diff tracking
+- [x] Sistema rating e feedback (1-5 stelle)
+- [x] Database schema per report e feedback
+- [x] Workflow: Draft → Reviewed → Approved
+
+### 🔄 Fase 6: Automazione (PROSSIMA)
+- [ ] Scheduler per esecuzione giornaliera (cron/systemd)
+- [ ] Email automation per distribuzione report
+- [ ] Alert system per eventi critici
+- [ ] Dashboard monitoring e analytics
 
 ## 📖 Note di Sviluppo
 
@@ -265,13 +383,29 @@ Questo è un progetto in sviluppo attivo. Per contribuire:
 
 ## 🔗 Risorse
 
-- [Trafilatura Documentation](https://trafilatura.readthedocs.io/)
-- [spaCy Italian Models](https://spacy.io/models/it)
-- [pgvector GitHub](https://github.com/pgvector/pgvector)
-- [Sentence Transformers](https://www.sbert.net/)
+### Documentazione
+
+- [Phase 4: LLM Report Generation](docs/PHASE4_REPORT_GENERATION.md)
+- [Phase 5: HITL Dashboard](docs/PHASE5_HITL.md)
+
+### Librerie Utilizzate
+
+- [Trafilatura](https://trafilatura.readthedocs.io/) - Web scraping e text extraction
+- [spaCy](https://spacy.io/) - NLP e Named Entity Recognition
+- [pgvector](https://github.com/pgvector/pgvector) - Vector similarity search per PostgreSQL
+- [Sentence Transformers](https://www.sbert.net/) - Semantic embeddings
+- [Streamlit](https://streamlit.io/) - Dashboard interattiva HITL
+- [Google Gemini](https://ai.google.dev/) - LLM per report generation
+
+### Tool e Tecnologie
+
+- **Database**: PostgreSQL 14+ con pgvector extension
+- **NLP Models**: en_core_web_sm (spaCy), paraphrase-multilingual-MiniLM-L12-v2
+- **Vector Dimension**: 384-dim embeddings
+- **LLM**: Gemini 1.5 Flash (default, free tier)
 
 ---
 
-**Status Progetto**: 🟡 Fase 1 Completata (Data Ingestion) - In sviluppo Fase 2 (NLP)
+**Status Progetto**: 🟢 Fasi 1-5 Completate | 🔄 Fase 6 in Pianificazione
 
-**Ultima modifica**: 2024-01-15
+**Ultima modifica**: 2025-11-25

@@ -1,1 +1,1 @@
-"""LLM integration for report generation and insights"""
+"""LLM-based report generation with RAG"""
