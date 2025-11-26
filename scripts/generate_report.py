@@ -83,11 +83,21 @@ def main():
 
     # Define focus areas
     focus_areas = [
-        "cybersecurity threats, data breaches, and vulnerabilities",
-        "artificial intelligence and technology developments",
-        "geopolitical tensions and conflicts in Asia, Middle East, and Europe",
-        "economic policy changes and market trends"
-    ]
+    # Cybersecurity: Aggiungiamo l'intento malevolo e l'infrastruttura
+    "cybersecurity threats, state-sponsored cyber attacks, ransomware campaigns, and critical infrastructure vulnerabilities",
+    
+    # Tech: Aggiungiamo la dimensione strategica (chip/supply chain)
+    "breakthroughs in artificial intelligence, semiconductor supply chain shifts, and dual-use technology regulations",
+    
+    # Geopolitica (Generale): Rendiamola più attiva
+    "escalation of military conflicts, diplomatic ruptures, and changing alliances in NATO, Russia, China, and Middle East",
+    
+    # NUOVO: Geografia dei Conflitti (Specifico per la tua richiesta)
+    "territorial control changes, strategic military movements, maritime security in choke points, and border disputes",
+    
+    # Economia: Colleghiamola alla geopolitica
+    "global economic impact of sanctions, energy market volatility, and trade protectionism policies"
+]
 
     logger.info(f"\n[STEP 2] Focus areas:")
     for area in focus_areas:
