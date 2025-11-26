@@ -712,6 +712,67 @@ class DatabaseManager:
             logger.error(f"Error saving feedback: {e}")
             return None
 
+    def upsert_approval_feedback(
+        self,
+        report_id: int,
+        rating: Optional[int] = None,
+        comment: Optional[str] = None
+    ) -> Optional[int]:
+        """
+        Insert or update approval feedback for a report.
+        If feedback already exists for this report, update it.
+        Otherwise, create new feedback.
+
+        Args:
+            report_id: Report ID
+            rating: Quality rating 1-5
+            comment: Human notes/explanation
+
+        Returns:
+            Feedback ID if saved successfully, None otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    # Use PostgreSQL's ON CONFLICT to upsert
+                    # First, check if feedback exists
+                    cur.execute("""
+                        SELECT id FROM report_feedback
+                        WHERE report_id = %s AND feedback_type = 'rating'
+                        LIMIT 1
+                    """, (report_id,))
+
+                    existing = cur.fetchone()
+
+                    if existing:
+                        # Update existing feedback
+                        cur.execute("""
+                            UPDATE report_feedback
+                            SET rating = %s,
+                                comment = %s,
+                                created_at = CURRENT_TIMESTAMP
+                            WHERE id = %s
+                            RETURNING id
+                        """, (rating, comment, existing[0]))
+                        feedback_id = cur.fetchone()[0]
+                        logger.debug(f"✓ Feedback updated with ID: {feedback_id}")
+                    else:
+                        # Insert new feedback
+                        cur.execute("""
+                            INSERT INTO report_feedback
+                            (report_id, section_name, feedback_type, rating, comment)
+                            VALUES (%s, NULL, 'rating', %s, %s)
+                            RETURNING id
+                        """, (report_id, rating, comment))
+                        feedback_id = cur.fetchone()[0]
+                        logger.debug(f"✓ Feedback created with ID: {feedback_id}")
+
+                    return feedback_id
+
+        except Exception as e:
+            logger.error(f"Error upserting approval feedback: {e}")
+            return None
+
     def get_report_feedback(self, report_id: int) -> List[Dict[str, Any]]:
         """
         Get all feedback for a report.
@@ -750,6 +811,48 @@ class DatabaseManager:
 
         except Exception as e:
             logger.error(f"Error getting feedback: {e}")
+            return []
+
+    def get_recent_feedback(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get recent feedback across all reports.
+
+        Args:
+            limit: Maximum number of feedback entries to return
+
+        Returns:
+            List of feedback dictionaries with report info
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT
+                            rf.id, rf.report_id, rf.rating, rf.comment, rf.created_at,
+                            r.report_date, r.human_reviewer
+                        FROM report_feedback rf
+                        JOIN reports r ON rf.report_id = r.id
+                        WHERE rf.feedback_type = 'rating'
+                        ORDER BY rf.created_at DESC
+                        LIMIT %s
+                    """, (limit,))
+
+                    feedback = []
+                    for row in cur.fetchall():
+                        feedback.append({
+                            'id': row[0],
+                            'report_id': row[1],
+                            'rating': row[2],
+                            'comment': row[3],
+                            'created_at': row[4],
+                            'report_date': row[5],
+                            'reviewer': row[6]
+                        })
+
+                    return feedback
+
+        except Exception as e:
+            logger.error(f"Error getting recent feedback: {e}")
             return []
 
     def close(self):

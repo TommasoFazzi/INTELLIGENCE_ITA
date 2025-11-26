@@ -94,15 +94,18 @@ def initialize_session_state():
     """Initialize Streamlit session state variables."""
     if 'db' not in st.session_state:
         st.session_state.db = DatabaseManager()
-    
+
     if 'current_report_id' not in st.session_state:
         st.session_state.current_report_id = None
-    
+
     if 'edited_content' not in st.session_state:
         st.session_state.edited_content = ""
-    
+
     if 'feedback_list' not in st.session_state:
         st.session_state.feedback_list = []
+
+    if 'show_success_message' not in st.session_state:
+        st.session_state.show_success_message = None
 
 
 def generate_new_report() -> Optional[int]:
@@ -203,7 +206,17 @@ def get_status_badge(status: str) -> str:
 
 def display_report_viewer(report: Dict[str, Any]):
     """Display report viewer and editor."""
-    
+
+    # Display success message if present
+    if st.session_state.show_success_message:
+        msg = st.session_state.show_success_message
+        if msg['type'] == 'approved':
+            st.success("✅ **Report approvato e salvato con successo!**", icon="✅")
+        else:
+            st.info("💾 **Report salvato come bozza revisionata**", icon="💾")
+        # Clear message after display
+        st.session_state.show_success_message = None
+
     # Report header
     report_date = report['report_date']
     if hasattr(report_date, 'strftime'):
@@ -246,9 +259,9 @@ def display_report_viewer(report: Dict[str, Any]):
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("---")
-    
+
     # Tabs for draft vs final
-    tab1, tab2, tab3 = st.tabs(["📝 Bozza LLM", "✏️ Versione Finale", "📊 Fonti & Feedback"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📝 Bozza LLM", "✏️ Versione Finale", "📊 Fonti", "💬 Feedback"])
     
     with tab1:
         st.markdown('<div class="section-header">Bozza Originale (Generata da LLM)</div>', unsafe_allow_html=True)
@@ -301,19 +314,13 @@ def display_report_viewer(report: Dict[str, Any]):
                     status='reviewed',
                     reviewer=reviewer_name or None
                 )
-                
+
                 if success:
-                    # Save rating feedback
-                    if rating:
-                        st.session_state.db.save_feedback(
-                            report_id=report['id'],
-                            section_name=None,
-                            feedback_type='rating',
-                            rating=rating,
-                            comment=feedback_comment or None
-                        )
-                    
-                    st.success("✓ Report salvato come 'Revisionato'")
+                    # Set success message for display after rerun
+                    st.session_state.show_success_message = {
+                        'type': 'saved',
+                        'timestamp': datetime.now()
+                    }
                     st.rerun()
                 else:
                     st.error("Errore nel salvataggio del report")
@@ -326,18 +333,20 @@ def display_report_viewer(report: Dict[str, Any]):
                     status='approved',
                     reviewer=reviewer_name or None
                 )
-                
+
                 if success:
-                    # Save approval feedback
-                    st.session_state.db.save_feedback(
+                    # Upsert approval feedback (update if exists, insert if not)
+                    st.session_state.db.upsert_approval_feedback(
                         report_id=report['id'],
-                        section_name=None,
-                        feedback_type='rating',
                         rating=rating,
                         comment=feedback_comment or "Report approvato"
                     )
-                    
-                    st.success("✓ Report approvato e salvato!")
+
+                    # Set success message for display after rerun
+                    st.session_state.show_success_message = {
+                        'type': 'approved',
+                        'timestamp': datetime.now()
+                    }
                     st.balloons()
                     st.rerun()
                 else:
@@ -397,47 +406,87 @@ def display_report_viewer(report: Dict[str, Any]):
                 st.caption(f"... e altri {len(historical) - 5} chunk storici")
         else:
             st.info("Nessun context storico utilizzato")
-        
-        st.markdown("---")
-        
-        # Feedback history
-        st.markdown('<div class="section-header">Storico Feedback</div>', unsafe_allow_html=True)
-        
-        feedback_list = st.session_state.db.get_report_feedback(report['id'])
-        
-        if feedback_list:
-            for fb in feedback_list:
-                fb_type = fb['feedback_type']
+
+    with tab4:
+        display_feedback_tab(report, st.session_state.db)
+
+
+def display_feedback_tab(report: Dict[str, Any], db: DatabaseManager):
+    """
+    Display comprehensive feedback view with report-specific and global feedback.
+
+    Args:
+        report: Current report dictionary
+        db: Database manager instance
+    """
+    st.markdown("### 📋 Feedback di Questo Report")
+
+    # Get feedback for current report
+    current_feedback = db.get_report_feedback(report['id'])
+
+    if current_feedback:
+        for fb in current_feedback:
+            with st.container():
+                col1, col2, col3 = st.columns([2, 1, 1])
+                with col1:
+                    st.write(f"⭐ Rating: {fb['rating']}/5")
+                with col2:
+                    reviewer = fb.get('reviewer', 'Anonimo')
+                    st.write(f"👤 {reviewer}")
+                with col3:
+                    created = fb['created_at']
+                    if hasattr(created, 'strftime'):
+                        time_str = created.strftime('%d/%m %H:%M')
+                    else:
+                        time_str = str(created)
+                    st.write(f"🕐 {time_str}")
+
+                if fb.get('comment'):
+                    st.info(fb['comment'])
+                st.divider()
+    else:
+        st.info("Nessun feedback ancora per questo report")
+
+    st.markdown("---")
+    st.markdown("### 🌐 Ultimi Feedback Globali (tutti i report)")
+
+    # Get recent global feedback
+    global_feedback = db.get_recent_feedback(limit=10)
+
+    if global_feedback:
+        for fb in global_feedback:
+            # Format report date
+            report_date = fb['report_date']
+            if hasattr(report_date, 'strftime'):
+                date_str = report_date.strftime('%d/%m/%Y')
+            else:
+                date_str = str(report_date)
+
+            reviewer = fb.get('reviewer', 'Anonimo')
+
+            with st.expander(
+                f"Report {date_str} - ⭐ {fb['rating']}/5 - {reviewer}"
+            ):
                 created = fb['created_at']
                 if hasattr(created, 'strftime'):
-                    created_str = created.strftime('%Y-%m-%d %H:%M')
+                    created_str = created.strftime('%d/%m/%Y %H:%M')
                 else:
                     created_str = str(created)
-                
-                st.markdown(f"**{fb_type.capitalize()}** - {created_str}")
-                
-                if fb.get('section_name'):
-                    st.caption(f"Sezione: {fb['section_name']}")
-                
-                if fb.get('rating'):
-                    st.markdown("⭐ " * fb['rating'])
-                
+                st.write(f"**Data creazione**: {created_str}")
+
                 if fb.get('comment'):
-                    st.markdown(f"> {fb['comment']}")
-                
-                if fb.get('original_text') and fb.get('corrected_text'):
-                    with st.expander("Visualizza modifiche"):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.markdown("**Originale:**")
-                            st.text(fb['original_text'][:200] + "...")
-                        with col2:
-                            st.markdown("**Corretto:**")
-                            st.text(fb['corrected_text'][:200] + "...")
-                
-                st.markdown("---")
-        else:
-            st.info("Nessun feedback ancora registrato per questo report")
+                    # Show first 200 chars
+                    comment_preview = fb['comment'][:200]
+                    if len(fb['comment']) > 200:
+                        comment_preview += "..."
+                    st.write(f"**Commento**: {comment_preview}")
+
+                # Link to open that report
+                if st.button(f"📂 Apri Report", key=f"open_report_fb_{fb['id']}"):
+                    st.session_state.current_report_id = fb['report_id']
+                    st.rerun()
+    else:
+        st.info("Nessun feedback disponibile nel sistema")
 
 
 def display_statistics():
