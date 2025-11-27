@@ -397,7 +397,14 @@ Analyze today's news articles and provide a comprehensive intelligence report. U
 3. Trend Analysis (connections with historical context)
 4. Actionable Insights (what decision-makers should know)
 
-**GUIDELINES:**
+**CRITICAL GUIDELINES - ACTOR-FOCUSED ANALYSIS:**
+- **ALWAYS identify specific actors**: Name individuals, organizations, governments, groups behind each development
+- **Explain WHY, not just WHAT**: Describe motivations, dynamics, and causal relationships driving events
+- **Avoid impersonal language**: Instead of "tensions are rising", say "Russia and NATO are escalating tensions because..."
+- **Provide relationship context**: Explain how actors relate to each other (allies, adversaries, dependencies)
+- **Attribution matters**: Who did what? Who benefits? Who is affected?
+
+**ADDITIONAL GUIDELINES:**
 - Be concise but comprehensive
 - Prioritize actionable intelligence over general news
 - Cite specific articles with [Article N] references
