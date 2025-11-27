@@ -113,7 +113,7 @@ def generate_new_report() -> Optional[int]:
     try:
         with st.spinner("Generazione report in corso... (10-20 secondi)"):
             generator = ReportGenerator()
-            
+
             # Generate report
             report = generator.generate_report(
                 focus_areas=[
@@ -125,24 +125,79 @@ def generate_new_report() -> Optional[int]:
                 days=1,
                 rag_top_k=5
             )
-            
+
             if not report['success']:
                 st.error(f"Errore nella generazione del report: {report.get('error')}")
                 return None
-            
+
             # Save to database
             report_id = st.session_state.db.save_report(report)
-            
+
             if report_id:
                 st.success(f"✓ Report generato con successo (ID: {report_id})")
                 return report_id
             else:
                 st.error("Errore nel salvataggio del report al database")
                 return None
-                
+
     except Exception as e:
         st.error(f"Errore: {str(e)}")
         logger.error(f"Error generating report: {e}", exc_info=True)
+        return None
+
+
+def export_approved_report_to_file(report_date: datetime, final_content: str, reviewer: str = None) -> Optional[Path]:
+    """
+    Export approved report to markdown file, overwriting the original draft.
+
+    Args:
+        report_date: Date of the report
+        final_content: Approved report content
+        reviewer: Name of the reviewer who approved it
+
+    Returns:
+        Path to the exported file or None if failed
+    """
+    try:
+        # Format date for filename
+        date_str = report_date.strftime("%Y%m%d")
+
+        # Find the original report file
+        reports_dir = project_root / "reports"
+        reports_dir.mkdir(exist_ok=True)
+
+        # Look for existing report file with this date
+        pattern = f"intelligence_report_{date_str}_*.md"
+        existing_files = list(reports_dir.glob(pattern))
+
+        if existing_files:
+            # Use the first matching file (should only be one per day)
+            output_file = existing_files[0]
+            logger.info(f"Overwriting existing report file: {output_file}")
+        else:
+            # Create new file if no existing one found
+            timestamp = report_date.strftime("%H%M%S")
+            output_file = reports_dir / f"intelligence_report_{date_str}_{timestamp}.md"
+            logger.info(f"Creating new report file: {output_file}")
+
+        # Prepare approved header
+        approval_header = "---\n"
+        approval_header += "**STATUS: APPROVATO**\n"
+        if reviewer:
+            approval_header += f"**Revisore**: {reviewer}\n"
+        approval_header += f"**Data Approvazione**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        approval_header += "---\n\n"
+
+        # Write approved content
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(approval_header)
+            f.write(final_content)
+
+        logger.info(f"✓ Approved report exported to: {output_file}")
+        return output_file
+
+    except Exception as e:
+        logger.error(f"Error exporting approved report: {e}", exc_info=True)
         return None
 
 
@@ -341,6 +396,18 @@ def display_report_viewer(report: Dict[str, Any]):
                         rating=rating,
                         comment=feedback_comment or "Report approvato"
                     )
+
+                    # Export approved report to file
+                    exported_file = export_approved_report_to_file(
+                        report_date=report['report_date'],
+                        final_content=edited_content,
+                        reviewer=reviewer_name
+                    )
+
+                    if exported_file:
+                        logger.info(f"✓ Report approvato ed esportato: {exported_file}")
+                    else:
+                        logger.warning("⚠ Report approvato ma export fallito")
 
                     # Set success message for display after rerun
                     st.session_state.show_success_message = {
