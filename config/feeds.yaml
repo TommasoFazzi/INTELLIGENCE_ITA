@@ -8,10 +8,6 @@ feeds:
     category: "breaking_news"
     region: "international"
 
-  - name: "Times of India"
-    url: "https://timesofindia.indiatimes.com/rssfeedstopstories.cms"
-    category: "breaking_news"
-    region: "india"
 
   # INTELLIGENCE & GEOPOLITICS
   - name: "ASEAN Beat - The Diplomat"
@@ -64,10 +60,6 @@ feeds:
     category: "intelligence"
     subcategory: "cybersecurity"
 
-  - name: "NYT > International Relations"
-    url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"
-    category: "intelligence"
-    subcategory: "international"
 
   - name: "Security - The Diplomat"
     url: "https://thediplomat.com/topics/security/feed/"
@@ -78,6 +70,71 @@ feeds:
     url: "https://spacenews.com/feed/"
     category: "intelligence"
     subcategory: "space_technology"
+
+  # MIDDLE EAST & NORTH AFRICA
+  - name: "Al Jazeera English"
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+    category: "intelligence"
+    subcategory: "middle_east"
+
+  - name: "Middle East Eye"
+    url: "https://www.middleeasteye.net/rss"
+    category: "intelligence"
+    subcategory: "middle_east"
+
+  - name: "The Jerusalem Post"
+    url: "https://www.jpost.com/rss/rssfeedsheadlines.aspx"
+    category: "intelligence"
+    subcategory: "middle_east"
+
+  # DEFENSE & MILITARY
+  - name: "Breaking Defense"
+    url: "https://breakingdefense.com/feed/"
+    category: "intelligence"
+    subcategory: "defense"
+
+  - name: "War on the Rocks"
+    url: "https://warontherocks.com/feed/"
+    category: "intelligence"
+    subcategory: "defense"
+
+  - name: "Janes Defence Weekly"
+    url: "https://www.janes.com/feeds/defence-news"
+    category: "intelligence"
+    subcategory: "defense"
+
+  # THINK TANKS
+  - name: "CSIS - Center for Strategic and International Studies"
+    url: "https://www.csis.org/analysis/feed"
+    category: "intelligence"
+    subcategory: "think_tank"
+
+  - name: "Council on Foreign Relations"
+    url: "https://www.cfr.org/feed/all"
+    category: "intelligence"
+    subcategory: "think_tank"
+
+  - name: "Chatham House"
+    url: "https://www.chathamhouse.org/rss/all"
+    category: "intelligence"
+    subcategory: "think_tank"
+
+  # AMERICAS
+  - name: "Americas Quarterly"
+    url: "https://www.americasquarterly.org/feed/"
+    category: "intelligence"
+    subcategory: "americas"
+
+  # AFRICA
+  - name: "African Arguments"
+    url: "https://africanarguments.org/feed/"
+    category: "intelligence"
+    subcategory: "africa"
+
+  - name: "ISS Africa - Institute for Security Studies"
+    url: "https://issafrica.org/rss.xml"
+    category: "intelligence"
+    subcategory: "africa"
 
   # TECH & ECONOMIA
   - name: "Business | Euronews RSS"
@@ -95,10 +152,6 @@ feeds:
     category: "tech_economy"
     subcategory: "monetary_policy"
 
-  - name: "Handelsblatt Schlagzeilen"
-    url: "https://www.handelsblatt.com/contentexport/feed/schlagzeilen"
-    category: "tech_economy"
-    subcategory: "german_business"
 
   - name: "Il Sole 24 ORE - Finanza"
     url: "https://www.ilsole24ore.com/rss/finanza.xml"
@@ -114,3 +167,13 @@ feeds:
     url: "https://feeds.arstechnica.com/arstechnica/technology-lab"
     category: "tech_economy"
     subcategory: "tech_policy"
+
+  - name: "Supply Chain Dive"
+    url: "https://www.supplychaindive.com/feeds/news/"
+    category: "tech_economy"
+    subcategory: "supply_chain"
+
+  - name: "Semiconductor Engineering"
+    url: "https://semiengineering.com/feed/"
+    category: "tech_economy"
+    subcategory: "semiconductors"

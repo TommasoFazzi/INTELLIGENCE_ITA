@@ -313,12 +313,20 @@ class ReportGenerator:
         logger.info("GENERATING INTELLIGENCE REPORT")
         logger.info("=" * 80)
 
-        # Default focus areas
+        # Default focus areas - aligned with feed coverage
         if focus_areas is None:
             focus_areas = [
-                "cybersecurity threats and vulnerabilities",
-                "geopolitical developments in Asia and Europe",
-                "technology and economic trends"
+                "cybersecurity threats, data breaches, and critical infrastructure vulnerabilities",
+                "geopolitical tensions and power dynamics in Indo-Pacific region (China, Taiwan, ASEAN)",
+                "Middle East conflicts, security developments, and regional stability (Israel, Iran, Arab states)",
+                "defense technology, military procurement, and strategic weapons systems",
+                "global supply chain disruptions, semiconductor industry, and critical materials",
+                "energy markets, OPEC dynamics, and transition to renewables",
+                "European Union policy, Russia-NATO relations, and transatlantic security",
+                "space industry developments, satellite technology, and dual-use applications",
+                "Africa security challenges, conflicts, and great power competition",
+                "Latin America political developments and China's influence in the region",
+                "economic policy shifts, central bank decisions, and financial market trends"
             ]
 
         # Step 1: Get recent articles
