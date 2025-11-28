@@ -1,0 +1,20 @@
+# ============================================================================
+# DIPENDENZE PER DEVELOPMENT E TESTING
+# ============================================================================
+
+# Testing framework
+pytest==7.4.3
+pytest-cov==4.1.0          # Code coverage
+pytest-timeout==2.2.0      # Timeout per test lenti
+pytest-mock==3.12.0        # Mocking utilities
+
+# HTTP mocking
+responses==0.24.1          # Mock HTTP requests
+
+# Utilities
+freezegun==1.4.0           # Mock datetime
+
+# Code quality (opzionali, utili per CI/CD futuro)
+# black==24.1.1            # Code formatter
+# flake8==7.0.0            # Linter
+# mypy==1.8.0              # Type checker
