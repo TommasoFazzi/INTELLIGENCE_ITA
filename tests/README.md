@@ -5,9 +5,9 @@ Test automatizzati per verificare il corretto funzionamento del sistema.
 ## 📊 Statistiche Attuali
 
 ```
-✅ 47 test totali
-⚡ Tempo esecuzione: ~0.3 secondi
-📦 Moduli testati: Ingestion (FeedParser, ContentExtractor)
+✅ 164 test totali
+⚡ Tempo esecuzione: ~6 secondi
+📦 Moduli testati: Ingestion, NLP
 ```
 
 ## 🗂️ Struttura Test
@@ -19,7 +19,12 @@ tests/
 ├── test_ingestion/
 │   ├── test_feed_parser.py           # 18 test - RSS parsing
 │   └── test_content_extractor.py     # 20 test - Content extraction
-├── test_nlp/                          # TODO
+├── test_nlp/
+│   ├── test_text_cleaning.py         # 26 test - Text cleaning
+│   ├── test_chunking.py              # 18 test - Semantic chunking
+│   ├── test_embeddings.py            # 20 test - Embedding generation
+│   ├── test_entities.py              # 19 test - Named Entity Recognition
+│   └── test_nlp_processor.py         # 34 test - Full NLP pipeline
 ├── test_storage/                      # TODO
 ├── test_llm/                          # TODO
 └── test_e2e/                          # TODO
@@ -37,8 +42,14 @@ pytest
 # Solo test ingestion
 pytest tests/test_ingestion/
 
+# Solo test NLP
+pytest tests/test_nlp/
+
 # Solo FeedParser
 pytest tests/test_ingestion/test_feed_parser.py
+
+# Solo text cleaning
+pytest tests/test_nlp/test_text_cleaning.py
 
 # Solo un test specifico
 pytest tests/test_ingestion/test_feed_parser.py::test_parse_feed_success
@@ -77,11 +88,43 @@ pytest --cov=src --cov-report=html
 - Gestione errori HTTP
 - Timeout handling
 
-### ⏳ NLP (TODO)
-- Text cleaning
-- Semantic chunking
-- Embedding generation
-- Named Entity Recognition
+### ✅ NLP (117 test - COMPLETATO)
+
+**Text Cleaning (26 test)**
+- Normalizzazione whitespace (spazi, tab, newline)
+- Rimozione markdown links e bracket
+- Rimozione pattern comuni di rumore (ads, social media, etc.)
+- Preservazione punteggiatura e unicode
+- Gestione edge cases (empty, None, whitespace-only)
+
+**Semantic Chunking (18 test)**
+- Chunking basato su frasi complete con spaCy
+- Gestione overlap tra chunk consecutivi
+- Rispetto limiti di dimensione configurabili
+- Metadata (word_count, sentence_count)
+- Preservazione integrità del testo
+
+**Embedding Generation (20 test)**
+- Generazione embeddings singoli con SentenceTransformers
+- Batch embedding per chunk multipli
+- Dimensione corretta (384-dim)
+- Conversione a liste per JSON serialization
+- Gestione input vuoti/None con zero vectors
+
+**Named Entity Recognition (19 test)**
+- Estrazione entità con spaCy NER
+- Organizzazione per tipo (PER, ORG, LOC, etc.)
+- Metadata entità (text, label, posizioni)
+- Supporto multilingue
+- Gestione duplicati ed edge cases
+
+**Full NLP Pipeline (34 test)**
+- Preprocessing linguistico (tokenization, lemmatization, POS)
+- process_article() - pipeline completa
+- process_batch() - processing batch multipli articoli
+- get_processing_stats() - statistiche processing
+- Integrazione tutti i componenti
+- Gestione errori e fallback
 
 ### ⏳ Storage (TODO)
 - Database operations
@@ -206,8 +249,8 @@ pytest -n 4
 
 ## 📈 Prossimi Passi
 
-1. ✅ Test Ingestion (COMPLETATO)
-2. ⏳ Test NLP (preprocessing, chunking, embeddings)
+1. ✅ Test Ingestion (COMPLETATO - 38 test)
+2. ✅ Test NLP (COMPLETATO - 117 test)
 3. ⏳ Test Storage (database, vector search)
 4. ⏳ Test LLM (filtering, report generation)
 5. ⏳ Test HITL (dashboard, feedback)
