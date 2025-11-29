@@ -5,9 +5,9 @@ Test automatizzati per verificare il corretto funzionamento del sistema.
 ## 📊 Statistiche Attuali
 
 ```
-✅ 164 test totali
-⚡ Tempo esecuzione: ~6 secondi
-📦 Moduli testati: Ingestion, NLP
+✅ 184 test totali
+⚡ Tempo esecuzione: ~6.5 secondi
+📦 Moduli testati: Ingestion, NLP, Storage (business logic)
 ```
 
 ## 🗂️ Struttura Test
@@ -25,7 +25,8 @@ tests/
 │   ├── test_embeddings.py            # 20 test - Embedding generation
 │   ├── test_entities.py              # 19 test - Named Entity Recognition
 │   └── test_nlp_processor.py         # 34 test - Full NLP pipeline
-├── test_storage/                      # TODO
+├── test_storage/
+│   └── test_database_logic.py        # 20 test - Database business logic
 ├── test_llm/                          # TODO
 └── test_e2e/                          # TODO
 ```
@@ -44,6 +45,9 @@ pytest tests/test_ingestion/
 
 # Solo test NLP
 pytest tests/test_nlp/
+
+# Solo test Storage
+pytest tests/test_storage/
 
 # Solo FeedParser
 pytest tests/test_ingestion/test_feed_parser.py
@@ -126,10 +130,20 @@ pytest --cov=src --cov-report=html
 - Integrazione tutti i componenti
 - Gestione errori e fallback
 
-### ⏳ Storage (TODO)
-- Database operations
-- Vector search
-- Connection pooling
+### ✅ Storage (20 test - Business Logic)
+
+**Database Logic (20 test)**
+- Inizializzazione con connection URL o env vars
+- Validazione input (skip articoli senza NLP data)
+- Batch save statistics tracking (saved/skipped/errors)
+- Semantic search query building (con/senza categoria filter)
+- Upsert logic per approval feedback
+- Error handling (return empty on failure)
+- Connection pool management
+
+**Note**: Questi test verificano la **logica di business** senza richiedere database reale.
+Per test di integrazione completi (schema SQL, pgvector, queries reali),
+eseguire test separati con PostgreSQL + pgvector configurato.
 
 ### ⏳ LLM (TODO)
 - Article filtering
@@ -251,11 +265,12 @@ pytest -n 4
 
 1. ✅ Test Ingestion (COMPLETATO - 38 test)
 2. ✅ Test NLP (COMPLETATO - 117 test)
-3. ⏳ Test Storage (database, vector search)
-4. ⏳ Test LLM (filtering, report generation)
-5. ⏳ Test HITL (dashboard, feedback)
-6. ⏳ Test End-to-End (pipeline completa)
-7. ⏳ CI/CD (GitHub Actions)
+3. ✅ Test Storage Business Logic (COMPLETATO - 20 test)
+4. ⏳ Test Storage Integration (richiede PostgreSQL + pgvector)
+5. ⏳ Test LLM (filtering, report generation)
+6. ⏳ Test HITL (dashboard, feedback)
+7. ⏳ Test End-to-End (pipeline completa)
+8. ⏳ CI/CD (GitHub Actions)
 
 ---
 
