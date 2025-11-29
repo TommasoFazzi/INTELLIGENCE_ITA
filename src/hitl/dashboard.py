@@ -472,8 +472,11 @@ def display_report_viewer(report: Dict[str, Any]):
                     # Default: primi 3 espansi
                     is_expanded = (i <= 3)
 
-                with st.expander(f"[{i}] {article['title']}", expanded=is_expanded):
-                    st.markdown(f"**Fonte:** {article['source']}")
+                # Usa la fonte come identificativo principale
+                source = article.get('source', 'Fonte Sconosciuta')
+                title = article.get('title', 'Titolo non disponibile')
+
+                with st.expander(f"[{source}] {title}", expanded=is_expanded):
                     st.markdown(f"**Data:** {article['published_date']}")
                     st.markdown(f"**Link:** [{article['link']}]({article['link']})")
         else:
