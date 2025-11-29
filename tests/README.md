@@ -5,9 +5,9 @@ Test automatizzati per verificare il corretto funzionamento del sistema.
 ## 📊 Statistiche Attuali
 
 ```
-✅ 201 test totali
-⚡ Tempo esecuzione: ~12.5 secondi
-📦 Moduli testati: Ingestion, NLP, Storage (business logic), LLM (query expansion)
+✅ 223 test totali
+⚡ Tempo esecuzione: ~6.5 secondi
+📦 Moduli testati: Ingestion (+ dedup), NLP, Storage (business logic + content hash), LLM (query expansion)
 ```
 
 ## 🗂️ Struttura Test
@@ -18,7 +18,8 @@ tests/
 ├── test_setup.py                      # 9 test - Verifica setup
 ├── test_ingestion/
 │   ├── test_feed_parser.py           # 18 test - RSS parsing
-│   └── test_content_extractor.py     # 20 test - Content extraction
+│   ├── test_content_extractor.py     # 20 test - Content extraction
+│   └── test_pipeline_dedup.py        # 12 test - Hash deduplication (Phase 1)
 ├── test_nlp/
 │   ├── test_text_cleaning.py         # 26 test - Text cleaning
 │   ├── test_chunking.py              # 18 test - Semantic chunking
@@ -26,7 +27,8 @@ tests/
 │   ├── test_entities.py              # 19 test - Named Entity Recognition
 │   └── test_nlp_processor.py         # 34 test - Full NLP pipeline
 ├── test_storage/
-│   └── test_database_logic.py        # 20 test - Database business logic
+│   ├── test_database_logic.py        # 20 test - Database business logic
+│   └── test_content_hash_dedup.py    # 10 test - Content hash dedup (Phase 2)
 ├── test_llm/
 │   └── test_query_expansion.py       # 17 test - Query expansion & deduplication
 └── test_e2e/                          # TODO
@@ -83,7 +85,7 @@ pytest --cov=src --cov-report=html
 
 ## 📝 Test Coverage
 
-### ✅ Ingestion (38 test - COMPLETATO)
+### ✅ Ingestion (50 test - COMPLETATO)
 
 **FeedParser (18 test)**
 - Inizializzazione e configurazione
@@ -98,6 +100,13 @@ pytest --cov=src --cov-report=html
 - Batch processing
 - Gestione errori HTTP
 - Timeout handling
+
+**Pipeline Deduplication - Phase 1 (12 test)**
+- deduplicate_by_quick_hash(): MD5 hash di link + title
+- Rimozione duplicati esatti in-memory
+- Preservazione prima occorrenza
+- Gestione edge cases (campi mancanti, unicode)
+- Integrazione in run() prima di content extraction
 
 ### ✅ NLP (117 test - COMPLETATO)
 
@@ -137,7 +146,7 @@ pytest --cov=src --cov-report=html
 - Integrazione tutti i componenti
 - Gestione errori e fallback
 
-### ✅ Storage (20 test - Business Logic)
+### ✅ Storage (30 test - Business Logic)
 
 **Database Logic (20 test)**
 - Inizializzazione con connection URL o env vars
@@ -147,6 +156,14 @@ pytest --cov=src --cov-report=html
 - Upsert logic per approval feedback
 - Error handling (return empty on failure)
 - Connection pool management
+
+**Content Hash Deduplication - Phase 2 (10 test)**
+- Computazione MD5 hash da clean_text
+- Deduplicazione basata su content_hash (7-day window)
+- Skip articoli con link diverso ma contenuto identico
+- Gestione unicode e contenuti lunghi
+- Link check PRIMA di content hash (efficienza)
+- Integration con existing link dedup
 
 **Note**: Questi test verificano la **logica di business** senza richiedere database reale.
 Per test di integrazione completi (schema SQL, pgvector, queries reali),
@@ -279,9 +296,14 @@ pytest -n 4
 
 ## 📈 Prossimi Passi
 
-1. ✅ Test Ingestion (COMPLETATO - 38 test)
+1. ✅ Test Ingestion (COMPLETATO - 50 test)
+   - ✅ Feed Parser (18 test)
+   - ✅ Content Extractor (20 test)
+   - ✅ Pipeline Dedup Phase 1 (12 test)
 2. ✅ Test NLP (COMPLETATO - 117 test)
-3. ✅ Test Storage Business Logic (COMPLETATO - 20 test)
+3. ✅ Test Storage Business Logic (COMPLETATO - 30 test)
+   - ✅ Database Logic (20 test)
+   - ✅ Content Hash Dedup Phase 2 (10 test)
 4. ✅ Test LLM Query Expansion (COMPLETATO - 17 test)
 5. ⏳ Test Storage Integration (richiede PostgreSQL + pgvector)
 6. ⏳ Test LLM Report Generation (article filtering, prompt formatting)
@@ -289,7 +311,26 @@ pytest -n 4
 8. ⏳ Test End-to-End (pipeline completa)
 9. ⏳ CI/CD (GitHub Actions)
 
+## 🎉 Deduplication Implementation
+
+**Phase 1 - Hash Dedup (COMPLETATO)**
+- In-memory deduplication basata su MD5(link + title[:100])
+- Integrato in `IngestionPipeline.run()` dopo RSS parsing
+- ~5-10% riduzione articoli duplicati prevista
+- 12 test, zero risk (no DB changes)
+
+**Phase 2 - Content Hash Dedup (COMPLETATO)**
+- Database deduplication basata su MD5(clean_text)
+- 7-day lookback window per performance
+- Skip articoli con contenuto identico da fonti diverse
+- ~10-15% riduzione duplicati contenuto prevista
+- 10 test, SQL migration pronta
+
+**Phase 3 - Similarity Dedup (POSTICIPATA)**
+- Deduplicazione semantica con embeddings
+- Pianificato per futuro
+
 ---
 
-**Status**: 🟢 Test suite attiva e funzionante
+**Status**: 🟢 Test suite attiva e funzionante (223 test, ~6.5s)
 **Last update**: 2025-11-29

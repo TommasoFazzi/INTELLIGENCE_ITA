@@ -3,6 +3,7 @@ Main ingestion pipeline that orchestrates feed parsing and content extraction.
 """
 
 import json
+import hashlib
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
@@ -38,6 +39,53 @@ class IngestionPipeline:
 
         logger.info("Ingestion pipeline initialized")
 
+    def deduplicate_by_quick_hash(self, articles: List[Dict]) -> List[Dict]:
+        """
+        Quick deduplication based on hash(link + title).
+
+        Uses MD5 hash of link + first 100 chars of title to detect duplicates.
+        This is Phase 1 deduplication - in-memory, very fast.
+
+        Args:
+            articles: List of article dictionaries
+
+        Returns:
+            List of unique articles (duplicates removed)
+        """
+        if not articles:
+            return []
+
+        seen_hashes = set()
+        unique = []
+        skipped = 0
+
+        for article in articles:
+            # Create hash from link + title (first 100 chars)
+            link = article.get('link', '')
+            title = article.get('title', '')[:100]
+            hash_key = f"{link}|{title}"
+            quick_hash = hashlib.md5(hash_key.encode('utf-8')).hexdigest()
+
+            if quick_hash not in seen_hashes:
+                seen_hashes.add(quick_hash)
+                unique.append(article)
+            else:
+                skipped += 1
+                logger.debug(
+                    f"Skipped duplicate (hash): {article.get('title', 'N/A')[:50]}... "
+                    f"from {article.get('source', 'unknown')}"
+                )
+
+        if skipped > 0:
+            logger.info(
+                f"✓ Quick hash dedup: {len(articles)} → {len(unique)} "
+                f"({skipped} duplicates removed, {(skipped/len(articles)*100):.1f}%)"
+            )
+        else:
+            logger.info(f"✓ Quick hash dedup: No duplicates found ({len(articles)} unique)")
+
+        return unique
+
     def run(
         self,
         category: Optional[str] = None,
@@ -70,6 +118,14 @@ class IngestionPipeline:
             return []
 
         logger.info(f"✓ Parsed {len(articles)} articles from RSS feeds")
+
+        # Step 1.5: Quick hash deduplication
+        logger.info("\n[STEP 1.5] Deduplicating articles (quick hash)...")
+        articles = self.deduplicate_by_quick_hash(articles)
+
+        if not articles:
+            logger.warning("No articles remaining after deduplication")
+            return []
 
         # Filter articles by age
         if max_age_days > 0:

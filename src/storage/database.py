@@ -7,6 +7,7 @@ schema initialization, and storage of articles with vector embeddings.
 
 import os
 import json
+import hashlib
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from contextlib import contextmanager
@@ -225,7 +226,7 @@ class DatabaseManager:
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cur:
-                    # Check if article already exists
+                    # Check if article already exists (by link)
                     cur.execute("SELECT id FROM articles WHERE link = %s", (article.get('link'),))
                     existing = cur.fetchone()
 
@@ -233,12 +234,35 @@ class DatabaseManager:
                         logger.debug(f"Article already exists: {article.get('title', '')[:50]}...")
                         return None
 
+                    # PHASE 2: Compute content hash for content-based deduplication
+                    clean_text = nlp_data.get('clean_text', '')
+                    content_hash = hashlib.md5(clean_text.encode('utf-8')).hexdigest() if clean_text else None
+
+                    # PHASE 2: Check for duplicate content in last 7 days
+                    if content_hash:
+                        cur.execute("""
+                            SELECT id, title, source, link
+                            FROM articles
+                            WHERE content_hash = %s
+                            AND published_date > NOW() - INTERVAL '7 days'
+                            LIMIT 1
+                        """, (content_hash,))
+
+                        existing_content = cur.fetchone()
+                        if existing_content:
+                            logger.info(
+                                f"Skipping duplicate content: '{article.get('title', 'N/A')[:50]}...' "
+                                f"(same as article_id={existing_content[0]} "
+                                f"'{existing_content[1][:50]}...' from {existing_content[2]})"
+                            )
+                            return None
+
                     # Insert article
                     cur.execute("""
                         INSERT INTO articles
                         (title, link, published_date, source, category, subcategory, summary,
-                         full_text, entities, nlp_metadata, full_text_embedding)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         full_text, entities, nlp_metadata, full_text_embedding, content_hash)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id
                     """, (
                         article.get('title'),
@@ -257,7 +281,8 @@ class DatabaseManager:
                             'num_sentences': nlp_data.get('preprocessed', {}).get('num_sentences', 0),
                             'entity_count': nlp_data.get('entities', {}).get('entity_count', 0)
                         }),
-                        nlp_data.get('full_text_embedding', [])
+                        nlp_data.get('full_text_embedding', []),
+                        content_hash  # PHASE 2: Save content hash
                     ))
 
                     article_id = cur.fetchone()[0]
