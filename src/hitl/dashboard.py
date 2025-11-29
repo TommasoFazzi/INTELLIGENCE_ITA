@@ -435,42 +435,94 @@ def display_report_viewer(report: Dict[str, Any]):
     with tab3:
         # Sources
         st.markdown('<div class="section-header">Fonti Utilizzate</div>', unsafe_allow_html=True)
-        
+
         sources = report.get('sources', {})
-        
+
         # Recent articles
         st.markdown("#### Articoli Recenti")
         recent_articles = sources.get('recent_articles', [])
-        
+
         if recent_articles:
-            for i, article in enumerate(recent_articles[:10], 1):
-                with st.expander(f"[{i}] {article['title']}", expanded=(i <= 3)):
+            total_articles = len(recent_articles)
+            st.info(f"📚 Totale: {total_articles} articoli utilizzati")
+
+            # Toggle per espandere/collassare tutti
+            col_btn1, col_btn2 = st.columns([1, 5])
+            with col_btn1:
+                if st.button("📖 Espandi Tutti", key="expand_all_articles", use_container_width=True):
+                    st.session_state.articles_expanded = True
+                    st.rerun()
+            with col_btn2:
+                if st.button("📕 Riduci Tutti", key="collapse_all_articles", use_container_width=True):
+                    st.session_state.articles_expanded = False
+                    st.rerun()
+
+            # Stato di espansione (default: primi 3 espansi)
+            if 'articles_expanded' not in st.session_state:
+                st.session_state.articles_expanded = None
+
+            # Mostra tutti gli articoli
+            for i, article in enumerate(recent_articles, 1):
+                # Determina se questo articolo deve essere espanso
+                if st.session_state.articles_expanded is True:
+                    is_expanded = True
+                elif st.session_state.articles_expanded is False:
+                    is_expanded = False
+                else:
+                    # Default: primi 3 espansi
+                    is_expanded = (i <= 3)
+
+                with st.expander(f"[{i}] {article['title']}", expanded=is_expanded):
                     st.markdown(f"**Fonte:** {article['source']}")
                     st.markdown(f"**Data:** {article['published_date']}")
                     st.markdown(f"**Link:** [{article['link']}]({article['link']})")
-            
-            if len(recent_articles) > 10:
-                st.caption(f"... e altri {len(recent_articles) - 10} articoli")
         else:
             st.info("Nessun articolo recente trovato")
-        
+
         st.markdown("---")
-        
+
         # Historical context
         st.markdown("#### Context Storico (RAG)")
         historical = sources.get('historical_context', [])
-        
+
         if historical:
-            for i, ctx in enumerate(historical[:5], 1):
+            total_chunks = len(historical)
+            st.info(f"🧠 Totale: {total_chunks} chunk storici recuperati via RAG")
+
+            # Toggle per espandere/collassare tutti
+            col_btn1, col_btn2 = st.columns([1, 5])
+            with col_btn1:
+                if st.button("📖 Espandi Tutti", key="expand_all_chunks", use_container_width=True):
+                    st.session_state.chunks_expanded = True
+                    st.rerun()
+            with col_btn2:
+                if st.button("📕 Riduci Tutti", key="collapse_all_chunks", use_container_width=True):
+                    st.session_state.chunks_expanded = False
+                    st.rerun()
+
+            # Stato di espansione (default: primi 2 espansi)
+            if 'chunks_expanded' not in st.session_state:
+                st.session_state.chunks_expanded = None
+
+            # Mostra tutti i chunk
+            for i, ctx in enumerate(historical, 1):
                 similarity = ctx.get('similarity', 0)
                 sim_percent = f"{similarity * 100:.1f}%"
-                
-                with st.expander(f"[{i}] {ctx['title']} (Similarità: {sim_percent})", expanded=(i <= 2)):
+
+                # Determina se questo chunk deve essere espanso
+                if st.session_state.chunks_expanded is True:
+                    is_expanded = True
+                elif st.session_state.chunks_expanded is False:
+                    is_expanded = False
+                else:
+                    # Default: primi 2 espansi
+                    is_expanded = (i <= 2)
+
+                with st.expander(f"[{i}] {ctx['title']} (Similarità: {sim_percent})", expanded=is_expanded):
                     st.markdown(f"**Link:** [{ctx['link']}]({ctx['link']})")
+                    st.markdown(f"**Contenuto Chunk:**")
+                    st.markdown(f"> {ctx.get('content', 'N/A')[:300]}...")
                     st.progress(similarity)
-            
-            if len(historical) > 5:
-                st.caption(f"... e altri {len(historical) - 5} chunk storici")
         else:
             st.info("Nessun context storico utilizzato")
 
