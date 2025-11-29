@@ -361,9 +361,10 @@ def test_semantic_search_returns_formatted_results(db_manager, mock_connection):
     """Test: semantic search formatta risultati correttamente."""
     conn, cursor = mock_connection
 
-    # Mock database results
+    # Mock database results (updated to include embedding field)
+    embedding = [0.1] * 384
     cursor.fetchall.return_value = [
-        (1, 'Chunk text', 0, 10, 100, 'Article Title', 'https://ex.com', 'Source', datetime(2025, 11, 28), 'intel', 0.95)
+        (1, 'Chunk text', 0, 10, 100, 'Article Title', 'https://ex.com', 'Source', datetime(2025, 11, 28), 'intel', embedding, 0.95)
     ]
 
     query_embedding = [0.1] * 384
@@ -382,6 +383,7 @@ def test_semantic_search_returns_formatted_results(db_manager, mock_connection):
         assert result['content'] == 'Chunk text'
         assert result['article_id'] == 100
         assert result['title'] == 'Article Title'
+        assert result['embedding'] == embedding
         assert result['similarity'] == 0.95
 
 

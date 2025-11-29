@@ -363,6 +363,7 @@ class DatabaseManager:
                             a.source,
                             a.published_date,
                             a.category,
+                            c.embedding,
                             1 - (c.embedding <=> %s::vector) as similarity
                         FROM chunks c
                         JOIN articles a ON c.article_id = a.id
@@ -393,7 +394,8 @@ class DatabaseManager:
                             'source': row[7],
                             'published_date': row[8],
                             'category': row[9],
-                            'similarity': float(row[10])
+                            'embedding': row[10],
+                            'similarity': float(row[11])
                         })
 
                     return results

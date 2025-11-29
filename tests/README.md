@@ -5,9 +5,9 @@ Test automatizzati per verificare il corretto funzionamento del sistema.
 ## 📊 Statistiche Attuali
 
 ```
-✅ 184 test totali
-⚡ Tempo esecuzione: ~6.5 secondi
-📦 Moduli testati: Ingestion, NLP, Storage (business logic)
+✅ 201 test totali
+⚡ Tempo esecuzione: ~12.5 secondi
+📦 Moduli testati: Ingestion, NLP, Storage (business logic), LLM (query expansion)
 ```
 
 ## 🗂️ Struttura Test
@@ -27,7 +27,8 @@ tests/
 │   └── test_nlp_processor.py         # 34 test - Full NLP pipeline
 ├── test_storage/
 │   └── test_database_logic.py        # 20 test - Database business logic
-├── test_llm/                          # TODO
+├── test_llm/
+│   └── test_query_expansion.py       # 17 test - Query expansion & deduplication
 └── test_e2e/                          # TODO
 ```
 
@@ -49,11 +50,17 @@ pytest tests/test_nlp/
 # Solo test Storage
 pytest tests/test_storage/
 
+# Solo test LLM
+pytest tests/test_llm/
+
 # Solo FeedParser
 pytest tests/test_ingestion/test_feed_parser.py
 
 # Solo text cleaning
 pytest tests/test_nlp/test_text_cleaning.py
+
+# Solo query expansion
+pytest tests/test_llm/test_query_expansion.py
 
 # Solo un test specifico
 pytest tests/test_ingestion/test_feed_parser.py::test_parse_feed_success
@@ -145,10 +152,19 @@ pytest --cov=src --cov-report=html
 Per test di integrazione completi (schema SQL, pgvector, queries reali),
 eseguire test separati con PostgreSQL + pgvector configurato.
 
-### ⏳ LLM (TODO)
-- Article filtering
-- Report generation
-- RAG context
+### ✅ LLM (17 test - Query Expansion)
+
+**Query Expansion (17 test)**
+- expand_rag_queries(): generazione varianti semantiche con LLM
+- Filtering varianti invalide (troppo corte/lunghe)
+- Gestione fallback quando LLM fallisce
+- Rimozione numerazione dalle varianti
+- deduplicate_chunks_advanced(): dedup con similarity
+- Rimozione duplicati esatti (chunk_id)
+- Rimozione duplicati semantici (cosine similarity > 0.98)
+- Gestione chunks con/senza embeddings
+- Integrazione in generate_report()
+- Configurazione (enable/disable, variants count, similarity threshold)
 
 ### ⏳ End-to-End (TODO)
 - Pipeline completa
@@ -266,13 +282,14 @@ pytest -n 4
 1. ✅ Test Ingestion (COMPLETATO - 38 test)
 2. ✅ Test NLP (COMPLETATO - 117 test)
 3. ✅ Test Storage Business Logic (COMPLETATO - 20 test)
-4. ⏳ Test Storage Integration (richiede PostgreSQL + pgvector)
-5. ⏳ Test LLM (filtering, report generation)
-6. ⏳ Test HITL (dashboard, feedback)
-7. ⏳ Test End-to-End (pipeline completa)
-8. ⏳ CI/CD (GitHub Actions)
+4. ✅ Test LLM Query Expansion (COMPLETATO - 17 test)
+5. ⏳ Test Storage Integration (richiede PostgreSQL + pgvector)
+6. ⏳ Test LLM Report Generation (article filtering, prompt formatting)
+7. ⏳ Test HITL (dashboard, feedback)
+8. ⏳ Test End-to-End (pipeline completa)
+9. ⏳ CI/CD (GitHub Actions)
 
 ---
 
 **Status**: 🟢 Test suite attiva e funzionante
-**Last update**: 2025-11-28
+**Last update**: 2025-11-29

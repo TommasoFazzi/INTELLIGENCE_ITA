@@ -13,6 +13,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+import numpy as np
 import google.generativeai as genai
 
 from ..storage.database import DatabaseManager
@@ -32,7 +33,10 @@ class ReportGenerator:
         db_manager: Optional[DatabaseManager] = None,
         nlp_processor: Optional[NLPProcessor] = None,
         gemini_api_key: Optional[str] = None,
-        model_name: str = "gemini-2.5-flash"
+        model_name: str = "gemini-2.5-flash",
+        enable_query_expansion: bool = True,
+        expansion_variants: int = 2,
+        dedup_similarity: float = 0.98
     ):
         """
         Initialize report generator.
@@ -42,12 +46,20 @@ class ReportGenerator:
             nlp_processor: NLP processor instance (creates new if None)
             gemini_api_key: Gemini API key (reads from env if None)
             model_name: Gemini model to use
+            enable_query_expansion: Enable automatic query expansion for RAG
+            expansion_variants: Number of query variants to generate per focus area
+            dedup_similarity: Similarity threshold for chunk deduplication (0-1)
         """
         self.db = db_manager or DatabaseManager()
         self.nlp = nlp_processor or NLPProcessor(
             spacy_model="xx_ent_wiki_sm",
             embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
         )
+
+        # Query expansion configuration
+        self.enable_query_expansion = enable_query_expansion
+        self.expansion_variants = expansion_variants
+        self.dedup_similarity = dedup_similarity
 
         # Configure Gemini
         api_key = gemini_api_key or os.getenv('GEMINI_API_KEY')
@@ -58,6 +70,8 @@ class ReportGenerator:
         self.model = genai.GenerativeModel(model_name)
 
         logger.info(f"✓ Report generator initialized with {model_name}")
+        if enable_query_expansion:
+            logger.info(f"  Query expansion: ENABLED ({expansion_variants} variants, dedup threshold: {dedup_similarity})")
 
     def get_rag_context(
         self,
@@ -90,6 +104,142 @@ class ReportGenerator:
 
         logger.info(f"✓ Found {len(results)} relevant chunks (similarity threshold applied)")
         return results
+
+    def expand_rag_queries(self, queries: List[str]) -> List[str]:
+        """
+        Expand RAG queries using LLM to generate semantic variants.
+
+        For each query, generates N variant sub-queries exploring different angles
+        (economic, geopolitical, technological, etc.) to improve retrieval coverage.
+
+        Args:
+            queries: Original list of focus area queries
+
+        Returns:
+            Expanded list containing original queries + valid variants
+        """
+        if not self.enable_query_expansion:
+            logger.info("Query expansion disabled - using original queries")
+            return queries
+
+        logger.info(f"Expanding {len(queries)} queries into {self.expansion_variants} variants each")
+        expanded = []
+
+        for query in queries:
+            # Always include original query
+            expanded.append(query)
+
+            try:
+                # Generate variant queries with Gemini Flash
+                prompt = f"""Generate {self.expansion_variants} semantic variants of this intelligence query.
+
+Original Query: "{query}"
+
+Create {self.expansion_variants} alternative phrasings that explore different angles (economic impact, geopolitical implications, technological aspects, etc.) while maintaining the core intelligence focus.
+
+Requirements:
+- Each variant must be 5-15 words
+- Must be related to: {query}
+- Different perspective/angle from original
+- Suitable for semantic search
+
+Output ONLY the {self.expansion_variants} variant queries, one per line, without numbering or additional text."""
+
+                response = self.model.generate_content(prompt)
+                variants = response.text.strip().split('\n')
+
+                # Filter and validate variants
+                valid_variants = []
+                for variant in variants:
+                    variant = variant.strip()
+                    # Remove numbering if present
+                    if variant and variant[0].isdigit():
+                        variant = variant.split('.', 1)[-1].strip()
+
+                    # Validate length (5-15 words)
+                    word_count = len(variant.split())
+                    if 5 <= word_count <= 15 and variant.lower() != query.lower():
+                        valid_variants.append(variant)
+
+                # Limit to requested number of variants
+                valid_variants = valid_variants[:self.expansion_variants]
+
+                expanded.extend(valid_variants)
+                logger.info(f"  '{query}' → +{len(valid_variants)} variants")
+
+            except Exception as e:
+                logger.warning(f"Query expansion failed for '{query}': {e} - using original only")
+                continue
+
+        logger.info(f"✓ Query expansion: {len(queries)} → {len(expanded)} total queries")
+        return expanded
+
+    def deduplicate_chunks_advanced(self, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Advanced deduplication using embedding similarity.
+
+        Removes duplicate chunks based on:
+        1. Exact chunk_id duplicates
+        2. High embedding similarity (cosine > threshold)
+
+        Args:
+            chunks: List of chunk dictionaries with 'chunk_id' and embeddings
+
+        Returns:
+            Deduplicated list of chunks
+        """
+        if not chunks:
+            return []
+
+        logger.info(f"Deduplicating {len(chunks)} chunks (threshold: {self.dedup_similarity})")
+
+        # Step 1: Remove exact ID duplicates
+        seen_ids = set()
+        unique_by_id = []
+        for chunk in chunks:
+            chunk_id = chunk.get('chunk_id')
+            if chunk_id not in seen_ids:
+                seen_ids.add(chunk_id)
+                unique_by_id.append(chunk)
+
+        if len(unique_by_id) < len(chunks):
+            logger.info(f"  Removed {len(chunks) - len(unique_by_id)} exact ID duplicates")
+
+        # Step 2: Similarity-based deduplication
+        # Get embeddings from database for each chunk
+        deduplicated = []
+        for i, chunk in enumerate(unique_by_id):
+            is_duplicate = False
+
+            # Compare with already accepted chunks
+            for accepted_chunk in deduplicated:
+                # Calculate cosine similarity between embeddings
+                # Note: chunks from DB should have embeddings available
+                # If not available in chunk dict, we skip similarity check
+                chunk_embedding = chunk.get('embedding')
+                accepted_embedding = accepted_chunk.get('embedding')
+
+                if chunk_embedding is not None and accepted_embedding is not None:
+                    # Convert to numpy arrays for cosine similarity
+                    vec1 = np.array(chunk_embedding)
+                    vec2 = np.array(accepted_embedding)
+
+                    # Cosine similarity
+                    similarity = np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+
+                    if similarity > self.dedup_similarity:
+                        is_duplicate = True
+                        break
+
+            if not is_duplicate:
+                deduplicated.append(chunk)
+
+        similarity_removed = len(unique_by_id) - len(deduplicated)
+        if similarity_removed > 0:
+            logger.info(f"  Removed {similarity_removed} similar chunks (cosine > {self.dedup_similarity})")
+
+        logger.info(f"✓ Deduplication: {len(chunks)} → {len(deduplicated)} chunks")
+        return deduplicated
 
     def filter_relevant_articles(
         self,
@@ -367,20 +517,21 @@ class ReportGenerator:
         if rag_queries is None:
             rag_queries = focus_areas
 
+        # Step 2a: Expand queries (if enabled)
+        expanded_queries = self.expand_rag_queries(rag_queries)
+
+        # Step 2b: Execute RAG searches
         all_rag_results = []
-        for query in rag_queries:
+        for query in expanded_queries:
             results = self.get_rag_context(query, top_k=rag_top_k)
             all_rag_results.extend(results)
 
-        # Remove duplicates (same chunk_id)
-        unique_rag_results = []
-        seen_ids = set()
-        for result in all_rag_results:
-            if result['chunk_id'] not in seen_ids:
-                unique_rag_results.append(result)
-                seen_ids.add(result['chunk_id'])
+        logger.info(f"✓ Retrieved {len(all_rag_results)} total chunks from RAG")
 
-        logger.info(f"✓ Retrieved {len(unique_rag_results)} unique historical chunks")
+        # Step 2c: Advanced deduplication (ID + similarity)
+        unique_rag_results = self.deduplicate_chunks_advanced(all_rag_results)
+
+        logger.info(f"✓ Final RAG context: {len(unique_rag_results)} unique historical chunks")
 
         # Step 3: Format context for LLM
         logger.info(f"\n[STEP 3] Preparing prompt for LLM...")
@@ -590,11 +741,61 @@ Analyze today's news articles and provide a comprehensive intelligence report. U
 
 
 if __name__ == "__main__":
-    # Example usage
     import sys
+    import argparse
 
-    # Initialize generator
-    generator = ReportGenerator()
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Generate intelligence report with optional query expansion"
+    )
+
+    parser.add_argument(
+        '--no-query-expansion',
+        action='store_true',
+        help='Disable automatic query expansion for RAG (default: enabled)'
+    )
+
+    parser.add_argument(
+        '--expansion-variants',
+        type=int,
+        default=2,
+        help='Number of query variants to generate per focus area (default: 2)'
+    )
+
+    parser.add_argument(
+        '--dedup-similarity',
+        type=float,
+        default=0.98,
+        help='Similarity threshold for chunk deduplication, range 0-1 (default: 0.98)'
+    )
+
+    parser.add_argument(
+        '--output-dir',
+        type=str,
+        default='reports',
+        help='Directory to save reports (default: reports)'
+    )
+
+    parser.add_argument(
+        '--no-save',
+        action='store_true',
+        help='Do not save report to file (default: saves to file)'
+    )
+
+    parser.add_argument(
+        '--no-db',
+        action='store_true',
+        help='Do not save report to database (default: saves to DB)'
+    )
+
+    args = parser.parse_args()
+
+    # Initialize generator with query expansion settings
+    generator = ReportGenerator(
+        enable_query_expansion=not args.no_query_expansion,
+        expansion_variants=args.expansion_variants,
+        dedup_similarity=args.dedup_similarity
+    )
 
     # Custom focus areas (optional)
     focus_areas = [
@@ -607,8 +808,9 @@ if __name__ == "__main__":
     # Generate and save report
     report = generator.run_daily_report(
         focus_areas=focus_areas,
-        save=True,
-        output_dir="reports"
+        save=not args.no_save,
+        save_to_db=not args.no_db,
+        output_dir=args.output_dir
     )
 
     if report['success']:
