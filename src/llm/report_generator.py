@@ -287,15 +287,21 @@ Output ONLY the {self.expansion_variants} variant queries, one per line, without
         # Prepare pairs for Cross-Encoder: [(query, chunk_text), ...]
         pairs = []
         for chunk in chunks:
-            chunk_text = chunk.get('text', '')
+            # Chunks from database have 'content' field, not 'text'
+            chunk_text = chunk.get('content', chunk.get('text', ''))
+            if not chunk_text:  # Skip empty chunks
+                chunk_text = ''
             pairs.append([query, chunk_text])
 
         # Get reranking scores (batch processing)
         scores = self.reranker.predict(pairs, batch_size=32, show_progress_bar=False)
 
-        # Attach scores to chunks
+        # Attach scores to chunks (handle NaN values)
+        import math
         for i, chunk in enumerate(chunks):
-            chunk['rerank_score'] = float(scores[i])
+            score = float(scores[i])
+            # Replace NaN with 0.0 (lowest score)
+            chunk['rerank_score'] = score if not math.isnan(score) else 0.0
 
         # Sort by rerank score (descending)
         reranked = sorted(chunks, key=lambda x: x.get('rerank_score', 0.0), reverse=True)
