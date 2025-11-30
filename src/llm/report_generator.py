@@ -36,7 +36,10 @@ class ReportGenerator:
         model_name: str = "gemini-2.5-flash",
         enable_query_expansion: bool = True,
         expansion_variants: int = 2,
-        dedup_similarity: float = 0.98
+        dedup_similarity: float = 0.98,
+        enable_reranking: bool = True,
+        reranking_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        reranking_top_k: int = 10
     ):
         """
         Initialize report generator.
@@ -49,6 +52,9 @@ class ReportGenerator:
             enable_query_expansion: Enable automatic query expansion for RAG
             expansion_variants: Number of query variants to generate per focus area
             dedup_similarity: Similarity threshold for chunk deduplication (0-1)
+            enable_reranking: Enable Cross-Encoder reranking for better precision
+            reranking_model: Cross-Encoder model to use for reranking
+            reranking_top_k: Number of top chunks to keep after reranking
         """
         self.db = db_manager or DatabaseManager()
         self.nlp = nlp_processor or NLPProcessor(
@@ -60,6 +66,18 @@ class ReportGenerator:
         self.enable_query_expansion = enable_query_expansion
         self.expansion_variants = expansion_variants
         self.dedup_similarity = dedup_similarity
+
+        # Reranking configuration
+        self.enable_reranking = enable_reranking
+        self.reranking_top_k = reranking_top_k
+
+        # Lazy load Cross-Encoder (only if enabled)
+        if self.enable_reranking:
+            from sentence_transformers import CrossEncoder
+            self.reranker = CrossEncoder(reranking_model)
+            logger.info(f"  Reranking: ENABLED (model: {reranking_model}, top_k: {reranking_top_k})")
+        else:
+            self.reranker = None
 
         # Configure Gemini
         api_key = gemini_api_key or os.getenv('GEMINI_API_KEY')
@@ -240,6 +258,59 @@ Output ONLY the {self.expansion_variants} variant queries, one per line, without
 
         logger.info(f"✓ Deduplication: {len(chunks)} → {len(deduplicated)} chunks")
         return deduplicated
+
+    def _rerank_chunks(
+        self,
+        query: str,
+        chunks: List[Dict[str, Any]],
+        top_k: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Rerank chunks using Cross-Encoder for better precision.
+
+        Uses bi-directional attention to score query-chunk pairs,
+        providing more accurate relevance than cosine similarity alone.
+
+        Args:
+            query: Original search query
+            chunks: List of chunks to rerank (from vector search)
+            top_k: Number of top chunks to return
+
+        Returns:
+            Top-k reranked chunks with 'rerank_score' added
+        """
+        if not self.reranker or not chunks:
+            return chunks[:top_k]
+
+        logger.info(f"Reranking {len(chunks)} chunks with Cross-Encoder...")
+
+        # Prepare pairs for Cross-Encoder: [(query, chunk_text), ...]
+        pairs = []
+        for chunk in chunks:
+            chunk_text = chunk.get('text', '')
+            pairs.append([query, chunk_text])
+
+        # Get reranking scores (batch processing)
+        scores = self.reranker.predict(pairs, batch_size=32, show_progress_bar=False)
+
+        # Attach scores to chunks
+        for i, chunk in enumerate(chunks):
+            chunk['rerank_score'] = float(scores[i])
+
+        # Sort by rerank score (descending)
+        reranked = sorted(chunks, key=lambda x: x.get('rerank_score', 0.0), reverse=True)
+
+        # Log score distribution
+        if reranked:
+            top_score = reranked[0].get('rerank_score', 0.0)
+            bottom_score = reranked[-1].get('rerank_score', 0.0)
+            median_score = reranked[len(reranked)//2].get('rerank_score', 0.0)
+            logger.info(
+                f"✓ Reranked: scores range [{bottom_score:.3f} - {top_score:.3f}], "
+                f"median: {median_score:.3f}"
+            )
+
+        return reranked[:top_k]
 
     def filter_relevant_articles(
         self,
@@ -522,14 +593,27 @@ Output ONLY the {self.expansion_variants} variant queries, one per line, without
 
         # Step 2b: Execute RAG searches
         all_rag_results = []
+        # Increase top_k if reranking is enabled (cast wider net)
+        search_top_k = rag_top_k * 2 if self.enable_reranking else rag_top_k
+
         for query in expanded_queries:
-            results = self.get_rag_context(query, top_k=rag_top_k)
+            results = self.get_rag_context(query, top_k=search_top_k)
             all_rag_results.extend(results)
 
         logger.info(f"✓ Retrieved {len(all_rag_results)} total chunks from RAG")
 
         # Step 2c: Advanced deduplication (ID + similarity)
         unique_rag_results = self.deduplicate_chunks_advanced(all_rag_results)
+
+        # Step 2d: Reranking (if enabled)
+        if self.enable_reranking and unique_rag_results and rag_queries:
+            # Rerank using the original (first) query
+            primary_query = rag_queries[0]
+            unique_rag_results = self._rerank_chunks(
+                query=primary_query,
+                chunks=unique_rag_results,
+                top_k=self.reranking_top_k * len(rag_queries)  # Scale by number of queries
+            )
 
         logger.info(f"✓ Final RAG context: {len(unique_rag_results)} unique historical chunks")
 
