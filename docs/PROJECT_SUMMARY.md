@@ -81,7 +81,7 @@ Sistema completo di intelligence news analysis con pipeline end-to-end:
 | **Embeddings** | Sentence Transformers | 2.3.1 | Semantic vectors (384-dim) |
 | **Database** | PostgreSQL | 14+ | Relational storage |
 | **Vector Search** | pgvector | 0.2.4 | Semantic similarity search |
-| **LLM** | Google Gemini | 1.5 Flash | Report generation |
+| **LLM** | Google Gemini | 2.5 Flash | Report generation |
 | **UI** | Streamlit | 1.51.0 | HITL dashboard |
 | **Orchestration** | Custom Python | - | Pipeline coordination |
 
@@ -103,7 +103,7 @@ Sistema completo di intelligence news analysis con pipeline end-to-end:
 - **Report Generation**: ~10-15 seconds (Gemini API)
 - **Total automation**: ~6-7 minutes
 
-### Database
+### Database (esempio da test run)
 - **Articles stored**: 134
 - **Chunks stored**: 183
 - **Vector index**: HNSW (O(log n) search)
@@ -325,7 +325,7 @@ generator = ReportGenerator(
     db_manager=None,           # Auto-creates if None
     nlp_processor=None,        # Auto-creates if None
     gemini_api_key=None,       # Reads from env if None
-    model_name="gemini-1.5-flash"
+    model_name="gemini-2.5-flash"
 )
 
 # Generate with custom focus
@@ -431,13 +431,14 @@ results = nlp.batch_process(articles_list, max_workers=4)
 
 ### 3. Gemini 1.5 Flash over GPT-4
 
-**Decision**: Default to Gemini 1.5 Flash
+**Decision**: Default to Gemini 2.5 Flash
 
 **Why**:
 - Generous free tier (15 req/min, 1M tokens/day)
 - Fast response (~5-10 sec)
 - Good quality for structured tasks
 - No credit card required
+- Improved over 1.5 Flash
 
 **Alternative**: GPT-4 (better quality but paid, slower)
 
