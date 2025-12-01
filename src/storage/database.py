@@ -141,6 +141,7 @@ class DatabaseManager:
             draft_content TEXT NOT NULL,          -- Original LLM-generated report
             final_content TEXT,                   -- Human-edited version (NULL if not reviewed)
             status TEXT DEFAULT 'draft',          -- draft, reviewed, approved
+            report_type TEXT DEFAULT 'daily',     -- daily, weekly (for meta-analysis)
             metadata JSONB,                       -- focus_areas, article_count, etc.
             sources JSONB,                        -- Links to source articles and chunks
             human_reviewed_at TIMESTAMP WITH TIME ZONE,
@@ -165,7 +166,20 @@ class DatabaseManager:
         -- Report indexes
         CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(report_date DESC);
         CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+        CREATE INDEX IF NOT EXISTS idx_reports_type ON reports(report_type);
         CREATE INDEX IF NOT EXISTS idx_report_feedback_report_id ON report_feedback(report_id);
+
+        -- Migration: Add report_type column to existing reports table
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='reports' AND column_name='report_type'
+            ) THEN
+                ALTER TABLE reports ADD COLUMN report_type TEXT DEFAULT 'daily';
+                CREATE INDEX idx_reports_type ON reports(report_type);
+            END IF;
+        END $$;
 
         -- Update timestamp trigger
         CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -552,14 +566,15 @@ class DatabaseManager:
                 with conn.cursor() as cur:
                     cur.execute("""
                         INSERT INTO reports
-                        (report_date, model_used, draft_content, status, metadata, sources)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                        (report_date, model_used, draft_content, status, report_type, metadata, sources)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
                         RETURNING id
                     """, (
                         datetime.now().date(),
                         report.get('metadata', {}).get('model_used', 'unknown'),
                         report.get('report_text', ''),
                         'draft',
+                        report.get('report_type', 'daily'),  # Default to 'daily' for backward compatibility
                         Json(report.get('metadata', {})),
                         Json(report.get('sources', {}))
                     ))
@@ -838,6 +853,101 @@ class DatabaseManager:
 
         except Exception as e:
             logger.error(f"Error getting feedback: {e}")
+            return []
+
+    def get_reports_by_date_range(
+        self,
+        start_date: datetime.date,
+        end_date: datetime.date,
+        status_filter: Optional[str] = None,
+        report_type: str = 'daily'
+    ) -> List[Dict[str, Any]]:
+        """
+        Get reports within a date range for meta-analysis.
+
+        Implements priority logic: approved > draft for each date.
+
+        Args:
+            start_date: Start date (inclusive)
+            end_date: End date (inclusive)
+            status_filter: Optional status filter ('approved', 'draft', None for priority logic)
+            report_type: Report type filter (default: 'daily')
+
+        Returns:
+            List of report dictionaries with full content and metadata
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    # Priority logic: For each date, prefer approved over draft
+                    if status_filter is None:
+                        query = """
+                            WITH ranked_reports AS (
+                                SELECT
+                                    id, report_date, generated_at, model_used,
+                                    draft_content, final_content, status, report_type,
+                                    metadata, sources, human_reviewed_at, human_reviewer,
+                                    ROW_NUMBER() OVER (
+                                        PARTITION BY report_date
+                                        ORDER BY
+                                            CASE WHEN status = 'approved' THEN 1
+                                                 WHEN status = 'reviewed' THEN 2
+                                                 ELSE 3
+                                            END,
+                                            generated_at DESC
+                                    ) as rn
+                                FROM reports
+                                WHERE report_date BETWEEN %s AND %s
+                                  AND report_type = %s
+                            )
+                            SELECT
+                                id, report_date, generated_at, model_used,
+                                draft_content, final_content, status, report_type,
+                                metadata, sources, human_reviewed_at, human_reviewer
+                            FROM ranked_reports
+                            WHERE rn = 1
+                            ORDER BY report_date ASC
+                        """
+                        params = (start_date, end_date, report_type)
+                    else:
+                        # Simple filter by status
+                        query = """
+                            SELECT
+                                id, report_date, generated_at, model_used,
+                                draft_content, final_content, status, report_type,
+                                metadata, sources, human_reviewed_at, human_reviewer
+                            FROM reports
+                            WHERE report_date BETWEEN %s AND %s
+                              AND status = %s
+                              AND report_type = %s
+                            ORDER BY report_date ASC
+                        """
+                        params = (start_date, end_date, status_filter, report_type)
+
+                    cur.execute(query, params)
+
+                    reports = []
+                    for row in cur.fetchall():
+                        reports.append({
+                            'id': row[0],
+                            'report_date': row[1],
+                            'generated_at': row[2],
+                            'model_used': row[3],
+                            'draft_content': row[4],
+                            'final_content': row[5],
+                            'status': row[6],
+                            'report_type': row[7],
+                            'metadata': row[8],
+                            'sources': row[9],
+                            'human_reviewed_at': row[10],
+                            'human_reviewer': row[11]
+                        })
+
+                    logger.info(f"✓ Found {len(reports)} {report_type} reports from {start_date} to {end_date}")
+                    return reports
+
+        except Exception as e:
+            logger.error(f"Error getting reports by date range: {e}")
             return []
 
     def get_recent_feedback(self, limit: int = 10) -> List[Dict[str, Any]]:
