@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Viewer - INTEL ITA</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="report-viewer.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body class="dashboard-body">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="2" />
+                        <circle cx="50" cy="50" r="30" fill="none" stroke="currentColor" stroke-width="2" />
+                        <circle cx="50" cy="50" r="15" fill="none" stroke="currentColor" stroke-width="2" />
+                        <circle cx="50" cy="50" r="5" fill="currentColor" />
+                    </svg>
+                </div>
+                <span class="logo-text">INTEL<span class="logo-accent">ITA</span></span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M3 4H17M3 10H17M3 16H17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Dashboard</span>
+            </a>
+            <a href="report-viewer.html" class="nav-item active">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M9 2L3 7V18H7V13H11V18H15V7L9 2Z" stroke="currentColor" stroke-width="2"
+                        stroke-linejoin="round" />
+                </svg>
+                <span>Reports</span>
+            </a>
+            <a href="#" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M2 10H18M10 2V18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>News Explorer</span>
+            </a>
+            <a href="#" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" />
+                    <path d="M10 6V10L13 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Intelligence Map</span>
+            </a>
+            <a href="#" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="2" />
+                    <path d="M7 10L9 12L13 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>AI Assistant</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="user-avatar">TF</div>
+                <div class="user-info">
+                    <div class="user-name">Tommaso</div>
+                    <div class="user-role">Admin</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+        <!-- Report Header -->
+        <header class="report-header-section">
+            <div class="report-header-top">
+                <a href="dashboard.html" class="back-button">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M12 4L6 10L12 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    Back to Dashboard
+                </a>
+                <div class="report-actions">
+                    <button class="icon-btn" title="Share">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M15 6L10 2L5 6M10 2V14" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                            <path d="M3 14V17C3 17.5523 3.44772 18 4 18H16C16.5523 18 17 17.5523 17 17V14"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </button>
+                    <button class="icon-btn" title="Download">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M5 14L10 18L15 14M10 18V6" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                            <path d="M3 6V3C3 2.44772 3.44772 2 4 2H16C16.5523 2 17 2.44772 17 3V6"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </button>
+                    <button class="icon-btn" title="Print">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <rect x="4" y="3" width="12" height="4" stroke="currentColor" stroke-width="2" />
+                            <rect x="2" y="7" width="16" height="8" rx="1" stroke="currentColor" stroke-width="2" />
+                            <rect x="4" y="13" width="12" height="4" stroke="currentColor" stroke-width="2" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="report-meta-section">
+                <div class="report-meta-left">
+                    <div class="report-badges">
+                        <span class="report-badge daily">Daily Report</span>
+                        <span class="report-status-badge approved">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="2" />
+                                <path d="M4 7L6 9L10 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                            Approved
+                        </span>
+                    </div>
+                    <h1 class="report-main-title">Daily Intelligence Briefing</h1>
+                    <p class="report-subtitle">Cybersecurity, Geopolitics & Defense Technology</p>
+                    <div class="report-meta-info">
+                        <span class="meta-item">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" />
+                                <path d="M8 4V8L11 11" stroke="currentColor" stroke-width="1.5"
+                                    stroke-linecap="round" />
+                            </svg>
+                            December 1, 2025 - 09:30 AM
+                        </span>
+                        <span class="meta-divider">•</span>
+                        <span class="meta-item">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor"
+                                    stroke-width="1.5" />
+                            </svg>
+                            45 articles analyzed
+                        </span>
+                        <span class="meta-divider">•</span>
+                        <span class="meta-item">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <circle cx="8" cy="8" r="5" stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                            12 sources
+                        </span>
+                        <span class="meta-divider">•</span>
+                        <span class="meta-item">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M8 2L3 6L8 10L13 6L8 2Z" stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                            gemini-2.5-flash
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Report Content -->
+        <div class="report-content-wrapper">
+            <article class="report-content">
+                <!-- Executive Summary -->
+                <section class="report-section">
+                    <h2 class="section-heading">
+                        <span class="section-icon">📋</span>
+                        Executive Summary
+                    </h2>
+                    <div class="section-content">
+                        <p>
+                            Today's intelligence briefing highlights three critical developments requiring immediate
+                            attention:
+                            a sophisticated ransomware campaign targeting European critical infrastructure, escalating
+                            military
+                            tensions in the Taiwan Strait following unprecedented PLA naval exercises, and a major
+                            breakthrough
+                            in quantum computing with significant implications for cryptographic security.
+                        </p>
+                        <p>
+                            The convergence of these events suggests a coordinated strategic shift by state actors to
+                            test
+                            Western response capabilities while advancing technological superiority in key domains.
+                            Decision-makers
+                            should prioritize defensive posture enhancement and accelerate quantum-resistant encryption
+                            deployment.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Key Developments -->
+                <section class="report-section">
+                    <h2 class="section-heading">
+                        <span class="section-icon">🔥</span>
+                        Key Developments
+                    </h2>
+
+                    <!-- Cybersecurity -->
+                    <div class="subsection">
+                        <h3 class="subsection-heading">Cybersecurity & Technology</h3>
+                        <div class="section-content">
+                            <div class="highlight-box critical">
+                                <div class="highlight-header">
+                                    <span class="highlight-badge">CRITICAL</span>
+                                    <span class="highlight-title">New Ransomware Campaign Targets EU
+                                        Infrastructure</span>
+                                </div>
+                                <p>
+                                    <strong>Actor:</strong> APT group "DarkVortex" (suspected Russian
+                                    state-sponsored)<br>
+                                    <strong>Targets:</strong> Energy grids, water treatment facilities, transportation
+                                    networks in Germany, France, Poland<br>
+                                    <strong>Method:</strong> Zero-day exploit in Siemens SCADA systems
+                                    (CVE-2025-XXXX)<br>
+                                    <strong>Impact:</strong> 3 facilities compromised, ransom demands of €50M+
+                                </p>
+                                <p>
+                                    <strong>Why it matters:</strong> This represents a significant escalation in cyber
+                                    warfare tactics,
+                                    moving from data theft to direct operational disruption of critical infrastructure.
+                                    The timing
+                                    coincides with NATO exercises in Eastern Europe, suggesting strategic coordination.
+                                </p>
+                                <p class="source-ref">[Article 12, 15, 23]</p>
+                            </div>
+
+                            <ul class="bullet-list">
+                                <li>
+                                    <strong>Google announces quantum computing breakthrough:</strong> New "Willow" chip
+                                    achieves
+                                    error correction milestone, reducing errors exponentially as qubits scale.
+                                    Implications for
+                                    current encryption standards are severe - RSA-2048 potentially vulnerable within 5-7
+                                    years.
+                                    <span class="source-ref">[Article 8]</span>
+                                </li>
+                                <li>
+                                    <strong>Microsoft patches critical Azure vulnerability:</strong> CVE-2025-YYYY
+                                    allowed privilege
+                                    escalation across tenant boundaries. Estimated 40% of enterprise cloud deployments
+                                    affected.
+                                    CISA urges immediate patching.
+                                    <span class="source-ref">[Article 19]</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Geopolitics -->
+                    <div class="subsection">
+                        <h3 class="subsection-heading">Geopolitical Developments</h3>
+                        <div class="section-content">
+                            <div class="highlight-box high">
+                                <div class="highlight-header">
+                                    <span class="highlight-badge">HIGH PRIORITY</span>
+                                    <span class="highlight-title">PLA Conducts Largest Taiwan Strait Exercise</span>
+                                </div>
+                                <p>
+                                    <strong>Actors:</strong> People's Liberation Army Navy (PLAN), Air Force (PLAAF)<br>
+                                    <strong>Scale:</strong> 15 warships, 70+ aircraft, simulated amphibious assault<br>
+                                    <strong>Duration:</strong> 72-hour exercise (ongoing)<br>
+                                    <strong>Response:</strong> US 7th Fleet repositioned, Japan Self-Defense Forces on
+                                    high alert
+                                </p>
+                                <p>
+                                    <strong>Analysis:</strong> This exercise represents the most aggressive posturing
+                                    since 2022.
+                                    Beijing is testing US commitment under new administration while demonstrating
+                                    operational
+                                    readiness. Taiwan's defense ministry reports unprecedented proximity to territorial
+                                    waters.
+                                </p>
+                                <p class="source-ref">[Article 3, 7, 11, 28]</p>
+                            </div>
+
+                            <ul class="bullet-list">
+                                <li>
+                                    <strong>Russia-Ukraine: Winter offensive preparations:</strong> Satellite imagery
+                                    shows Russian
+                                    troop concentrations near Zaporizhzhia. Ukraine requests additional air defense
+                                    systems from NATO
+                                    allies. Energy infrastructure remains primary target.
+                                    <span class="source-ref">[Article 5, 14]</span>
+                                </li>
+                                <li>
+                                    <strong>Middle East: Iran nuclear program acceleration:</strong> IAEA reports
+                                    uranium enrichment
+                                    at 84% purity (weapons-grade threshold: 90%). Israel signals potential preemptive
+                                    action.
+                                    US diplomatic efforts intensify.
+                                    <span class="source-ref">[Article 21, 33]</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Defense & Technology -->
+                    <div class="subsection">
+                        <h3 class="subsection-heading">Defense Technology</h3>
+                        <div class="section-content">
+                            <ul class="bullet-list">
+                                <li>
+                                    <strong>US hypersonic weapons program milestone:</strong> Successful test of
+                                    AGM-183A ARRW
+                                    at Mach 6.5. Operational deployment expected Q2 2026. Closes capability gap with
+                                    China/Russia.
+                                    <span class="source-ref">[Article 17]</span>
+                                </li>
+                                <li>
+                                    <strong>NATO announces AI-powered early warning system:</strong> Project "Sentinel"
+                                    integrates
+                                    satellite imagery, signals intelligence, and predictive analytics. Aims to reduce
+                                    threat
+                                    detection time from hours to minutes.
+                                    <span class="source-ref">[Article 25]</span>
+                                </li>
+                                <li>
+                                    <strong>India-France defense cooperation expands:</strong> €8B deal for Rafale
+                                    fighters and
+                                    Scorpene submarines. Strengthens Indo-Pacific security architecture against Chinese
+                                    influence.
+                                    <span class="source-ref">[Article 31]</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Trend Analysis -->
+                <section class="report-section">
+                    <h2 class="section-heading">
+                        <span class="section-icon">📈</span>
+                        Trend Analysis
+                    </h2>
+                    <div class="section-content">
+                        <div class="trend-item">
+                            <h4>🔴 Escalating Cyber-Physical Convergence</h4>
+                            <p>
+                                Historical context shows increasing sophistication in attacks targeting operational
+                                technology (OT)
+                                rather than just IT systems. The DarkVortex campaign follows patterns seen in Colonial
+                                Pipeline (2021)
+                                and Ukraine power grid attacks (2015-2016), but with significantly improved persistence
+                                mechanisms.
+                            </p>
+                            <p>
+                                <strong>Trajectory:</strong> Expect continued targeting of critical infrastructure with
+                                ransom demands
+                                serving as cover for strategic reconnaissance and capability demonstration.
+                            </p>
+                        </div>
+
+                        <div class="trend-item">
+                            <h4>🟡 Great Power Competition Intensification</h4>
+                            <p>
+                                Taiwan Strait tensions correlate with broader pattern of Chinese assertiveness in South
+                                China Sea,
+                                economic coercion against Australia/Lithuania, and technology decoupling efforts. PLA
+                                modernization
+                                has reached inflection point where military action becomes credible option.
+                            </p>
+                            <p>
+                                <strong>Trajectory:</strong> 2025-2027 represents critical window where China may
+                                perceive favorable
+                                conditions for reunification action before US military modernization completes.
+                            </p>
+                        </div>
+
+                        <div class="trend-item">
+                            <h4>🟢 Quantum Computing Race Acceleration</h4>
+                            <p>
+                                Google's breakthrough validates theoretical predictions about quantum advantage
+                                timeline. This triggers
+                                "harvest now, decrypt later" urgency where adversaries collect encrypted data
+                                anticipating future
+                                decryption capability.
+                            </p>
+                            <p>
+                                <strong>Trajectory:</strong> Expect accelerated migration to post-quantum cryptography
+                                (PQC) standards,
+                                increased investment in quantum R&D, and potential export controls on quantum
+                                technologies.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Actionable Insights -->
+                <section class="report-section">
+                    <h2 class="section-heading">
+                        <span class="section-icon">💡</span>
+                        Actionable Insights
+                    </h2>
+                    <div class="section-content">
+                        <div class="insight-grid">
+                            <div class="insight-card">
+                                <div class="insight-priority critical">IMMEDIATE</div>
+                                <h4>Critical Infrastructure Protection</h4>
+                                <ul>
+                                    <li>Audit all SCADA systems for CVE-2025-XXXX vulnerability</li>
+                                    <li>Implement network segmentation between IT/OT environments</li>
+                                    <li>Conduct tabletop exercises for ransomware scenarios</li>
+                                    <li>Establish secure communication channels with CISA</li>
+                                </ul>
+                            </div>
+
+                            <div class="insight-card">
+                                <div class="insight-priority high">SHORT-TERM (1-3 months)</div>
+                                <h4>Quantum Transition Planning</h4>
+                                <ul>
+                                    <li>Inventory cryptographic assets and dependencies</li>
+                                    <li>Begin pilot deployment of NIST PQC standards</li>
+                                    <li>Assess data sensitivity for "harvest now, decrypt later" risk</li>
+                                    <li>Budget allocation for quantum-resistant infrastructure</li>
+                                </ul>
+                            </div>
+
+                            <div class="insight-card">
+                                <div class="insight-priority medium">MEDIUM-TERM (3-6 months)</div>
+                                <h4>Geopolitical Risk Mitigation</h4>
+                                <ul>
+                                    <li>Diversify supply chains away from single-country dependencies</li>
+                                    <li>Scenario planning for Taiwan contingency impacts</li>
+                                    <li>Strengthen relationships with Indo-Pacific partners</li>
+                                    <li>Monitor semiconductor supply chain vulnerabilities</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sources -->
+                <section class="report-section">
+                    <h2 class="section-heading">
+                        <span class="section-icon">📚</span>
+                        Sources & References
+                    </h2>
+                    <div class="section-content">
+                        <div class="sources-grid">
+                            <div class="source-category">
+                                <h4>Cybersecurity (12 articles)</h4>
+                                <ul class="source-list">
+                                    <li><a href="#">BleepingComputer - "DarkVortex Ransomware Targets EU
+                                            Infrastructure"</a></li>
+                                    <li><a href="#">The Hacker News - "Zero-Day in Siemens SCADA Exploited"</a></li>
+                                    <li><a href="#">Google Blog - "Willow Quantum Chip Announcement"</a></li>
+                                    <li><a href="#">Microsoft Security - "Azure Vulnerability Disclosure"</a></li>
+                                </ul>
+                            </div>
+                            <div class="source-category">
+                                <h4>Geopolitics (18 articles)</h4>
+                                <ul class="source-list">
+                                    <li><a href="#">Reuters - "China Conducts Large-Scale Taiwan Strait Exercise"</a>
+                                    </li>
+                                    <li><a href="#">Financial Times - "US 7th Fleet Response to PLA Maneuvers"</a></li>
+                                    <li><a href="#">IAEA Report - "Iran Uranium Enrichment Update"</a></li>
+                                    <li><a href="#">Defense News - "Russia Winter Offensive Preparations"</a></li>
+                                </ul>
+                            </div>
+                            <div class="source-category">
+                                <h4>Defense & Technology (15 articles)</h4>
+                                <ul class="source-list">
+                                    <li><a href="#">Aviation Week - "US Hypersonic Weapons Test Success"</a></li>
+                                    <li><a href="#">Jane's Defence - "NATO AI Early Warning System"</a></li>
+                                    <li><a href="#">The Diplomat - "India-France Defense Deal Analysis"</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </article>
+
+            <!-- Sidebar Info -->
+            <aside class="report-sidebar">
+                <div class="sidebar-card">
+                    <h3 class="sidebar-title">Report Metadata</h3>
+                    <div class="metadata-list">
+                        <div class="metadata-item">
+                            <span class="metadata-label">Report ID</span>
+                            <span class="metadata-value">#RPT-2025-12-01-001</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Generated</span>
+                            <span class="metadata-value">Dec 1, 2025 09:30</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Model</span>
+                            <span class="metadata-value">gemini-2.5-flash</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Status</span>
+                            <span class="metadata-value status-approved">Approved</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Reviewed by</span>
+                            <span class="metadata-value">Tommaso F.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-card">
+                    <h3 class="sidebar-title">Coverage Statistics</h3>
+                    <div class="stat-bar-list">
+                        <div class="stat-bar-item">
+                            <div class="stat-bar-header">
+                                <span>Cybersecurity</span>
+                                <span>27%</span>
+                            </div>
+                            <div class="stat-bar-track">
+                                <div class="stat-bar-fill" style="width: 27%; background: var(--color-orange-500);">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-bar-item">
+                            <div class="stat-bar-header">
+                                <span>Geopolitics</span>
+                                <span>40%</span>
+                            </div>
+                            <div class="stat-bar-track">
+                                <div class="stat-bar-fill" style="width: 40%; background: var(--color-blue-500);"></div>
+                            </div>
+                        </div>
+                        <div class="stat-bar-item">
+                            <div class="stat-bar-header">
+                                <span>Defense Tech</span>
+                                <span>33%</span>
+                            </div>
+                            <div class="stat-bar-track">
+                                <div class="stat-bar-fill" style="width: 33%; background: #9632C8;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-card">
+                    <h3 class="sidebar-title">Related Reports</h3>
+                    <div class="related-reports-list">
+                        <a href="#" class="related-report-item">
+                            <span class="related-badge">Daily</span>
+                            <span class="related-title">Nov 30, 2025</span>
+                        </a>
+                        <a href="#" class="related-report-item">
+                            <span class="related-badge weekly">Weekly</span>
+                            <span class="related-title">Nov 25-Dec 1</span>
+                        </a>
+                        <a href="#" class="related-report-item">
+                            <span class="related-badge">Daily</span>
+                            <span class="related-title">Nov 29, 2025</span>
+                        </a>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+    <script src="report-viewer.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - INTEL ITA</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body class="dashboard-body">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="2" />
+                        <circle cx="50" cy="50" r="30" fill="none" stroke="currentColor" stroke-width="2" />
+                        <circle cx="50" cy="50" r="15" fill="none" stroke="currentColor" stroke-width="2" />
+                        <circle cx="50" cy="50" r="5" fill="currentColor" />
+                    </svg>
+                </div>
+                <span class="logo-text">INTEL<span class="logo-accent">ITA</span></span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M3 4H17M3 10H17M3 16H17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Dashboard</span>
+            </a>
+            <a href="#" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M9 2L3 7V18H7V13H11V18H15V7L9 2Z" stroke="currentColor" stroke-width="2"
+                        stroke-linejoin="round" />
+                </svg>
+                <span>Reports</span>
+            </a>
+            <a href="#" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M2 10H18M10 2V18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>News Explorer</span>
+            </a>
+            <a href="#" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" />
+                    <path d="M10 6V10L13 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Intelligence Map</span>
+            </a>
+            <a href="#" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="2" />
+                    <path d="M7 10L9 12L13 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>AI Assistant</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="user-avatar">TF</div>
+                <div class="user-info">
+                    <div class="user-name">Tommaso</div>
+                    <div class="user-role">Admin</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+        <!-- Top Bar -->
+        <header class="dashboard-header">
+            <div class="header-left">
+                <h1 class="page-title">Dashboard</h1>
+                <div class="breadcrumb">
+                    <span>Home</span>
+                    <span class="separator">/</span>
+                    <span class="current">Dashboard</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="search-box">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" />
+                        <path d="M12 12L16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    <input type="text" placeholder="Search reports, news...">
+                </div>
+                <button class="icon-btn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path
+                            d="M10 6C10 4.89543 10.8954 4 12 4H16C17.1046 4 18 4.89543 18 6V10C18 11.1046 17.1046 12 16 12H12C10.8954 12 10 11.1046 10 10V6Z"
+                            stroke="currentColor" stroke-width="2" />
+                        <circle cx="10" cy="10" r="2" fill="currentColor" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon orange">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M9 2L3 8V20H9V14H15V20H21V8L15 2H9Z" stroke="currentColor" stroke-width="2" />
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Total Reports</div>
+                    <div class="stat-value">247</div>
+                    <div class="stat-change positive">+12% this week</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2" />
+                        <path d="M8 12H16M12 8V16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">News Articles</div>
+                    <div class="stat-value">3,421</div>
+                    <div class="stat-change positive">+8% this week</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" />
+                        <path d="M12 7V12L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Active Sources</div>
+                    <div class="stat-value">33</div>
+                    <div class="stat-change neutral">No change</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M3 12L7 8L11 12L17 6L21 10" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M21 6V10H17" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Avg. Relevance</div>
+                    <div class="stat-value">87%</div>
+                    <div class="stat-change positive">+3% this week</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recent Reports -->
+        <section class="content-section">
+            <div class="section-header-row">
+                <h2 class="section-title">Recent Reports</h2>
+                <div class="section-actions">
+                    <select class="filter-select">
+                        <option>All Types</option>
+                        <option>Daily</option>
+                        <option>Weekly</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                        New Report
+                    </button>
+                </div>
+            </div>
+
+            <div class="reports-list">
+                <!-- Report Card 1 -->
+                <div class="report-card">
+                    <div class="report-header">
+                        <div class="report-meta">
+                            <span class="report-badge daily">Daily</span>
+                            <span class="report-date">December 1, 2025</span>
+                        </div>
+                        <div class="report-status approved">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2" />
+                                <path d="M5 8L7 10L11 6" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                            Approved
+                        </div>
+                    </div>
+                    <h3 class="report-title">Daily Intelligence Briefing - Cybersecurity & Geopolitics</h3>
+                    <p class="report-excerpt">
+                        Major developments in Indo-Pacific tensions, new ransomware campaign targeting critical
+                        infrastructure,
+                        and significant policy shifts in EU digital sovereignty...
+                    </p>
+                    <div class="report-footer">
+                        <div class="report-stats">
+                            <span class="stat-item">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <rect x="2" y="2" width="10" height="10" rx="1" stroke="currentColor"
+                                        stroke-width="1.5" />
+                                </svg>
+                                45 articles
+                            </span>
+                            <span class="stat-item">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5" />
+                                </svg>
+                                12 sources
+                            </span>
+                        </div>
+                        <button class="btn-link">
+                            View Report
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <path d="M5 3L9 7L5 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Card 2 -->
+                <div class="report-card">
+                    <div class="report-header">
+                        <div class="report-meta">
+                            <span class="report-badge weekly">Weekly</span>
+                            <span class="report-date">November 25-December 1, 2025</span>
+                        </div>
+                        <div class="report-status draft">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2" />
+                            </svg>
+                            Draft
+                        </div>
+                    </div>
+                    <h3 class="report-title">Weekly Meta-Analysis - Trend Evolution & Strategic Insights</h3>
+                    <p class="report-excerpt">
+                        Analysis of escalating tensions in Middle East, de-escalation in semiconductor trade disputes,
+                        and emerging patterns in cyber warfare tactics...
+                    </p>
+                    <div class="report-footer">
+                        <div class="report-stats">
+                            <span class="stat-item">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <rect x="2" y="2" width="10" height="10" rx="1" stroke="currentColor"
+                                        stroke-width="1.5" />
+                                </svg>
+                                7 daily reports
+                            </span>
+                            <span class="stat-item">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5" />
+                                </svg>
+                                287 articles
+                            </span>
+                        </div>
+                        <button class="btn-link">
+                            View Report
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <path d="M5 3L9 7L5 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Card 3 -->
+                <div class="report-card">
+                    <div class="report-header">
+                        <div class="report-meta">
+                            <span class="report-badge daily">Daily</span>
+                            <span class="report-date">November 30, 2025</span>
+                        </div>
+                        <div class="report-status reviewed">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2" />
+                                <path d="M5 8H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                            Reviewed
+                        </div>
+                    </div>
+                    <h3 class="report-title">Daily Intelligence Briefing - Economic Policy & Defense Tech</h3>
+                    <p class="report-excerpt">
+                        Central bank decisions impact global markets, new hypersonic weapons development,
+                        and shifts in African security landscape...
+                    </p>
+                    <div class="report-footer">
+                        <div class="report-stats">
+                            <span class="stat-item">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <rect x="2" y="2" width="10" height="10" rx="1" stroke="currentColor"
+                                        stroke-width="1.5" />
+                                </svg>
+                                38 articles
+                            </span>
+                            <span class="stat-item">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5" />
+                                </svg>
+                                15 sources
+                            </span>
+                        </div>
+                        <button class="btn-link">
+                            View Report
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <path d="M5 3L9 7L5 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="content-section">
+            <h2 class="section-title">Quick Actions</h2>
+            <div class="quick-actions-grid">
+                <button class="action-card">
+                    <div class="action-icon">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <path d="M16 8V24M8 16H24" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <h3>Generate Report</h3>
+                    <p>Create new intelligence briefing</p>
+                </button>
+
+                <button class="action-card">
+                    <div class="action-icon">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="2" />
+                            <path d="M16 10V16L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <h3>Explore News</h3>
+                    <p>Browse latest articles</p>
+                </button>
+
+                <button class="action-card">
+                    <div class="action-icon">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect x="6" y="6" width="20" height="20" rx="2" stroke="currentColor" stroke-width="2" />
+                            <path d="M12 16H20M16 12V20" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <h3>Ask AI</h3>
+                    <p>Query intelligence assistant</p>
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+
+</html>
