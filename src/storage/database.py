@@ -999,6 +999,191 @@ class DatabaseManager:
             logger.info("Database connection pool closed")
 
 
+    # ===================================================================
+    # Entity Management Methods (for Intelligence Map)
+    # ===================================================================
+
+    def save_entity(
+        self,
+        name: str,
+        entity_type: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[int]:
+        """
+        Save or update an entity.
+        
+        Args:
+            name: Entity name
+            entity_type: Entity type (PERSON, ORG, GPE, LOC, etc.)
+            metadata: Optional metadata dictionary
+        
+        Returns:
+            Entity ID if saved successfully, None otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO entities (name, entity_type, metadata)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (name, entity_type) 
+                        DO UPDATE SET
+                            mention_count = entities.mention_count + 1,
+                            last_seen = CURRENT_TIMESTAMP,
+                            metadata = COALESCE(EXCLUDED.metadata, entities.metadata)
+                        RETURNING id
+                    """, (name, entity_type, Json(metadata or {})))
+                    
+                    entity_id = cur.fetchone()[0]
+                    return entity_id
+        
+        except Exception as e:
+            logger.error(f"Error saving entity: {e}")
+            return None
+
+    def update_entity_coordinates(
+        self,
+        entity_id: int,
+        latitude: float,
+        longitude: float,
+        status: str = 'FOUND'
+    ) -> bool:
+        """
+        Update entity with geographic coordinates.
+        
+        Args:
+            entity_id: Entity ID
+            latitude: Latitude (-90 to 90)
+            longitude: Longitude (-180 to 180)
+            status: Geocoding status (FOUND, NOT_FOUND, RETRY)
+        
+        Returns:
+            True if updated successfully, False otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE entities
+                        SET latitude = %s,
+                            longitude = %s,
+                            geo_status = %s,
+                            geocoded_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    """, (latitude, longitude, status, entity_id))
+                    
+                    return True
+        
+        except Exception as e:
+            logger.error(f"Error updating entity coordinates: {e}")
+            return False
+
+    def get_entities_with_coordinates(
+        self,
+        limit: int = 1000
+    ) -> Dict[str, Any]:
+        """
+        Get entities with coordinates in GeoJSON format for map display.
+        
+        Args:
+            limit: Maximum number of entities to return
+        
+        Returns:
+            GeoJSON FeatureCollection
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT 
+                            id, name, entity_type, latitude, longitude,
+                            mention_count, metadata
+                        FROM entities
+                        WHERE latitude IS NOT NULL 
+                          AND longitude IS NOT NULL
+                          AND geo_status = 'FOUND'
+                        ORDER BY mention_count DESC
+                        LIMIT %s
+                    """, (limit,))
+                    
+                    features = []
+                    for row in cur.fetchall():
+                        features.append({
+                            'type': 'Feature',
+                            'geometry': {
+                                'type': 'Point',
+                                'coordinates': [float(row[4]), float(row[3])]  # [lng, lat]
+                            },
+                            'properties': {
+                                'id': row[0],
+                                'name': row[1],
+                                'entity_type': row[2],
+                                'mention_count': row[5],
+                                'metadata': row[6]
+                            }
+                        })
+                    
+                    return {
+                        'type': 'FeatureCollection',
+                        'features': features
+                    }
+        
+        except Exception as e:
+            logger.error(f"Error getting entities with coordinates: {e}")
+            return {'type': 'FeatureCollection', 'features': []}
+
+    def get_pending_entities(
+        self,
+        entity_types: Optional[List[str]] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Get entities that need geocoding.
+        
+        Args:
+            entity_types: List of entity types to filter (None = all)
+            limit: Maximum number of entities to return
+        
+        Returns:
+            List of entity dictionaries
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    if entity_types:
+                        cur.execute("""
+                            SELECT id, name, entity_type, mention_count
+                            FROM entities
+                            WHERE geo_status = 'PENDING'
+                              AND entity_type = ANY(%s)
+                            ORDER BY mention_count DESC
+                            LIMIT %s
+                        """, (entity_types, limit))
+                    else:
+                        cur.execute("""
+                            SELECT id, name, entity_type, mention_count
+                            FROM entities
+                            WHERE geo_status = 'PENDING'
+                            ORDER BY mention_count DESC
+                            LIMIT %s
+                        """, (limit,))
+                    
+                    entities = []
+                    for row in cur.fetchall():
+                        entities.append({
+                            'id': row[0],
+                            'name': row[1],
+                            'entity_type': row[2],
+                            'mention_count': row[3]
+                        })
+                    
+                    return entities
+        
+        except Exception as e:
+            logger.error(f"Error getting pending entities: {e}")
+            return []
+
+
 if __name__ == "__main__":
     # Example usage
     db = DatabaseManager()
