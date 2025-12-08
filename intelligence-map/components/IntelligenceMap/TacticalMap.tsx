@@ -5,6 +5,20 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import GridOverlay from './GridOverlay';
 import HUDOverlay from './HUDOverlay';
+import EntityDossier from './EntityDossier';
+
+interface EntityData {
+    id: number;
+    name: string;
+    entity_type: string;
+    latitude: number;
+    longitude: number;
+    mention_count: number;
+    first_seen: string;
+    last_seen: string;
+    metadata: Record<string, any>;
+    related_articles: any[];
+}
 
 export default function TacticalMap() {
     const mapContainer = useRef<HTMLDivElement>(null);
@@ -14,6 +28,7 @@ export default function TacticalMap() {
         longitude: 12.4964,
         zoom: 3
     });
+    const [selectedEntity, setSelectedEntity] = useState<EntityData | null>(null);
 
     useEffect(() => {
         if (map.current) return; // Initialize map only once
@@ -179,33 +194,50 @@ export default function TacticalMap() {
                     });
 
                     // Add click handler for individual markers
-                    map.current.on('click', 'entity-markers', (e) => {
+                    map.current.on('click', 'entity-markers', async (e) => {
                         if (!e.features || e.features.length === 0) return;
 
                         const feature = e.features[0];
                         const properties = feature.properties;
+                        const entityId = properties?.id;
 
-                        console.log('Clicked entity:', {
-                            name: properties?.name,
-                            type: properties?.entity_type,
-                            mentions: properties?.mention_count
-                        });
+                        if (!entityId) return;
 
-                        // TODO Phase 5: Open dossier panel
-                        // For now, just show a popup
-                        if (map.current && feature.geometry.type === 'Point') {
-                            const coordinates = feature.geometry.coordinates as [number, number];
+                        console.log('Fetching entity details for ID:', entityId);
 
-                            new mapboxgl.Popup()
-                                .setLngLat(coordinates)
-                                .setHTML(`
-                                    <div style="color: #0A1628; font-family: monospace;">
-                                        <strong>${properties?.name}</strong><br/>
-                                        Type: ${properties?.entity_type}<br/>
-                                        Mentions: ${properties?.mention_count}
-                                    </div>
-                                `)
-                                .addTo(map.current);
+                        try {
+                            // Fetch full entity details including related articles
+                            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/map/entities/${entityId}`);
+
+                            if (!response.ok) {
+                                throw new Error(`Failed to fetch entity: ${response.statusText}`);
+                            }
+
+                            const entityData = await response.json();
+                            console.log('Entity data loaded:', entityData);
+
+                            // Open dossier panel
+                            setSelectedEntity(entityData);
+
+                        } catch (error) {
+                            console.error('Error fetching entity details:', error);
+
+                            // Fallback: show basic info in popup
+                            if (map.current && feature.geometry.type === 'Point') {
+                                const coordinates = feature.geometry.coordinates as [number, number];
+
+                                new mapboxgl.Popup()
+                                    .setLngLat(coordinates)
+                                    .setHTML(`
+                                        <div style="color: #0A1628; font-family: monospace;">
+                                            <strong>${properties?.name}</strong><br/>
+                                            Type: ${properties?.entity_type}<br/>
+                                            Mentions: ${properties?.mention_count}<br/>
+                                            <span style="color: red;">Failed to load details</span>
+                                        </div>
+                                    `)
+                                    .addTo(map.current);
+                            }
                         }
                     });
 
@@ -282,6 +314,12 @@ export default function TacticalMap() {
                 latitude={mapState.latitude}
                 longitude={mapState.longitude}
                 zoom={mapState.zoom}
+            />
+
+            {/* Entity Dossier Panel */}
+            <EntityDossier
+                entity={selectedEntity}
+                onClose={() => setSelectedEntity(null)}
             />
         </div>
     );
