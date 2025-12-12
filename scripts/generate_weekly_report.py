@@ -111,13 +111,14 @@ def aggregate_metadata(reports: List[Dict]) -> Dict[str, Any]:
     }
 
 
-def generate_weekly_prompt(reports: List[Dict], aggregated_meta: Dict) -> str:
+def generate_weekly_prompt(reports: List[Dict], aggregated_meta: Dict, rag_context: str = "") -> str:
     """
     Generate prompt for weekly meta-analysis.
 
     Args:
         reports: List of daily reports (ordered by date)
         aggregated_meta: Aggregated metadata
+        rag_context: Optional historical context from RAG
 
     Returns:
         Complete prompt string for LLM
@@ -127,6 +128,12 @@ def generate_weekly_prompt(reports: List[Dict], aggregated_meta: Dict) -> str:
 
 COMPITO: Scrivere il "WEEKLY INTELLIGENCE BRIEFING".
 Non riassumere le notizie. Identifica l'EVOLUZIONE dei trend osservando i report giornalieri.
+
+FOCUS PRIMARIO: I report giornalieri di QUESTA SETTIMANA sono il focus principale.
+CONTESTO STORICO: Usa il contesto storico fornito SOLO per:
+- Confrontare trend attuali con eventi passati
+- Identificare accelerazioni/rallentamenti rispetto al passato
+- Fare previsioni più accurate basate su precedenti storici
 
 STRUTTURA REPORT:
 1. 🚨 THE BIG PICTURE
@@ -190,7 +197,22 @@ METADATA AGGREGATO SETTIMANA:
 - Fonti uniche: {aggregated_meta['unique_sources_count']}
 """
 
-    return system_prompt + "\n" + meta_summary + "\n\nREPORT GIORNALIERI:\n" + context
+    # Build final prompt
+    prompt_parts = [system_prompt, meta_summary]
+
+    # Add historical context if provided (BEFORE weekly reports)
+    if rag_context:
+        prompt_parts.append("\n" + "="*80)
+        prompt_parts.append("CONTESTO STORICO (per confronto e previsioni):")
+        prompt_parts.append("="*80)
+        prompt_parts.append(rag_context)
+        prompt_parts.append("\n" + "="*80 + "\n")
+
+    # Add weekly reports (PRIMARY FOCUS)
+    prompt_parts.append("\nREPORT GIORNALIERI DELLA SETTIMANA (FOCUS PRINCIPALE):")
+    prompt_parts.append(context)
+
+    return "\n".join(prompt_parts)
 
 
 def main():
@@ -220,6 +242,17 @@ def main():
         type=str,
         default='gemini-2.5-flash',
         help='Gemini model to use (default: gemini-2.5-flash)'
+    )
+    parser.add_argument(
+        '--rag-chunks',
+        type=int,
+        default=100,
+        help='Number of RAG historical chunks to use for context (default: 100)'
+    )
+    parser.add_argument(
+        '--no-rag',
+        action='store_true',
+        help='Disable RAG historical context'
     )
 
     args = parser.parse_args()
@@ -276,10 +309,59 @@ def main():
         logger.error(f"Failed to aggregate metadata: {e}")
         return 1
 
+    # Step 3b: Retrieve RAG historical context (optional)
+    rag_context_text = ""
+    if not args.no_rag:
+        logger.info(f"\n[STEP 3b] Retrieving historical context from RAG ({args.rag_chunks} chunks)...")
+        try:
+            generator = ReportGenerator(
+                model_name=args.model,
+                reranking_top_k=args.rag_chunks
+            )
+
+            # Extract focus areas from weekly reports to generate RAG queries
+            all_focus_areas = []
+            for report in reports:
+                metadata = report.get('metadata', {})
+                all_focus_areas.extend(metadata.get('focus_areas', []))
+
+            # Take top 5 most common focus areas
+            from collections import Counter
+            focus_counter = Counter(all_focus_areas)
+            top_focus_areas = [area for area, _ in focus_counter.most_common(5)]
+
+            if not top_focus_areas:
+                logger.warning("No focus areas found in weekly reports, skipping RAG")
+            else:
+                logger.info(f"  Top focus areas: {', '.join(top_focus_areas)}")
+
+                # Generate RAG queries from focus areas
+                rag_queries = []
+                for area in top_focus_areas:
+                    rag_queries.append(area)
+
+                # Retrieve RAG context
+                all_rag_results = []
+                for query in rag_queries:
+                    results = generator.get_rag_context(query, top_k=args.rag_chunks // len(rag_queries))
+                    all_rag_results.extend(results)
+
+                # Deduplicate and format
+                unique_rag = generator.deduplicate_chunks_advanced(all_rag_results)
+                rag_context_text = generator.format_rag_context(unique_rag[:args.rag_chunks])
+
+                logger.info(f"✓ Retrieved {len(unique_rag)} unique historical chunks")
+
+        except Exception as e:
+            logger.warning(f"Failed to retrieve RAG context (continuing without it): {e}")
+            rag_context_text = ""
+    else:
+        logger.info("\n[STEP 3b] Skipping RAG historical context (--no-rag flag)")
+
     # Step 4: Generate weekly prompt
     logger.info("\n[STEP 4] Generating meta-analysis prompt...")
     try:
-        prompt = generate_weekly_prompt(reports, aggregated_meta)
+        prompt = generate_weekly_prompt(reports, aggregated_meta, rag_context_text)
         prompt_length = len(prompt)
         estimated_tokens = prompt_length // 4  # Rough estimate
         logger.info(f"✓ Prompt generated ({prompt_length} chars, ~{estimated_tokens} tokens)")
@@ -290,13 +372,17 @@ def main():
     # Step 5: Call Gemini for meta-analysis
     logger.info(f"\n[STEP 5] Generating weekly meta-analysis with {args.model}...")
     try:
-        generator = ReportGenerator(model_name=args.model)
-        
+        # Reuse generator if already created for RAG, otherwise create new one
+        if not args.no_rag and 'generator' in locals():
+            logger.info("  Using existing ReportGenerator instance")
+        else:
+            generator = ReportGenerator(model_name=args.model)
+
         response = generator.model.generate_content(
             prompt,
             generation_config={'temperature': 0.3}  # più deterministico per analisi
         )
-        
+
         weekly_report_text = response.text
         logger.info(f"✓ Meta-analysis generated ({len(weekly_report_text)} characters)")
     except Exception as e:
@@ -341,7 +427,9 @@ def main():
                     'reports_count': aggregated_meta['reports_count'],
                     'total_articles_analyzed': aggregated_meta['total_articles_analyzed'],
                     'unique_sources_count': aggregated_meta['unique_sources_count'],
-                    'date_range': aggregated_meta['date_range']
+                    'date_range': aggregated_meta['date_range'],
+                    'rag_enabled': not args.no_rag,
+                    'rag_chunks_used': args.rag_chunks if not args.no_rag else 0
                 },
                 'sources': {
                     'daily_reports': [

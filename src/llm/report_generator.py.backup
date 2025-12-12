@@ -632,72 +632,37 @@ Output ONLY the {self.expansion_variants} variant queries, one per line, without
         prompt = f"""You are an intelligence analyst generating a daily intelligence briefing.
 
 **YOUR TASK:**
-Analyze today's news articles and provide a comprehensive intelligence report focused on strategic relevance and actionable investment implications. Prioritize events that represent breaking points in existing trends and competition between major powers, even in seemingly peripheral regions.
+Analyze today's news articles and provide a comprehensive intelligence report. Use the historical context to identify trends, connections, and significance of current events.
 
 **FOCUS AREAS:**
 {chr(10).join(f"- {area}" for area in focus_areas)}
 
-**PRIORITIZATION FRAMEWORK:**
-Before writing the report, score each event using this system and prioritize those with highest scores:
-
-1. Immediate Impact (0-3 points): Does this event immediately affect national security, financial markets, or critical infrastructure? A cyberattack on a power grid scores 3, a generic diplomatic statement scores 0.
-
-2. Escalation Potential (0-3 points): Can this event rapidly degenerate? A military incident in a contested zone scores 3, a peaceful local protest scores 0. Always ask: can this trigger a chain reaction?
-
-3. Critical Actor Involvement (0-2 points): Are nuclear states, major economies, or actors controlling strategic resources involved? China, USA, Russia, EU score 2, peripheral countries without significant alliances score 0 (st martin island).
-
-4. Break from Historical Pattern (0-2 points): Does this event represent a rupture with recent history? If it breaks a 5+ year pattern, it scores 2; if it confirms existing trends, it scores 0. Example: Russia and Ukraine negotiating after two years of refusal scores 2.
-
-5. Long-Term Strategic Relevance (0-3 points + bonus): Does this event involve control of critical resources, trade routes, or positioning in great power competition even if it seems peripheral today? Think five to ten years ahead, not just six months.
-
-**SPECIAL RULE - PERIPHERAL STRATEGIC EVENTS:**
-Assign a bonus of 2 additional points to events involving great power competition in regions considered "peripheral" but strategically positioned: Myanmar, East Africa (Djibouti, Horn of Africa), Central Asia, Arctic, small Pacific island states. Even if immediate impact seems low, these events reveal long-term dynamics in global geopolitical repositioning. When you identify such events, explicitly explain why the geographic position or resources involved amplify importance beyond surface appearance.
-
-Events scoring 8-10 points require priority analysis. Events scoring 4-7 go in standard report. Events below 4 can be briefly mentioned.
-
 **REPORT STRUCTURE:**
+1. Executive Summary (2-3 paragraphs highlighting the most critical developments)
+2. Key Developments by Category:
+   - Cybersecurity & Technology
+   - Geopolitical Events
+   - Economic Trends
+3. Trend Analysis (connections with historical context)
+4. Actionable Insights (what decision-makers should know)
 
-1. Executive Summary (200-300 words)
-Highlight the most critical developments with focus on strategic breaks and shifts in great power dynamics.
-
-2. Key Developments by Category (150-200 words each):
-   - Cybersecurity 
-   - Technology
-   - Geopolitical Events 
-   - Economic events
-
-For each development, always identify specific actors (individuals, organizations, governments, groups), explain their motivations and causal relationships. Avoid impersonal language: instead of "tensions are rising," say "Russia and NATO are escalating tensions because..." Provide relationship context: explain how actors relate to each other (allies, adversaries, dependencies).
-
-3. Trend Analysis (250-300 words)
-Connect current events with historical patterns from the context. Identify whether events confirm or break from existing trends.
-
-4. Actionable Insights: Investment Implications
-
-For each significant development, provide a three-level structured analysis that portfolio managers can use immediately:
-
-**Level 1 - Direct Beneficiaries (immediate exposure):**
-Identify companies with direct exposure seeing impact on balance sheets within 1-2 quarters. Specify:
-- Company names with exact tickers
-- Contract size or revenue impact
-- Specific catalysts with concrete numbers
-Example: "Long defense contractors Lockheed Martin (LMT), Raytheon (RTX), Northrop Grumman (NOC) based on $4.2B Pentagon contract for THAAD systems announced today [Article 12]. Delivery scheduled Q2-Q3 2025, with potential extensions if Taiwan increases orders (likely scenario given Chinese military exercises last week). Monitor: LMT earnings call January 15 for 2025 guidance."
-
-**Level 2 - Supply Chain & Correlated Markets:**
-Trace the complete causal chain. A geopolitical event rarely hits only one isolated sector. If China blocks rare earth exports, analyze not just alternative producers like Lynas (ASX:LYC) or MP Materials (MP), but also permanent magnet manufacturers, EV makers depending on those magnets, utilities that ordered wind turbines that won't arrive on schedule. Map: geopolitical event → input shortage → companies with alternative inventory → companies revising guidance → end markets facing delays.
-
-**Level 3 - Macro Market Impacts:**
-Consider impacts on currencies, government bonds, and commodities. If India raises fertilizer tariffs in retaliation against Canada, this affects not just fertilizer producers but also agricultural futures, US farm loans, and Canadian dollar weakening from reduced exports. If Myanmar becomes a proxy battlefield between US and China, this shifts capital flows toward safe-haven assets, strengthens Japanese yen, and increases credit default swap premiums on ASEAN countries perceived as next on the list.
-
-For each insight, always include: specific tickers, concrete catalysts with exact figures, timing, causal connections with other events, and next catalysts to monitor.
+**CRITICAL GUIDELINES - ACTOR-FOCUSED ANALYSIS:**
+- **ALWAYS identify specific actors**: Name individuals, organizations, governments, groups behind each development
+- **Explain WHY, not just WHAT**: Describe motivations, dynamics, and causal relationships driving events
+- **Avoid impersonal language**: Instead of "tensions are rising", say "Russia and NATO are escalating tensions because..."
+- **Provide relationship context**: Explain how actors relate to each other (allies, adversaries, dependencies)
+- **Attribution matters**: Who did what? Who benefits? Who is affected?
 
 **ADDITIONAL GUIDELINES:**
+- Be concise but comprehensive
+- Prioritize actionable intelligence over general news
 - Cite specific articles with [Article N] references
+- Connect current events with historical patterns from the context
+- Highlight emerging threats and opportunities
 - Use professional, analytical tone
-- Prioritize events that are strategic break points, not just high-volume news
-- When information is unverified or conflicting, use confidence indicators (High/Medium/Low) and cite multiple sources
-- Never use generic language like "the sector could benefit" - always specify which companies, why, with what catalyst, and in what timeframe
 
 ---
+
 {recent_articles_text}
 
 ---
