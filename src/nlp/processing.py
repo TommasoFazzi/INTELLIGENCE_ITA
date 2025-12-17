@@ -90,13 +90,36 @@ class NLPProcessor:
         if not text:
             return ""
 
-        # 1. Normalize whitespace (remove double spaces, tabs, excessive newlines)
-        text = " ".join(text.split())
+        # 1. Remove HTML tags (aggressive cleaning)
+        # Remove common HTML tags and attributes
+        text = re.sub(r'<script[^>]*>.*?</script>', ' ', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<style[^>]*>.*?</style>', ' ', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<[^>]+>', ' ', text)  # Remove all remaining HTML tags
 
-        # 2. Remove generic leftover markdown links or brackets
-        text = re.sub(r'\[.*?\]', '', text)
+        # 2. Remove HTML attributes that often leak through (href, src, class, etc.)
+        text = re.sub(r'\bhref\s*=\s*["\'][^"\']*["\']', ' ', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bsrc\s*=\s*["\'][^"\']*["\']', ' ', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bclass\s*=\s*["\'][^"\']*["\']', ' ', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bid\s*=\s*["\'][^"\']*["\']', ' ', text, flags=re.IGNORECASE)
 
-        # 3. Remove common noise patterns in news articles
+        # 3. Remove URLs (http, https, www)
+        text = re.sub(r'https?://[^\s]+', ' ', text, flags=re.IGNORECASE)
+        text = re.sub(r'www\.[^\s]+', ' ', text, flags=re.IGNORECASE)
+
+        # 4. Decode HTML entities
+        text = text.replace('&nbsp;', ' ')
+        text = text.replace('&amp;', '&')
+        text = text.replace('&lt;', '<')
+        text = text.replace('&gt;', '>')
+        text = text.replace('&quot;', '"')
+        text = text.replace('&#39;', "'")
+        text = text.replace('&apos;', "'")
+
+        # 5. Remove markdown links and brackets
+        text = re.sub(r'\[.*?\]\(.*?\)', ' ', text)  # [text](url)
+        text = re.sub(r'\[.*?\]', ' ', text)  # [text]
+
+        # 6. Remove common noise patterns in news articles
         patterns_to_remove = [
             r"Follow us on Twitter",
             r"Click here to subscribe",
@@ -109,11 +132,16 @@ class NLPProcessor:
             r"Related articles:",
             r"More from",
             r"Advertisement",
-            r"Sponsored content"
+            r"Sponsored content",
+            r"Copyright \d{4}",
+            r"All rights reserved"
         ]
 
         for pattern in patterns_to_remove:
-            text = re.sub(pattern, "", text, flags=re.IGNORECASE)
+            text = re.sub(pattern, " ", text, flags=re.IGNORECASE)
+
+        # 7. Normalize whitespace (remove double spaces, tabs, excessive newlines)
+        text = " ".join(text.split())
 
         return text.strip()
 

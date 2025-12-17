@@ -21,7 +21,8 @@ sqlalchemy==2.0.25
 # LLM APIs (uncomment based on your choice)
 # openai==1.10.0
 # anthropic==0.8.1
-google-generativeai==0.3.2
+google-generativeai>=0.8.0
+pydantic>=2.12.0
 
 # HITL Interface
 streamlit==1.51.0

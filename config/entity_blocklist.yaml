@@ -1,0 +1,457 @@
+# Entity Blocklist Configuration
+# Common false positives from spaCy NER (Italian + English)
+#
+# These terms are frequently extracted as named entities but are actually:
+# - Common words / temporal references
+# - Vague institutional references
+# - Media artifacts
+# - Numbers/years
+# - Generic terms that shouldn't be in the knowledge graph
+#
+# Usage: Load in entity cleaning scripts to filter out garbage entities
+
+# ============================================================================
+# Temporal References (Days, Months, Time-related)
+# ============================================================================
+temporal:
+  # Italian
+  - "Oggi"
+  - "Ieri"
+  - "Domani"
+  - "Lunedì"
+  - "Martedì"
+  - "Mercoledì"
+  - "Giovedì"
+  - "Venerdì"
+  - "Sabato"
+  - "Domenica"
+  - "Gennaio"
+  - "Febbraio"
+  - "Marzo"
+  - "Aprile"
+  - "Maggio"
+  - "Giugno"
+  - "Luglio"
+  - "Agosto"
+  - "Settembre"
+  - "Ottobre"
+  - "Novembre"
+  - "Dicembre"
+
+  # English
+  - "Today"
+  - "Yesterday"
+  - "Tomorrow"
+  - "Monday"
+  - "Tuesday"
+  - "Wednesday"
+  - "Thursday"
+  - "Friday"
+  - "Saturday"
+  - "Sunday"
+  - "January"
+  - "February"
+  - "March"
+  - "April"
+  - "May"
+  - "June"
+  - "July"
+  - "August"
+  - "September"
+  - "October"
+  - "November"
+  - "December"
+
+  # Spanish
+  - "Hoy"
+  - "Ayer"
+  - "Mañana"
+  - "Lunes"
+  - "Martes"
+  - "Miércoles"
+  - "Jueves"
+  - "Viernes"
+  - "Sábado"
+  - "Domingo"
+
+  # French
+  - "Aujourd'hui"
+  - "Hier"
+  - "Demain"
+  - "Lundi"
+  - "Mardi"
+  - "Mercredi"
+  - "Jeudi"
+  - "Vendredi"
+  - "Samedi"
+  - "Dimanche"
+
+# ============================================================================
+# Vague Institutional References
+# ============================================================================
+vague_references:
+  # Italian
+  - "Il Governo"
+  - "Il Parlamento"
+  - "La Camera"
+  - "Il Senato"
+  - "L'azienda"
+  - "L'organizzazione"
+  - "La società"
+  - "Il gruppo"
+  - "L'istituto"
+  - "La commissione"
+  - "Il comitato"
+  - "Secondo"
+  - "Secondo fonti"
+
+  # English
+  - "The Government"
+  - "The Parliament"
+  - "The Senate"
+  - "The House"
+  - "The Company"
+  - "The Organization"
+  - "The Group"
+  - "The Institute"
+  - "The Committee"
+  - "The Commission"
+  - "According to"
+  - "According to sources"
+  - "Officials"
+  - "Authorities"
+  - "Experts"
+  - "Sources"
+  - "Analysts"
+
+  # Spanish
+  - "El Gobierno"
+  - "El Parlamento"
+  - "La Empresa"
+  - "Según"
+
+  # French
+  - "Le Gouvernement"
+  - "Le Parlement"
+  - "L'entreprise"
+  - "Selon"
+
+# ============================================================================
+# Media Artifacts (News sources, editorial terms)
+# ============================================================================
+media_artifacts:
+  # News agencies
+  - "Reuters"
+  - "Associated Press"
+  - "AP"
+  - "Bloomberg"
+  - "ANSA"
+  - "AFP"
+  - "EFE"
+  - "dpa"
+  - "Xinhua"
+  - "Tass"
+  - "Kyodo"
+
+  # Editorial terms
+  - "Breaking"
+  - "Breaking News"
+  - "Exclusive"
+  - "Update"
+  - "LIVE"
+  - "Developing"
+  - "BREAKING"
+  - "URGENT"
+  - "FLASH"
+  - "ALERT"
+
+  # Italian editorial
+  - "Redazione"
+  - "Notizie"
+  - "Ultim'ora"
+
+  # Generic publication terms
+  - "Editorial"
+  - "Opinion"
+  - "Commentary"
+  - "Analysis"
+  - "Report"
+
+# ============================================================================
+# Numbers, Years, COVID-related
+# ============================================================================
+numbers_years:
+  # Years
+  - "2020"
+  - "2021"
+  - "2022"
+  - "2023"
+  - "2024"
+  - "2025"
+  - "2026"
+  - "2027"
+  - "2028"
+  - "2029"
+  - "2030"
+
+  # COVID variants and terms
+  - "COVID"
+  - "COVID-19"
+  - "Covid"
+  - "Covid-19"
+  - "Coronavirus"
+  - "SARS-CoV-2"
+  - "Omicron"
+  - "Delta"
+  - "Omicron BA"
+
+  # Technology versions
+  - "5G"
+  - "4G"
+  - "6G"
+  - "Wi-Fi"
+  - "WiFi"
+  - "Web3"
+  - "GPT-4"
+  - "ChatGPT"
+
+  # Generic numbers that appear as entities
+  - "2"
+  - "3"
+  - "5"
+  - "10"
+  - "100"
+  - "1000"
+
+# ============================================================================
+# Pronouns and Articles (False Positives)
+# ============================================================================
+pronouns_articles:
+  # Italian
+  - "Il"
+  - "La"
+  - "Lo"
+  - "Gli"
+  - "Le"
+  - "Un"
+  - "Una"
+  - "Uno"
+  - "Dei"
+  - "Delle"
+  - "Di"
+  - "Da"
+  - "In"
+  - "Su"
+  - "Per"
+  - "Con"
+  - "Tra"
+  - "Fra"
+
+  # English
+  - "The"
+  - "A"
+  - "An"
+  - "Of"
+  - "In"
+  - "On"
+  - "At"
+  - "To"
+  - "For"
+  - "With"
+  - "By"
+  - "From"
+  - "As"
+
+# ============================================================================
+# Generic Adjectives / Common Words
+# ============================================================================
+generic_words:
+  # Italian
+  - "Nuovo"
+  - "Nuova"
+  - "Vecchio"
+  - "Vecchia"
+  - "Grande"
+  - "Piccolo"
+  - "Piccola"
+  - "Primo"
+  - "Prima"
+  - "Secondo"
+  - "Seconda"
+  - "Ultimo"
+  - "Ultima"
+  - "Altro"
+  - "Altra"
+  - "Stesso"
+  - "Stessa"
+
+  # English
+  - "New"
+  - "Old"
+  - "Big"
+  - "Small"
+  - "Large"
+  - "First"
+  - "Second"
+  - "Third"
+  - "Last"
+  - "Next"
+  - "Previous"
+  - "Other"
+  - "Another"
+  - "Same"
+  - "Different"
+  - "Main"
+  - "Major"
+  - "Minor"
+  - "General"
+  - "Special"
+  - "Public"
+  - "Private"
+  - "National"
+  - "International"
+  - "Global"
+  - "Local"
+  - "Regional"
+
+# ============================================================================
+# Valid Acronyms (Exceptions - DO NOT BLOCK)
+# ============================================================================
+# These are short but represent valid geopolitical entities
+# Script should check this list BEFORE blocking short entities
+valid_acronyms:
+  # International organizations
+  - "UN"
+  - "EU"
+  - "NATO"
+  - "ASEAN"
+  - "OPEC"
+  - "IMF"
+  - "WHO"
+  - "WTO"
+  - "OECD"
+  - "G7"
+  - "G20"
+
+  # Countries (official abbreviations)
+  - "US"
+  - "UK"
+  - "UAE"
+  - "ROK"  # Republic of Korea
+  - "PRC"  # People's Republic of China
+
+  # Regional bodies
+  - "AU"   # African Union
+  - "OAS"  # Organization of American States
+  - "APEC"
+
+# ============================================================================
+# Ambiguous Short Terms (Likely Errors)
+# ============================================================================
+# These are 1-2 character entities that are almost always errors
+# unless they're in valid_acronyms
+ambiguous_short:
+  - "A"
+  - "B"
+  - "C"
+  - "D"
+  - "E"
+  - "F"
+  - "G"
+  - "H"
+  - "I"
+  - "J"
+  - "K"
+  - "L"
+  - "M"
+  - "N"
+  - "O"
+  - "P"
+  - "Q"
+  - "R"
+  - "S"
+  - "T"
+  - "U"
+  - "V"
+  - "W"
+  - "X"
+  - "Y"
+  - "Z"
+  - "Al"
+  - "Di"
+  - "Da"
+  - "De"
+
+# ============================================================================
+# Medical / Scientific Terms (Often Misclassified)
+# ============================================================================
+medical_scientific:
+  - "DNA"
+  - "RNA"
+  - "mRNA"
+  - "PCR"
+  - "HIV"
+  - "AIDS"
+  - "CDC"  # If not referring to organization
+  - "FDA"  # If not referring to organization
+  - "pH"
+  - "CO2"
+  - "O2"
+
+# ============================================================================
+# Financial Jargon (Not Entities)
+# ============================================================================
+financial_jargon:
+  - "IPO"
+  - "M&A"
+  - "GDP"
+  - "GNP"
+  - "CPI"
+  - "USD"
+  - "EUR"
+  - "GBP"
+  - "JPY"
+  - "CNY"
+  - "BTC"
+  - "ETH"
+  - "Stock Market"
+  - "Wall Street"  # Unless specifically referring to the street
+  - "Main Street"
+
+# ============================================================================
+# Miscellaneous False Positives
+# ============================================================================
+miscellaneous:
+  # Question words
+  - "Who"
+  - "What"
+  - "When"
+  - "Where"
+  - "Why"
+  - "How"
+  - "Chi"
+  - "Cosa"
+  - "Quando"
+  - "Dove"
+  - "Perché"
+  - "Come"
+
+  # Common errors
+  - "Read more"
+  - "Click here"
+  - "Subscribe"
+  - "Follow us"
+  - "Share"
+  - "Tweet"
+  - "Retweet"
+  - "Like"
+
+  # Social media artifacts
+  - "RT"
+  - "DM"
+  - "PM"
+  - "TBD"
+  - "TBA"
+  - "N/A"
+  - "etc"
+  - "et al"

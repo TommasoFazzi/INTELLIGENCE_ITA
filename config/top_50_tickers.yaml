@@ -1,0 +1,163 @@
+# ============================================================================
+# Top 50 Geopolitical Market Movers - Ticker Mappings
+# ============================================================================
+# Strategic selection of stocks that move during geopolitical events
+# Focus: Defense, Chip War, Energy, Finance, Cyber Security
+# ============================================================================
+
+defense:
+  - name: "Lockheed Martin"
+    ticker: "LMT"
+    exchange: "NYSE"
+    aliases: ["Lockheed Martin", "Lockheed", "LMT", "Lockheed Martin Corp"]
+
+  - name: "Raytheon Technologies"
+    ticker: "RTX"
+    exchange: "NYSE"
+    aliases: ["Raytheon Technologies", "Raytheon", "RTX", "Pratt & Whitney"]
+
+  - name: "Northrop Grumman"
+    ticker: "NOC"
+    exchange: "NYSE"
+    aliases: ["Northrop Grumman", "Northrop", "NOC"]
+
+  - name: "General Dynamics"
+    ticker: "GD"
+    exchange: "NYSE"
+    aliases: ["General Dynamics", "GD", "Electric Boat"]
+
+  - name: "Boeing"
+    ticker: "BA"
+    exchange: "NYSE"
+    aliases: ["Boeing", "BA", "The Boeing Company"]
+
+  - name: "BAE Systems"
+    ticker: "BA.L"
+    exchange: "LSE"
+    aliases: ["BAE Systems", "BAE"]
+
+  - name: "Rheinmetall"
+    ticker: "RHM.DE"
+    exchange: "XETRA"
+    aliases: ["Rheinmetall", "Rheinmetall AG"]
+
+semiconductors:
+  - name: "Taiwan Semiconductor"
+    ticker: "TSM"
+    exchange: "NYSE"
+    aliases: ["Taiwan Semiconductor", "Taiwan Semi", "TSMC", "TSM"]
+
+  - name: "Nvidia"
+    ticker: "NVDA"
+    exchange: "NASDAQ"
+    aliases: ["Nvidia", "NVIDIA", "NVDA", "Nvidia Corp"]
+
+  - name: "Intel"
+    ticker: "INTC"
+    exchange: "NASDAQ"
+    aliases: ["Intel", "Intel Corp", "INTC"]
+
+  - name: "ASML"
+    ticker: "ASML"
+    exchange: "NASDAQ"
+    aliases: ["ASML", "ASML Holding", "ASML Holdings"]
+
+  - name: "Samsung Electronics"
+    ticker: "005930.KS"
+    exchange: "KRX"
+    aliases: ["Samsung Electronics", "Samsung", "Samsung Elec"]
+
+  - name: "Qualcomm"
+    ticker: "QCOM"
+    exchange: "NASDAQ"
+    aliases: ["Qualcomm", "QCOM", "Qualcomm Inc"]
+
+energy:
+  - name: "ExxonMobil"
+    ticker: "XOM"
+    exchange: "NYSE"
+    aliases: ["ExxonMobil", "Exxon", "Exxon Mobil", "XOM"]
+
+  - name: "Chevron"
+    ticker: "CVX"
+    exchange: "NYSE"
+    aliases: ["Chevron", "Chevron Corp", "CVX"]
+
+  - name: "Shell"
+    ticker: "SHEL"
+    exchange: "NYSE"
+    aliases: ["Shell", "Shell PLC", "Royal Dutch Shell", "SHEL"]
+
+  - name: "TotalEnergies"
+    ticker: "TTE"
+    exchange: "NYSE"
+    aliases: ["TotalEnergies", "Total", "TTE"]
+
+  - name: "Saudi Aramco"
+    ticker: "2222.SR"
+    exchange: "TADAWUL"
+    aliases: ["Saudi Aramco", "Aramco", "Saudi Arabian Oil"]
+
+  - name: "ConocoPhillips"
+    ticker: "COP"
+    exchange: "NYSE"
+    aliases: ["ConocoPhillips", "Conoco", "COP"]
+
+finance_macro:
+  - name: "JPMorgan Chase"
+    ticker: "JPM"
+    exchange: "NYSE"
+    aliases: ["JPMorgan Chase", "JPMorgan", "JPM", "JP Morgan"]
+
+  - name: "Goldman Sachs"
+    ticker: "GS"
+    exchange: "NYSE"
+    aliases: ["Goldman Sachs", "Goldman", "GS"]
+
+  - name: "BlackRock"
+    ticker: "BLK"
+    exchange: "NYSE"
+    aliases: ["BlackRock", "BLK", "BlackRock Inc"]
+
+  - name: "Morgan Stanley"
+    ticker: "MS"
+    exchange: "NYSE"
+    aliases: ["Morgan Stanley", "MS"]
+
+  - name: "Citigroup"
+    ticker: "C"
+    exchange: "NYSE"
+    aliases: ["Citigroup", "Citi", "Citibank"]
+
+cyber_tech:
+  - name: "Microsoft"
+    ticker: "MSFT"
+    exchange: "NASDAQ"
+    aliases: ["Microsoft", "MSFT", "Microsoft Corp"]
+
+  - name: "Alphabet"
+    ticker: "GOOGL"
+    exchange: "NASDAQ"
+    aliases: ["Alphabet", "Google", "GOOGL", "Alphabet Inc"]
+
+  - name: "Palantir"
+    ticker: "PLTR"
+    exchange: "NYSE"
+    aliases: ["Palantir", "Palantir Technologies", "PLTR"]
+
+  - name: "CrowdStrike"
+    ticker: "CRWD"
+    exchange: "NASDAQ"
+    aliases: ["CrowdStrike", "CRWD", "CrowdStrike Holdings"]
+
+  - name: "Palo Alto Networks"
+    ticker: "PANW"
+    exchange: "NASDAQ"
+    aliases: ["Palo Alto Networks", "Palo Alto", "PANW"]
+
+# ============================================================================
+# Notes:
+# - Tickers use Yahoo Finance format (e.g., 005930.KS for Samsung Korea)
+# - Aliases include: Full name, Short name, Ticker, Common variations
+# - Exchange info for reference (not used in queries)
+# ============================================================================

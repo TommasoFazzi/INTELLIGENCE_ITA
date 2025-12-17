@@ -15,10 +15,12 @@ from typing import List, Dict, Any, Optional
 
 import numpy as np
 import google.generativeai as genai
+from pydantic import ValidationError
 
 from ..storage.database import DatabaseManager
 from ..nlp.processing import NLPProcessor
 from ..utils.logger import get_logger
+from .schemas import IntelligenceReportMVP
 
 logger = get_logger(__name__)
 
@@ -510,6 +512,158 @@ Output ONLY the {self.expansion_variants} variant queries, one per line, without
             formatted_parts.append(f"Link: {article['link']}\n")
 
         return "\n".join(formatted_parts)
+
+    def generate_structured_analysis(
+        self,
+        article_text: str,
+        article_metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate structured JSON analysis for a single article (Sprint 2.1 MVP)
+
+        Uses Gemini JSON mode with Pydantic validation for type-safe output.
+        This is a NEW method separate from generate_report() to allow isolated testing.
+
+        Args:
+            article_text: Full text content of article
+            article_metadata: Optional metadata (title, source, date, entities)
+
+        Returns:
+            Dictionary with:
+            - success: bool (True if validation passed)
+            - structured: dict (validated JSON output) if success=True
+            - validation_errors: list of errors if success=False
+            - raw_llm_output: str (original Gemini response for debugging)
+        """
+        logger.info("Generating structured analysis with JSON mode...")
+
+        # Prepare metadata context (if provided)
+        metadata_context = ""
+        if article_metadata:
+            metadata_parts = []
+            if 'title' in article_metadata:
+                metadata_parts.append(f"Title: {article_metadata['title']}")
+            if 'source' in article_metadata:
+                metadata_parts.append(f"Source: {article_metadata['source']}")
+            if 'published_date' in article_metadata:
+                metadata_parts.append(f"Date: {article_metadata['published_date']}")
+            if 'entities' in article_metadata and article_metadata['entities']:
+                # Format entities nicely
+                entities = article_metadata['entities']
+                if isinstance(entities, dict) and 'by_type' in entities:
+                    entities_str = []
+                    for etype, names in entities['by_type'].items():
+                        if names:
+                            entities_str.append(f"{etype}: {', '.join(names[:5])}")
+                    metadata_parts.append(f"Key Entities: {' | '.join(entities_str)}")
+
+            if metadata_parts:
+                metadata_context = "\n".join(metadata_parts) + "\n\n"
+
+        # Construct system instruction with JSON schema
+        system_instruction = """You are a Senior Intelligence Analyst specializing in geopolitical risk assessment and investment implications.
+
+Your task: Analyze the article and provide a structured intelligence assessment in JSON format.
+
+OUTPUT REQUIREMENTS:
+- Respond ONLY with valid JSON matching the schema below
+- Use BLUF (Bottom Line Up Front) style for executive_summary
+- Be concise but substantive (100-300 words for summary)
+- Confidence score reflects certainty of your analysis (not article quality)
+
+JSON SCHEMA (all fields REQUIRED):
+{
+  "title": "string (5-15 words, descriptive article title)",
+  "category": "GEOPOLITICS | DEFENSE | ECONOMY | CYBER | ENERGY | OTHER",
+  "executive_summary": "string (BLUF-style summary, 100-300 words)",
+  "sentiment_label": "POSITIVE | NEUTRAL | NEGATIVE (investment/security outlook)",
+  "confidence_score": float (0.0-1.0, your confidence in the assessment)
+}
+
+CATEGORY DEFINITIONS:
+- GEOPOLITICS: Tensions, alliances, territorial disputes, diplomatic events
+- DEFENSE: Military tech, weapons systems, defense spending, armed conflicts
+- ECONOMY: Markets, trade, sanctions, economic policy, financial institutions
+- CYBER: Cyberattacks, data breaches, espionage, critical infrastructure
+- ENERGY: Oil, gas, renewables, OPEC, energy security, pipelines
+- OTHER: Does not fit above categories clearly
+
+SENTIMENT GUIDELINES:
+- POSITIVE: Events likely to benefit markets, reduce risks, or improve stability
+- NEGATIVE: Events increasing risks, market uncertainty, or instability
+- NEUTRAL: Informational updates without clear directional impact
+
+CONFIDENCE SCORE:
+- 0.9-1.0: High confidence (verified facts, multiple sources)
+- 0.7-0.8: Medium confidence (single source, or emerging story)
+- 0.5-0.6: Low confidence (rumors, conflicting information, or highly speculative)
+
+EXAMPLE OUTPUT:
+{
+  "title": "China Deploys Naval Forces Near Taiwan Strait",
+  "category": "GEOPOLITICS",
+  "executive_summary": "BLUF: China conducted large-scale naval exercises 100km from Taiwan coast on Dec 15, deploying 15 warships including 3 Type 055 destroyers. This represents the largest show of force since August 2024. Taiwan's defense ministry reports no direct incursions into territorial waters but increased surveillance flights. US 7th Fleet is monitoring. Investment implications: Heightened geopolitical risk premium likely for Taiwan-based semiconductor manufacturers (TSMC) and regional defense contractors. Short-term volatility expected in Asia-Pacific equity markets.",
+  "sentiment_label": "NEGATIVE",
+  "confidence_score": 0.85
+}
+
+Now analyze the article below and respond with JSON only:"""
+
+        # User prompt with article content
+        user_prompt = f"""Article to analyze:
+
+{metadata_context}{article_text}
+
+Respond with JSON analysis following the schema above:"""
+
+        try:
+            # Call Gemini with JSON mode
+            response = self.model.generate_content(
+                contents=[system_instruction, user_prompt],
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "temperature": 0.3,  # Lower temperature for more consistent JSON
+                }
+            )
+
+            raw_output = response.text
+            logger.debug(f"Raw LLM output: {raw_output[:200]}...")
+
+            # Validate with Pydantic
+            try:
+                validated_report = IntelligenceReportMVP.model_validate_json(raw_output)
+                logger.info("✅ Pydantic validation PASSED")
+
+                return {
+                    'success': True,
+                    'structured': validated_report.model_dump(),
+                    'raw_llm_output': raw_output,
+                    'validation_errors': []
+                }
+
+            except ValidationError as e:
+                logger.warning(f"⚠️ Pydantic validation FAILED: {e}")
+                # Fallback: Return raw parsed JSON with errors flagged
+                try:
+                    raw_json = json.loads(raw_output)
+                except json.JSONDecodeError as json_err:
+                    raw_json = {"error": "Invalid JSON", "raw": raw_output[:500]}
+
+                return {
+                    'success': False,
+                    'validation_errors': [str(err) for err in e.errors()],
+                    'raw_llm_output': raw_output,
+                    'parsed_attempt': raw_json
+                }
+
+        except Exception as e:
+            logger.error(f"❌ LLM generation failed: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'validation_errors': [],
+                'raw_llm_output': None
+            }
 
     def generate_report(
         self,
