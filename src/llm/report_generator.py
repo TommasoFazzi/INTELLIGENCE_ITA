@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from ..storage.database import DatabaseManager
 from ..nlp.processing import NLPProcessor
 from ..utils.logger import get_logger
-from .schemas import IntelligenceReportMVP
+from .schemas import IntelligenceReportMVP, IntelligenceReport
 
 logger = get_logger(__name__)
 
@@ -89,9 +89,75 @@ class ReportGenerator:
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(model_name)
 
+        # Load ticker whitelist for Trade Signal context
+        self.ticker_whitelist = self._load_ticker_whitelist()
+        if self.ticker_whitelist:
+            total_tickers = sum(len(tickers) for tickers in self.ticker_whitelist.values())
+            logger.info(f"  Ticker whitelist: {total_tickers} tickers loaded across {len(self.ticker_whitelist)} categories")
+
         logger.info(f"✓ Report generator initialized with {model_name}")
         if enable_query_expansion:
             logger.info(f"  Query expansion: ENABLED ({expansion_variants} variants, dedup threshold: {dedup_similarity})")
+
+    def _load_ticker_whitelist(self) -> Dict[str, List[str]]:
+        """
+        Load top 50 ticker mappings from config/top_50_tickers.yaml
+
+        Returns:
+            Dict with structure: {
+                'defense': ['LMT', 'RTX', 'NOC', ...],
+                'semiconductors': ['TSM', 'NVDA', 'INTC', ...],
+                ...
+            }
+        """
+        import yaml
+        from pathlib import Path
+
+        config_path = Path(__file__).parent.parent.parent / 'config' / 'top_50_tickers.yaml'
+
+        if not config_path.exists():
+            logger.warning(f"Ticker config not found at {config_path}, using empty whitelist")
+            return {}
+
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                ticker_config = yaml.safe_load(f)
+
+            # Flatten to ticker-only list for prompt context
+            tickers_by_category = {}
+            all_tickers = []
+
+            for category, companies in ticker_config.items():
+                category_tickers = []
+                for company in companies:
+                    ticker = company['ticker']
+                    category_tickers.append(ticker)
+                    all_tickers.append(ticker)
+                tickers_by_category[category] = category_tickers
+
+            logger.debug(f"Loaded {len(all_tickers)} tickers across {len(tickers_by_category)} categories")
+            return tickers_by_category
+
+        except Exception as e:
+            logger.error(f"Failed to load ticker whitelist: {e}")
+            return {}
+
+    def _format_ticker_whitelist(self) -> str:
+        """
+        Format ticker whitelist for prompt context
+
+        Returns:
+            Formatted string with tickers organized by category
+        """
+        if not self.ticker_whitelist:
+            return "No ticker whitelist loaded"
+
+        lines = []
+        for category, tickers in self.ticker_whitelist.items():
+            category_name = category.replace('_', ' ').title()
+            lines.append(f"- {category_name}: {', '.join(tickers)}")
+
+        return "\n".join(lines)
 
     def get_rag_context(
         self,
@@ -633,6 +699,244 @@ Respond with JSON analysis following the schema above:"""
             try:
                 validated_report = IntelligenceReportMVP.model_validate_json(raw_output)
                 logger.info("✅ Pydantic validation PASSED")
+
+                return {
+                    'success': True,
+                    'structured': validated_report.model_dump(),
+                    'raw_llm_output': raw_output,
+                    'validation_errors': []
+                }
+
+            except ValidationError as e:
+                logger.warning(f"⚠️ Pydantic validation FAILED: {e}")
+                # Fallback: Return raw parsed JSON with errors flagged
+                try:
+                    raw_json = json.loads(raw_output)
+                except json.JSONDecodeError as json_err:
+                    raw_json = {"error": "Invalid JSON", "raw": raw_output[:500]}
+
+                return {
+                    'success': False,
+                    'validation_errors': [str(err) for err in e.errors()],
+                    'raw_llm_output': raw_output,
+                    'parsed_attempt': raw_json
+                }
+
+        except Exception as e:
+            logger.error(f"❌ LLM generation failed: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'validation_errors': [],
+                'raw_llm_output': None
+            }
+
+    def generate_full_analysis(
+        self,
+        article_text: str,
+        article_metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate full schema analysis with Trade Signals (Sprint 2.2)
+
+        Uses Gemini JSON mode with full Pydantic schema validation.
+        Includes: Impact Score, Sentiment, Trade Signals, Key Entities, Markdown content.
+
+        Args:
+            article_text: Full text content of article
+            article_metadata: Optional metadata (title, source, date, entities)
+
+        Returns:
+            Dictionary with:
+            - success: bool (True if validation passed)
+            - structured: dict (validated IntelligenceReport) if success=True
+            - validation_errors: list of errors if success=False
+            - raw_llm_output: str (original Gemini response for debugging)
+        """
+        logger.info("Generating FULL schema analysis with Trade Signals...")
+
+        # Prepare metadata context (same as MVP)
+        metadata_context = ""
+        if article_metadata:
+            metadata_parts = []
+            if 'title' in article_metadata:
+                metadata_parts.append(f"Title: {article_metadata['title']}")
+            if 'source' in article_metadata:
+                metadata_parts.append(f"Source: {article_metadata['source']}")
+            if 'published_date' in article_metadata:
+                metadata_parts.append(f"Date: {article_metadata['published_date']}")
+            if 'entities' in article_metadata and article_metadata['entities']:
+                entities = article_metadata['entities']
+                if isinstance(entities, dict) and 'by_type' in entities:
+                    entities_str = []
+                    for etype, names in entities['by_type'].items():
+                        if names:
+                            entities_str.append(f"{etype}: {', '.join(names[:5])}")
+                    metadata_parts.append(f"Key Entities: {' | '.join(entities_str)}")
+
+            if metadata_parts:
+                metadata_context = "\n".join(metadata_parts) + "\n\n"
+
+        # Prepare ticker context from whitelist
+        ticker_context = self._format_ticker_whitelist()
+
+        # System instruction with full JSON schema
+        system_instruction = f"""You are a Senior Investment Strategist specializing in Geopolitical Risk and Market Intelligence.
+
+TASK: Analyze the article and provide a comprehensive intelligence assessment with ACTIONABLE TRADE SIGNALS.
+
+OUTPUT REQUIREMENTS:
+- Respond ONLY with valid JSON matching the schema below
+- Use Markdown formatting: **bold** for key entities, [Article N] for citations
+- Trade Signals: Only mention tickers if DIRECTLY relevant to article events
+- Impact Score: Rate event severity (0=noise, 10=systemic crisis)
+- Be concise but substantive (150-400 words for executive_summary)
+
+JSON SCHEMA (all fields REQUIRED):
+{{
+  "title": "string (5-15 words, descriptive title)",
+  "category": "GEOPOLITICS | DEFENSE | ECONOMY | CYBER | ENERGY",
+  "impact": {{
+    "score": integer (0-10, event severity),
+    "reasoning": "string (why this score, 1-2 sentences)"
+  }},
+  "sentiment": {{
+    "label": "POSITIVE | NEUTRAL | NEGATIVE",
+    "score": float (-1.0 to +1.0, sentiment polarity)
+  }},
+  "key_entities": ["string", ...] (top 5-10 organizations, people, locations),
+  "related_tickers": [
+    {{
+      "ticker": "string (e.g., 'LMT', 'TSM')",
+      "signal": "BULLISH | BEARISH | NEUTRAL | WATCHLIST",
+      "timeframe": "SHORT_TERM | MEDIUM_TERM | LONG_TERM",
+      "rationale": "string (specific catalyst, 1-2 sentences)"
+    }}
+  ],
+  "executive_summary": "string (BLUF-style summary with **markdown** formatting)",
+  "analysis_content": "string (full markdown analysis with ## headings)",
+  "confidence_score": float (0.0-1.0, your confidence in this analysis)
+}}
+
+CATEGORY DEFINITIONS:
+- GEOPOLITICS: Tensions, alliances, territorial disputes, diplomatic events
+- DEFENSE: Military tech, weapons systems, defense spending, armed conflicts
+- ECONOMY: Markets, trade, sanctions, economic policy, financial institutions
+- CYBER: Cyberattacks, data breaches, espionage, critical infrastructure
+- ENERGY: Oil, gas, renewables, OPEC, energy security, pipelines
+
+IMPACT SCORE (0-10):
+- 0-2: Noise (routine diplomatic statement, minor local incident)
+- 3-4: Noteworthy (significant development, limited geographic scope)
+- 5-6: Important (regional crisis, major policy shift)
+- 7-8: Critical (high escalation risk, global market impact)
+- 9-10: Systemic (war, financial crisis, critical infrastructure failure)
+
+SENTIMENT GUIDELINES:
+- POSITIVE (+0.3 to +1.0): Events reducing risks, improving stability, bullish for markets
+- NEUTRAL (-0.2 to +0.2): Informational, no clear directional impact
+- NEGATIVE (-1.0 to -0.3): Events increasing risks, uncertainty, or instability
+
+TRADE SIGNAL RULES:
+1. **Only use tickers from the whitelist below** - DO NOT invent tickers
+2. **Timeframe definitions**:
+   - SHORT_TERM: <3 months (immediate tactical positioning)
+   - MEDIUM_TERM: 3-12 months (quarterly earnings impact)
+   - LONG_TERM: >1 year (structural shifts, multi-year trends)
+3. **Signal types**:
+   - BULLISH: Clear positive catalyst (contracts, earnings, favorable policy)
+   - BEARISH: Clear negative catalyst (sanctions, loss of market, regulation)
+   - NEUTRAL: No strong directional bias but worth monitoring
+   - WATCHLIST: Potential future impact, awaiting catalyst
+4. **Rationale must be SPECIFIC**: Include concrete numbers, contract values, dates, causal links
+
+TICKER WHITELIST (ONLY use these):
+{ticker_context}
+
+If article does NOT mention any ticker-relevant events, return empty array for related_tickers.
+
+MARKDOWN FORMATTING:
+- Use **bold** for: Company names, key people, critical locations
+- Use [Article N] format for source citations (if multiple articles)
+- Use ## headings for analysis_content sections
+- Example: "**Taiwan Semiconductor (TSM)** reported record Q4 earnings [Article 3]..."
+
+CONFIDENCE SCORE:
+- 0.9-1.0: High confidence (verified facts, multiple sources, clear causality)
+- 0.7-0.8: Medium confidence (single source, emerging story, some uncertainty)
+- 0.5-0.6: Low confidence (rumors, conflicting info, speculative analysis)
+
+EXAMPLE OUTPUT:
+{{
+  "title": "China Naval Exercises Near Taiwan Escalate Tensions",
+  "category": "GEOPOLITICS",
+  "impact": {{
+    "score": 7,
+    "reasoning": "Largest PLA Navy deployment since 2024, high risk of miscalculation in contested waters"
+  }},
+  "sentiment": {{
+    "label": "NEGATIVE",
+    "score": -0.65
+  }},
+  "key_entities": ["China", "Taiwan", "US 7th Fleet", "TSMC", "Xi Jinping"],
+  "related_tickers": [
+    {{
+      "ticker": "TSM",
+      "signal": "BEARISH",
+      "timeframe": "SHORT_TERM",
+      "rationale": "Geopolitical risk premium spike; potential supply chain disruption fears impacting semiconductor sector valuations"
+    }},
+    {{
+      "ticker": "LMT",
+      "signal": "BULLISH",
+      "timeframe": "MEDIUM_TERM",
+      "rationale": "Increased demand for Aegis defense systems and F-35 fighter jets from Taiwan and regional allies (Japan, Australia) likely"
+    }}
+  ],
+  "executive_summary": "BLUF: **China's People's Liberation Army Navy** deployed 15 warships including 3 Type 055 destroyers 100km from **Taiwan Strait** on Dec 15, marking the largest show of force since August 2024. **Taiwan's Ministry of Defense** confirmed no territorial water incursions but reported increased surveillance flights. **US 7th Fleet** is monitoring closely. Investment implications: Short-term volatility expected for **Taiwan Semiconductor (TSM)** and Asia-Pacific equities due to heightened geopolitical risk premium. Defense contractors like **Lockheed Martin (LMT)** and **Raytheon (RTX)** positioned to benefit from increased regional procurement.",
+  "analysis_content": "## Military Deployment Details\\n\\nChina's naval exercise represents a significant escalation...\\n\\n## Market Impact Analysis\\n\\nTaiwan Semiconductor faces immediate valuation pressure...",
+  "confidence_score": 0.85
+}}
+
+Now analyze the article below and respond with JSON only:"""
+
+        # User prompt with article content
+        user_prompt = f"""Article to analyze:
+
+{metadata_context}{article_text}
+
+Respond with JSON analysis following the full schema above:"""
+
+        try:
+            # Call Gemini with JSON mode
+            # CRITICAL: Use temperature 0.2 (NOT 0.3) for analytical consistency
+            response = self.model.generate_content(
+                contents=[system_instruction, user_prompt],
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "temperature": 0.2,  # Lower than MVP for trade signal precision
+                    # NO max_output_tokens - let it generate full content
+                }
+                # Optional: Add timeout if 504 errors occur
+                # request_options={"timeout": 600}
+            )
+
+            raw_output = response.text
+            logger.debug(f"Raw LLM output: {raw_output[:200]}...")
+
+            # Validate with Pydantic (IntelligenceReport full schema)
+            try:
+                validated_report = IntelligenceReport.model_validate_json(raw_output)
+                logger.info("✅ Pydantic validation PASSED (Full Schema)")
+
+                # Log extracted trade signals for visibility
+                signals = validated_report.related_tickers
+                if signals:
+                    logger.info(f"  💰 Trade Signals: {len(signals)} extracted")
+                    for sig in signals:
+                        logger.info(f"     {sig.ticker}: {sig.signal} ({sig.timeframe})")
+                else:
+                    logger.info("  ℹ️  No trade signals (article not ticker-relevant)")
 
                 return {
                     'success': True,
