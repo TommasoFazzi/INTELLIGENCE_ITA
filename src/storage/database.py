@@ -551,6 +551,81 @@ class DatabaseManager:
             logger.error(f"Error getting recent articles: {e}")
             return []
 
+    def get_article_by_link(self, link: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific article by its link.
+
+        Args:
+            link: Article link/URL
+
+        Returns:
+            Article dictionary if found, None otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT
+                            id, title, link, published_date, source, category,
+                            subcategory, summary, full_text, entities, nlp_metadata,
+                            full_text_embedding, ai_analysis
+                        FROM articles
+                        WHERE link = %s
+                        LIMIT 1
+                    """, (link,))
+
+                    row = cur.fetchone()
+                    if not row:
+                        return None
+
+                    return {
+                        'id': row[0],
+                        'title': row[1],
+                        'link': row[2],
+                        'published_date': row[3],
+                        'source': row[4],
+                        'category': row[5],
+                        'subcategory': row[6],
+                        'summary': row[7],
+                        'full_text': row[8],
+                        'entities': row[9],
+                        'nlp_metadata': row[10],
+                        'full_text_embedding': row[11],
+                        'ai_analysis': row[12]
+                    }
+
+        except Exception as e:
+            logger.error(f"Error getting article by link: {e}")
+            return None
+
+    def update_article_analysis(self, article_id: int, analysis_data: Dict[str, Any]) -> bool:
+        """
+        Update the ai_analysis column for an article with structured analysis data.
+
+        Args:
+            article_id: Article ID
+            analysis_data: Structured analysis dictionary (from IntelligenceReport schema)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    import json
+                    cur.execute("""
+                        UPDATE articles
+                        SET ai_analysis = %s, updated_at = NOW()
+                        WHERE id = %s
+                    """, (json.dumps(analysis_data), article_id))
+
+                    conn.commit()
+                    return cur.rowcount > 0
+
+        except Exception as e:
+            logger.error(f"Error updating article analysis: {e}")
+            return False
+
     def save_report(self, report: Dict[str, Any]) -> Optional[int]:
         """
         Save LLM-generated report to database.

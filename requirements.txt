@@ -18,6 +18,10 @@ psycopg2-binary==2.9.9
 pgvector==0.2.4
 sqlalchemy==2.0.25
 
+# Market Data (Sprint 3)
+yfinance==0.2.66  # Latest 0.2.x with Yahoo Finance API fixes
+pandas>=2.2.0  # Python 3.13 compatible
+
 # LLM APIs (uncomment based on your choice)
 # openai==1.10.0
 # anthropic==0.8.1

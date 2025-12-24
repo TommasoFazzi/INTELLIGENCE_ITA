@@ -69,6 +69,11 @@ def main():
         default=10,
         help='Minimum number of articles to use even if below threshold (default: 10)'
     )
+    parser.add_argument(
+        '--analyze-articles',
+        action='store_true',
+        help='Generate structured analysis (Trade Signals, Impact Score) for each article (Sprint 2.2)'
+    )
 
     args = parser.parse_args()
 
@@ -161,6 +166,81 @@ def main():
     except Exception as e:
         logger.error(f"Error saving report to database: {e}")
         # Don't fail the entire script if DB save fails
+
+    # SPRINT 2.2: Generate structured analysis for each article (if enabled)
+    if args.analyze_articles:
+        try:
+            logger.info(f"\n[STEP 6 - SPRINT 2.2] Generating structured analysis for articles...")
+            logger.info(f"Processing {len(report['sources']['recent_articles'])} articles with full schema...")
+
+            analysis_stats = {
+                'success': 0,
+                'failed': 0,
+                'trade_signals_found': 0,
+                'saved_to_db': 0
+            }
+
+            for i, article_ref in enumerate(report['sources']['recent_articles'], 1):
+                try:
+                    # Fetch full article from database
+                    article = generator.db.get_article_by_link(article_ref['link'])
+                    if not article:
+                        logger.warning(f"  [{i}/{len(report['sources']['recent_articles'])}] Article not found in DB: {article_ref['title'][:50]}...")
+                        analysis_stats['failed'] += 1
+                        continue
+
+                    logger.info(f"  [{i}/{len(report['sources']['recent_articles'])}] Analyzing: {article['title'][:60]}...")
+
+                    # Generate full analysis
+                    result = generator.generate_full_analysis(
+                        article_text=article['full_text'],
+                        article_metadata={
+                            'title': article['title'],
+                            'source': article['source'],
+                            'published_date': article.get('published_date')
+                        }
+                    )
+
+                    if result['success']:
+                        analysis_stats['success'] += 1
+
+                        # Count trade signals
+                        signals = result['structured'].get('related_tickers', [])
+                        if signals:
+                            analysis_stats['trade_signals_found'] += len(signals)
+                            logger.info(f"      💰 Trade Signals: {len(signals)} ({', '.join([s['ticker'] for s in signals])})")
+
+                        # Save to database (ai_analysis column)
+                        try:
+                            generator.db.update_article_analysis(
+                                article_id=article['id'],
+                                analysis_data=result['structured']
+                            )
+                            analysis_stats['saved_to_db'] += 1
+                            logger.info(f"      ✅ Saved to database")
+                        except Exception as db_error:
+                            logger.warning(f"      ⚠️ Failed to save analysis to DB: {db_error}")
+                    else:
+                        analysis_stats['failed'] += 1
+                        logger.warning(f"      ❌ Analysis failed: {result.get('error', 'Unknown error')}")
+
+                except Exception as article_error:
+                    logger.error(f"  [{i}] Error processing article: {article_error}")
+                    analysis_stats['failed'] += 1
+
+            # Summary
+            logger.info("\n" + "-" * 80)
+            logger.info("STRUCTURED ANALYSIS SUMMARY (Sprint 2.2)")
+            logger.info("-" * 80)
+            success_rate = (analysis_stats['success'] / len(report['sources']['recent_articles']) * 100) if report['sources']['recent_articles'] else 0
+            logger.info(f"Success Rate: {success_rate:.1f}% ({analysis_stats['success']}/{len(report['sources']['recent_articles'])})")
+            logger.info(f"Trade Signals Extracted: {analysis_stats['trade_signals_found']}")
+            logger.info(f"Saved to Database: {analysis_stats['saved_to_db']}")
+            logger.info("-" * 80)
+
+        except Exception as e:
+            logger.error(f"Error during structured analysis: {e}", exc_info=True)
+            # Don't fail the entire script if structured analysis fails
 
     # Print report summary
     logger.info("\n" + "=" * 80)
