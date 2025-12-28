@@ -128,3 +128,127 @@ class IntelligenceReport(BaseModel):
                 "confidence_score": 0.90
             }
         }
+
+
+# ============================================================================
+# MACRO-FIRST PIPELINE SCHEMAS
+# ============================================================================
+# Used by the serialized pipeline (--macro-first flag) where:
+# 1. Macro report is generated first
+# 2. Context is condensed for efficiency
+# 3. Trade signals are extracted with macro alignment check
+
+
+class MacroCondensedContext(BaseModel):
+    """
+    Token-efficient condensation of macro report (~500 tokens).
+
+    Used as context for article-level signal extraction instead of
+    passing the full report (5000+ tokens), reducing API costs by ~90%.
+    """
+    key_themes: list[str] = Field(
+        ...,
+        description="Top 5-7 strategic themes from the macro report",
+        min_length=3,
+        max_length=10
+    )
+
+    dominant_sentiment: Literal["RISK_ON", "RISK_OFF", "MIXED"] = Field(
+        ...,
+        description="Overall market sentiment from macro analysis"
+    )
+
+    priority_sectors: list[str] = Field(
+        ...,
+        description="Sectors most affected by current events (e.g., 'Defense', 'Semiconductors')",
+        max_length=5
+    )
+
+    tickers_mentioned: list[str] = Field(
+        ...,
+        description="Tickers explicitly mentioned in the macro report",
+        max_length=20
+    )
+
+    geopolitical_hotspots: list[str] = Field(
+        ...,
+        description="Active geopolitical regions (e.g., 'Taiwan Strait', 'Middle East')",
+        max_length=5
+    )
+
+    time_horizon_focus: Literal["IMMEDIATE", "SHORT_TERM", "MEDIUM_TERM"] = Field(
+        ...,
+        description="Primary time horizon of macro concerns"
+    )
+
+
+class ReportLevelSignal(BaseModel):
+    """
+    Trade signal extracted at macro report level.
+
+    These are HIGH-CONVICTION signals derived from the synthesis of
+    multiple articles, not individual article events.
+    """
+    ticker: str = Field(..., description="Stock ticker symbol from whitelist")
+    signal: Literal["BULLISH", "BEARISH", "NEUTRAL", "WATCHLIST"]
+    timeframe: Literal["SHORT_TERM", "MEDIUM_TERM", "LONG_TERM"]
+    rationale: str = Field(
+        ...,
+        description="Macro-level rationale spanning multiple articles/themes"
+    )
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence in this signal (0.7+ for macro signals)"
+    )
+    supporting_themes: list[str] = Field(
+        ...,
+        description="Which macro themes support this signal"
+    )
+
+
+class ArticleLevelSignal(BaseModel):
+    """
+    Trade signal extracted from individual article WITH macro alignment check.
+
+    Includes alignment_score indicating how well the signal aligns with
+    the broader macro narrative. Low alignment may indicate contrarian signal.
+    """
+    ticker: str = Field(..., description="Stock ticker symbol from whitelist")
+    signal: Literal["BULLISH", "BEARISH", "NEUTRAL", "WATCHLIST"]
+    timeframe: Literal["SHORT_TERM", "MEDIUM_TERM", "LONG_TERM"]
+    rationale: str = Field(..., description="Article-specific catalyst")
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    alignment_score: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Alignment with macro narrative (1.0 = perfect, 0.0 = contrarian)"
+    )
+    alignment_reasoning: str = Field(
+        ...,
+        description="Explanation of alignment or divergence from macro themes"
+    )
+
+
+class MacroSignalsResult(BaseModel):
+    """
+    Complete output from report-level signal extraction.
+    """
+    condensed_context: MacroCondensedContext
+    report_signals: list[ReportLevelSignal]
+    extraction_timestamp: str
+
+
+class ArticleSignalsResult(BaseModel):
+    """
+    Output from article-level signal extraction with macro context.
+    """
+    article_id: int
+    article_title: str
+    signals: list[ArticleLevelSignal]
+    macro_alignment_summary: str = Field(
+        ...,
+        description="Brief summary of how this article fits the macro narrative"
+    )

@@ -1322,6 +1322,727 @@ For each insight, always include: specific tickers, concrete catalysts with exac
 
         return report
 
+    # =========================================================================
+    # MACRO-FIRST PIPELINE METHODS
+    # =========================================================================
+    # These methods implement the serialized pipeline where:
+    # 1. Macro report is generated first
+    # 2. Context is condensed for token efficiency
+    # 3. Trade signals are extracted with macro alignment check
+
+    def filter_articles_with_tickers(
+        self,
+        articles: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Filter articles that mention tickers from the whitelist.
+
+        Only articles containing ticker symbols or company aliases from
+        config/top_50_tickers.yaml will be returned. This reduces API
+        calls by 60-80% while maintaining signal relevance.
+
+        Args:
+            articles: List of articles (with full_text and entities)
+
+        Returns:
+            Filtered list of articles that mention whitelisted tickers
+        """
+        if not self.ticker_whitelist:
+            logger.warning("No ticker whitelist loaded, returning all articles")
+            return articles
+
+        # Build flat list of all tickers and aliases (case-insensitive)
+        all_matches = set()
+        for category, companies in self.ticker_whitelist.items():
+            for ticker in companies:
+                all_matches.add(ticker.upper())
+
+        # Also load aliases from the full config file
+        import yaml
+        config_path = Path(__file__).parent.parent.parent / 'config' / 'top_50_tickers.yaml'
+        aliases_map = {}
+
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                ticker_config = yaml.safe_load(f)
+
+            for category, companies in ticker_config.items():
+                for company in companies:
+                    ticker = company['ticker']
+                    # Add ticker itself
+                    all_matches.add(ticker.upper())
+                    # Add all aliases
+                    for alias in company.get('aliases', []):
+                        all_matches.add(alias.upper())
+                        aliases_map[alias.upper()] = ticker
+        except Exception as e:
+            logger.warning(f"Could not load aliases from config: {e}")
+
+        # Filter articles
+        filtered = []
+        for article in articles:
+            # Check full_text
+            full_text = article.get('full_text', '') or ''
+            full_text_upper = full_text.upper()
+
+            # Check entities (ORG type especially)
+            entities = article.get('entities', {})
+            entity_names = []
+            if isinstance(entities, dict):
+                for entity_type, names in entities.items():
+                    if isinstance(names, list):
+                        for n in names:
+                            if isinstance(n, str):
+                                entity_names.append(n.upper())
+                            elif isinstance(n, dict):
+                                # Handle dict format like {'text': 'Microsoft', 'label': 'ORG'}
+                                text = n.get('text') or n.get('name') or ''
+                                if text:
+                                    entity_names.append(text.upper())
+
+            # Check title
+            title = article.get('title', '') or ''
+            title_upper = title.upper()
+
+            # Search for matches
+            found_ticker = False
+            matched_tickers = []
+
+            for match_term in all_matches:
+                if (match_term in full_text_upper or
+                    match_term in title_upper or
+                    match_term in entity_names):
+                    found_ticker = True
+                    # Get the actual ticker (resolve alias if needed)
+                    actual_ticker = aliases_map.get(match_term, match_term)
+                    if actual_ticker not in matched_tickers:
+                        matched_tickers.append(actual_ticker)
+
+            if found_ticker:
+                # Add matched tickers to article for later use
+                article['matched_tickers'] = matched_tickers
+                filtered.append(article)
+
+        logger.info(f"✓ Ticker filter: {len(filtered)}/{len(articles)} articles contain whitelisted tickers")
+        return filtered
+
+    def condense_macro_context(
+        self,
+        report_text: str,
+        report_metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a token-efficient condensation of the macro report.
+
+        This condensed context (~500 tokens) will be passed to each article
+        analysis instead of the full report (~5000+ tokens), reducing API
+        costs by ~90% while preserving essential macro alignment context.
+
+        Args:
+            report_text: Full macro report text
+            report_metadata: Optional metadata (focus_areas, article_count, etc.)
+
+        Returns:
+            Dictionary with:
+            - success: bool
+            - condensed: MacroCondensedContext as dict
+            - raw_llm_output: str
+            - token_estimate: int (approximate tokens in condensed context)
+        """
+        logger.info("Condensing macro report into structured context...")
+
+        prompt = f"""You are condensing a macro intelligence report into a structured summary.
+
+TASK: Extract the key strategic themes, sentiment, and tickers from this report.
+Output must be JSON matching the schema exactly.
+
+JSON SCHEMA:
+{{
+  "key_themes": ["string", ...] (5-7 major themes, e.g., "Taiwan escalation risk", "Defense spending surge"),
+  "dominant_sentiment": "RISK_ON | RISK_OFF | MIXED",
+  "priority_sectors": ["string", ...] (max 5 sectors, e.g., "Defense", "Semiconductors"),
+  "tickers_mentioned": ["string", ...] (all tickers explicitly mentioned, max 20),
+  "geopolitical_hotspots": ["string", ...] (active regions, max 5),
+  "time_horizon_focus": "IMMEDIATE | SHORT_TERM | MEDIUM_TERM"
+}}
+
+RULES:
+1. key_themes: Extract ACTIONABLE strategic themes, not generic observations
+2. dominant_sentiment: RISK_OFF = defensive posture, RISK_ON = bullish/offensive, MIXED = unclear
+3. tickers_mentioned: ONLY include tickers actually in the report text (e.g., LMT, TSM, not company names)
+4. Keep each field concise (total output < 500 tokens)
+5. priority_sectors: Use categories like Defense, Semiconductors, Energy, Cyber, Finance
+
+MACRO REPORT TO CONDENSE:
+---
+{report_text[:15000]}
+---
+
+Respond with JSON only:"""
+
+        try:
+            response = self.model.generate_content(
+                contents=[prompt],
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "temperature": 0.2,
+                }
+            )
+
+            raw_output = response.text
+
+            # Validate with Pydantic
+            from .schemas import MacroCondensedContext
+            validated = MacroCondensedContext.model_validate_json(raw_output)
+
+            # Estimate tokens (rough: 1 token ~ 4 chars)
+            token_estimate = len(raw_output) // 4
+
+            logger.info(f"✓ Macro context condensed: {len(validated.key_themes)} themes, "
+                       f"{len(validated.tickers_mentioned)} tickers, ~{token_estimate} tokens")
+
+            return {
+                'success': True,
+                'condensed': validated.model_dump(),
+                'raw_llm_output': raw_output,
+                'token_estimate': token_estimate
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to condense macro context: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'condensed': None
+            }
+
+    def extract_macro_signals(
+        self,
+        report_text: str,
+        condensed_context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Extract trade signals at the macro report level.
+
+        These are HIGH-CONVICTION signals derived from the synthesis of
+        multiple articles, not individual article events.
+
+        Args:
+            report_text: Full macro report text
+            condensed_context: Output from condense_macro_context()
+
+        Returns:
+            Dictionary with:
+            - success: bool
+            - signals: list[ReportLevelSignal] as dicts
+            - raw_llm_output: str
+        """
+        logger.info("Extracting report-level trade signals...")
+
+        ticker_context = self._format_ticker_whitelist()
+
+        # Format condensed themes for prompt
+        themes_str = "\n".join(f"- {theme}" for theme in condensed_context.get('key_themes', []))
+        sectors_str = ", ".join(condensed_context.get('priority_sectors', []))
+
+        prompt = f"""You are extracting MACRO-LEVEL trade signals from an intelligence report.
+
+CONTEXT (Condensed Macro Analysis):
+- Dominant Sentiment: {condensed_context.get('dominant_sentiment', 'MIXED')}
+- Priority Sectors: {sectors_str}
+- Key Themes:
+{themes_str}
+- Geopolitical Hotspots: {', '.join(condensed_context.get('geopolitical_hotspots', []))}
+
+TASK: Extract 3-8 HIGH-CONVICTION trade signals that represent the SYNTHESIS of the full report.
+These are NOT per-article signals but strategic positioning based on macro themes.
+
+TICKER WHITELIST (ONLY use these):
+{ticker_context}
+
+JSON SCHEMA (array of signals):
+[
+  {{
+    "ticker": "string (from whitelist, e.g., LMT, TSM)",
+    "signal": "BULLISH | BEARISH | NEUTRAL | WATCHLIST",
+    "timeframe": "SHORT_TERM | MEDIUM_TERM | LONG_TERM",
+    "rationale": "string (1-2 sentences, cite specific macro drivers)",
+    "confidence": float (0.7-1.0 for macro signals),
+    "supporting_themes": ["string", ...] (which key_themes support this)
+  }}
+]
+
+TIMEFRAME DEFINITIONS:
+- SHORT_TERM: <3 months (immediate tactical positioning)
+- MEDIUM_TERM: 3-12 months (quarterly earnings impact)
+- LONG_TERM: >1 year (structural shifts)
+
+RULES:
+1. HIGH BAR: Only signals with strong multi-source evidence
+2. ACTIONABLE: Each signal must have clear timeframe and catalyst
+3. DIVERSE: Avoid 5 defense stocks with same rationale - diversify across sectors
+4. CONFIDENCE: Macro signals should be 0.7+ (synthesized from many sources)
+5. Empty array is valid if no clear signals emerge
+
+FULL REPORT:
+---
+{report_text[:20000]}
+---
+
+Respond with JSON array only:"""
+
+        try:
+            response = self.model.generate_content(
+                contents=[prompt],
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "temperature": 0.3,
+                }
+            )
+
+            raw_output = response.text
+
+            # Parse and validate each signal
+            from .schemas import ReportLevelSignal
+
+            raw_signals = json.loads(raw_output)
+            validated_signals = []
+
+            for sig in raw_signals:
+                try:
+                    validated = ReportLevelSignal.model_validate(sig)
+                    validated_signals.append(validated.model_dump())
+                except Exception as e:
+                    logger.warning(f"Invalid report signal skipped: {e}")
+
+            logger.info(f"✓ Extracted {len(validated_signals)} macro-level signals")
+            for sig in validated_signals:
+                logger.info(f"  {sig['ticker']}: {sig['signal']} ({sig['timeframe']}) - confidence: {sig['confidence']:.0%}")
+
+            return {
+                'success': True,
+                'signals': validated_signals,
+                'raw_llm_output': raw_output
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to extract macro signals: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'signals': []
+            }
+
+    def extract_article_signals_with_context(
+        self,
+        article_text: str,
+        article_metadata: Dict[str, Any],
+        condensed_context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Extract trade signals from an article WITH macro context alignment.
+
+        This method adds an alignment_score to each signal indicating how
+        well it aligns with the macro narrative. Signals that DIVERGE from
+        macro themes may still be valid (contrarian) but are flagged.
+
+        Args:
+            article_text: Full article text
+            article_metadata: Article metadata (title, source, id, etc.)
+            condensed_context: Output from condense_macro_context()
+
+        Returns:
+            Dictionary with:
+            - success: bool
+            - signals: list[ArticleLevelSignal] as dicts
+            - macro_alignment_summary: str
+            - raw_llm_output: str
+        """
+        ticker_context = self._format_ticker_whitelist()
+
+        # Format condensed context for prompt (~500 tokens)
+        context_summary = f"""MACRO CONTEXT (Today's Intelligence Synthesis):
+- Sentiment: {condensed_context.get('dominant_sentiment', 'MIXED')}
+- Priority Sectors: {', '.join(condensed_context.get('priority_sectors', []))}
+- Key Themes: {', '.join(condensed_context.get('key_themes', [])[:5])}
+- Active Hotspots: {', '.join(condensed_context.get('geopolitical_hotspots', []))}
+- Tickers in Focus: {', '.join(condensed_context.get('tickers_mentioned', [])[:10])}"""
+
+        prompt = f"""You are analyzing an article for trade signals WITH MACRO CONTEXT ALIGNMENT.
+
+{context_summary}
+
+ARTICLE METADATA:
+- Title: {article_metadata.get('title', 'Unknown')}
+- Source: {article_metadata.get('source', 'Unknown')}
+
+TASK: Extract trade signals AND assess how they align with today's macro narrative.
+
+TICKER WHITELIST (ONLY use these):
+{ticker_context}
+
+JSON SCHEMA:
+{{
+  "signals": [
+    {{
+      "ticker": "string (from whitelist)",
+      "signal": "BULLISH | BEARISH | NEUTRAL | WATCHLIST",
+      "timeframe": "SHORT_TERM | MEDIUM_TERM | LONG_TERM",
+      "rationale": "string (article-specific catalyst)",
+      "confidence": float (0.0-1.0),
+      "alignment_score": float (0.0-1.0, how well this aligns with macro themes),
+      "alignment_reasoning": "string (explain alignment or divergence)"
+    }}
+  ],
+  "macro_alignment_summary": "string (1-2 sentences: how this article fits the macro narrative)"
+}}
+
+ALIGNMENT SCORING:
+- 1.0: Signal directly supports macro themes (e.g., defense bullish during escalation)
+- 0.7-0.9: Consistent with macro but different sector/angle
+- 0.4-0.6: Neutral/orthogonal to macro themes
+- 0.1-0.3: Contrarian signal (valid but divergent from macro consensus)
+- 0.0: Signal contradicts macro narrative without clear justification
+
+RULES:
+1. Only use tickers from whitelist
+2. Empty signals array is valid if article has no ticker-relevant events
+3. Be specific in rationale - cite article content
+4. Alignment reasoning should explain the connection (or lack thereof) to macro themes
+
+ARTICLE TEXT:
+---
+{article_text[:8000]}
+---
+
+Respond with JSON only:"""
+
+        try:
+            response = self.model.generate_content(
+                contents=[prompt],
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "temperature": 0.3,
+                }
+            )
+
+            raw_output = response.text
+
+            from .schemas import ArticleLevelSignal
+
+            parsed = json.loads(raw_output)
+            validated_signals = []
+
+            for sig in parsed.get('signals', []):
+                try:
+                    validated = ArticleLevelSignal.model_validate(sig)
+                    validated_signals.append(validated.model_dump())
+                except Exception as e:
+                    logger.warning(f"Invalid article signal skipped: {e}")
+
+            return {
+                'success': True,
+                'signals': validated_signals,
+                'macro_alignment_summary': parsed.get('macro_alignment_summary', ''),
+                'raw_llm_output': raw_output
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to extract article signals: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'signals': [],
+                'macro_alignment_summary': ''
+            }
+
+    def save_trade_signals(
+        self,
+        report_id: int,
+        report_signals: List[Dict[str, Any]],
+        article_signals: List[Dict[str, Any]]
+    ) -> Dict[str, int]:
+        """
+        Save trade signals to normalized trade_signals table.
+        Also updates reports.metadata with denormalized JSONB for quick access.
+
+        Args:
+            report_id: FK to reports table
+            report_signals: List of ReportLevelSignal dicts
+            article_signals: List of dicts with article_id and signals
+
+        Returns:
+            Dictionary with counts: saved_report_signals, saved_article_signals, errors
+        """
+        from psycopg2.extras import Json
+
+        stats = {'saved_report_signals': 0, 'saved_article_signals': 0, 'errors': 0}
+
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    # 1. Insert report-level signals (article_id = NULL)
+                    for sig in report_signals:
+                        try:
+                            cur.execute("""
+                                INSERT INTO trade_signals
+                                (report_id, article_id, ticker, signal, timeframe,
+                                 rationale, confidence, alignment_score, signal_source, category)
+                                VALUES (%s, NULL, %s, %s, %s, %s, %s, 1.0, 'report', %s)
+                                ON CONFLICT (report_id, ticker, signal, timeframe)
+                                WHERE article_id IS NULL
+                                DO NOTHING
+                            """, (
+                                report_id,
+                                sig['ticker'],
+                                sig['signal'],
+                                sig['timeframe'],
+                                sig['rationale'],
+                                sig.get('confidence', 0.8),
+                                sig.get('category')
+                            ))
+                            if cur.rowcount > 0:
+                                stats['saved_report_signals'] += 1
+                            else:
+                                logger.debug(f"Duplicate report signal skipped: {sig['ticker']}")
+                        except Exception as e:
+                            logger.warning(f"Failed to save report signal {sig['ticker']}: {e}")
+                            stats['errors'] += 1
+
+                    # 2. Insert article-level signals
+                    for article_data in article_signals:
+                        article_id = article_data.get('article_id')
+                        for sig in article_data.get('signals', []):
+                            try:
+                                cur.execute("""
+                                    INSERT INTO trade_signals
+                                    (report_id, article_id, ticker, signal, timeframe,
+                                     rationale, confidence, alignment_score, signal_source, category)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'article', %s)
+                                    ON CONFLICT (report_id, article_id, ticker, signal, timeframe)
+                                    WHERE article_id IS NOT NULL
+                                    DO NOTHING
+                                """, (
+                                    report_id,
+                                    article_id,
+                                    sig['ticker'],
+                                    sig['signal'],
+                                    sig['timeframe'],
+                                    sig['rationale'],
+                                    sig.get('confidence', 0.5),
+                                    sig.get('alignment_score', 0.5),
+                                    sig.get('category')
+                                ))
+                                if cur.rowcount > 0:
+                                    stats['saved_article_signals'] += 1
+                                else:
+                                    logger.debug(f"Duplicate article signal skipped: {sig['ticker']}")
+                            except Exception as e:
+                                logger.warning(f"Failed to save article signal: {e}")
+                                stats['errors'] += 1
+
+                    # 3. Update reports.metadata with denormalized signals JSONB
+                    all_signals_summary = {
+                        'report_signals': report_signals,
+                        'article_signals_count': stats['saved_article_signals'],
+                        'total_signals': stats['saved_report_signals'] + stats['saved_article_signals'],
+                        'extraction_timestamp': datetime.now().isoformat()
+                    }
+
+                    cur.execute("""
+                        UPDATE reports
+                        SET metadata = COALESCE(metadata, '{}'::jsonb) || %s::jsonb,
+                            updated_at = NOW()
+                        WHERE id = %s
+                    """, (Json({'trade_signals_summary': all_signals_summary}), report_id))
+
+                    conn.commit()
+
+            logger.info(f"✓ Saved {stats['saved_report_signals']} report signals, "
+                       f"{stats['saved_article_signals']} article signals to database")
+            return stats
+
+        except Exception as e:
+            logger.error(f"Failed to save trade signals: {e}")
+            stats['errors'] += 1
+            return stats
+
+    def run_macro_first_pipeline(
+        self,
+        focus_areas: Optional[List[str]] = None,
+        days: int = 1,
+        save: bool = True,
+        save_to_db: bool = True,
+        output_dir: str = "reports",
+        top_articles: int = 60,
+        min_similarity: float = 0.30,
+        min_fallback: int = 10,
+        skip_article_signals: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Run the serialized Macro-First pipeline.
+
+        Flow:
+        1. Generate macro report (existing generate_report method)
+        2. Condense macro context (~500 tokens)
+        3. Extract report-level signals (high-conviction, synthesized)
+        4. Filter articles with ticker mentions
+        5. For each filtered article: extract signals with macro alignment check
+        6. Save all signals to trade_signals table
+
+        Args:
+            focus_areas: Topics to focus on
+            days: Number of days to look back
+            save: Whether to save report to file
+            save_to_db: Whether to save to database
+            output_dir: Directory for saved reports
+            top_articles: Maximum articles to analyze
+            min_similarity: Relevance threshold
+            skip_article_signals: If True, only extract report-level signals (faster)
+
+        Returns:
+            Extended report dictionary with trade_signals data
+        """
+        logger.info("=" * 80)
+        logger.info("MACRO-FIRST PIPELINE (Serialized)")
+        logger.info("=" * 80)
+
+        # Step 1: Generate macro report (reuse existing method)
+        logger.info("\n[STEP 1/6] Generating macro report...")
+        report = self.generate_report(
+            focus_areas=focus_areas,
+            days=days,
+            top_articles=top_articles,
+            min_similarity=min_similarity,
+            min_fallback=min_fallback
+        )
+
+        if not report['success']:
+            return report
+
+        report_text = report['report_text']
+
+        # Step 2: Condense macro context
+        logger.info("\n[STEP 2/6] Condensing macro context for efficiency...")
+        condensed_result = self.condense_macro_context(report_text, report.get('metadata'))
+
+        if not condensed_result['success']:
+            logger.warning("Failed to condense context, using fallback")
+            condensed_context = {
+                'key_themes': [],
+                'dominant_sentiment': 'MIXED',
+                'priority_sectors': [],
+                'tickers_mentioned': [],
+                'geopolitical_hotspots': [],
+                'time_horizon_focus': 'SHORT_TERM'
+            }
+        else:
+            condensed_context = condensed_result['condensed']
+
+        # Step 3: Extract report-level signals
+        logger.info("\n[STEP 3/6] Extracting report-level trade signals...")
+        macro_signals_result = self.extract_macro_signals(report_text, condensed_context)
+        report_signals = macro_signals_result.get('signals', [])
+
+        # Step 4 & 5: Article-level signals (optional)
+        article_signals = []
+        articles_with_tickers = []
+
+        if not skip_article_signals:
+            logger.info(f"\n[STEP 4/6] Filtering articles with ticker mentions...")
+
+            # Get full articles from database
+            articles_refs = report['sources']['recent_articles']
+            full_articles = []
+
+            for article_ref in articles_refs:
+                article = self.db.get_article_by_link(article_ref['link'])
+                if article:
+                    full_articles.append(article)
+
+            # Filter to only articles with ticker mentions
+            articles_with_tickers = self.filter_articles_with_tickers(full_articles)
+
+            logger.info(f"\n[STEP 5/6] Extracting article-level signals with macro alignment...")
+            logger.info(f"Processing {len(articles_with_tickers)} articles with ticker mentions...")
+
+            for i, article in enumerate(articles_with_tickers, 1):
+                try:
+                    logger.info(f"  [{i}/{len(articles_with_tickers)}] {article['title'][:60]}...")
+
+                    result = self.extract_article_signals_with_context(
+                        article_text=article.get('full_text', ''),
+                        article_metadata={
+                            'title': article['title'],
+                            'source': article['source'],
+                            'id': article['id'],
+                            'matched_tickers': article.get('matched_tickers', [])
+                        },
+                        condensed_context=condensed_context
+                    )
+
+                    if result['success'] and result['signals']:
+                        article_signals.append({
+                            'article_id': article['id'],
+                            'article_title': article['title'],
+                            'signals': result['signals'],
+                            'macro_alignment_summary': result['macro_alignment_summary']
+                        })
+                        logger.info(f"      → {len(result['signals'])} signals extracted")
+
+                except Exception as e:
+                    logger.warning(f"  Error processing article: {e}")
+        else:
+            logger.info("\n[STEP 4/6] Skipping article filtering (--skip-article-signals)")
+            logger.info("[STEP 5/6] Skipping article-level signals (--skip-article-signals)")
+
+        # Step 6: Save to database
+        logger.info("\n[STEP 6/6] Saving to database...")
+        report_id = None
+        signal_stats = {'saved_report_signals': 0, 'saved_article_signals': 0, 'errors': 0}
+
+        if save_to_db:
+            # Save report first
+            report_id = self.db.save_report(report)
+
+            if report_id:
+                # Save trade signals
+                signal_stats = self.save_trade_signals(
+                    report_id=report_id,
+                    report_signals=report_signals,
+                    article_signals=article_signals
+                )
+
+            report['report_id'] = report_id
+
+        # Save to file
+        if save:
+            self.save_report(report, output_dir=output_dir)
+
+        # Enrich report with trade signals data
+        report['macro_first'] = True
+        report['condensed_context'] = condensed_context
+        report['report_signals'] = report_signals
+        report['article_signals'] = article_signals
+        report['article_signals_count'] = len(article_signals)
+        report['articles_with_tickers_count'] = len(articles_with_tickers)
+        report['trade_signals_stats'] = signal_stats
+        report['token_savings_estimate'] = condensed_result.get('token_estimate', 0)
+
+        # Summary
+        total_article_signals = sum(len(a.get('signals', [])) for a in article_signals)
+
+        logger.info("\n" + "=" * 80)
+        logger.info("MACRO-FIRST PIPELINE COMPLETE")
+        logger.info("=" * 80)
+        logger.info(f"Report ID: {report_id}")
+        logger.info(f"Report-level signals: {len(report_signals)}")
+        logger.info(f"Articles with tickers: {len(articles_with_tickers)}")
+        logger.info(f"Article-level signals: {total_article_signals}")
+        logger.info(f"Token savings (condensed context): ~{5000 - condensed_result.get('token_estimate', 500)} tokens/article")
+
+        return report
+
 
 if __name__ == "__main__":
     import sys

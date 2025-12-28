@@ -17,16 +17,24 @@ INTELLIGENCE_ITA è un sistema completo che:
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │  RSS Feed APIs  │────▶│  Data Ingestion  │────▶│  NLP Processing │
-│  (25+ sources)  │     │  + Full Text     │     │  + Embeddings   │
+│  (33 sources)   │     │  + Full Text     │     │  + Embeddings   │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
                                                            │
                                                            ▼
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │  Daily Report   │◀────│  LLM Generation  │◀────│  Vector DB RAG  │
-│  (Human Review) │     │  (Gemini/GPT)    │     │  (pgvector)     │
+│  (Human Review) │     │  (Gemini 2.5)    │     │  (pgvector)     │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
-         │                                                 ▲
-         └─────────────── Feedback Loop ──────────────────┘
+         │                       │                         ▲
+         │                       ▼                         │
+         │              ┌──────────────────┐               │
+         │              │  Trade Signals   │               │
+         │              │  + Market Data   │               │
+         │              │  (Yahoo Finance) │               │
+         │              └──────────────────┘               │
+         │                       │                         │
+         └───────────────────────┴─────────────────────────┘
+                          Feedback Loop
 ```
 
 ## 📂 Struttura del Progetto
@@ -34,21 +42,38 @@ INTELLIGENCE_ITA è un sistema completo che:
 ```
 INTELLIGENCE_ITA/
 ├── config/
-│   └── feeds.yaml              # Configurazione feed RSS (25+ fonti)
+│   ├── feeds.yaml              # Configurazione feed RSS (33 fonti)
+│   ├── top_50_tickers.yaml     # Whitelist ticker per Trade Signals
+│   └── entity_blocklist.yaml   # Blocklist entità rumorose
 ├── src/
 │   ├── ingestion/              # Moduli di acquisizione dati
 │   │   ├── feed_parser.py      # Parser RSS/Atom multi-fonte
 │   │   ├── content_extractor.py # Estrazione testo completo
 │   │   └── pipeline.py         # Pipeline orchestrata
-│   ├── nlp/                    # [TODO] Elaborazione NLP
-│   │   ├── preprocessor.py     # Pulizia e normalizzazione
+│   ├── nlp/                    # Elaborazione NLP
+│   │   ├── processing.py       # Pulizia, NER, chunking
 │   │   └── embeddings.py       # Generazione embedding vettoriali
-│   ├── storage/                # [TODO] Database e persistenza
+│   ├── storage/                # Database e persistenza
 │   │   └── database.py         # PostgreSQL + pgvector
-│   ├── llm/                    # [TODO] Generazione report
-│   │   └── report_generator.py # Integrazione LLM (Gemini/GPT)
+│   ├── llm/                    # Generazione report
+│   │   ├── report_generator.py # LLM + RAG + Trade Signals
+│   │   └── schemas.py          # Pydantic schemas per validazione
+│   ├── integrations/           # Integrazioni esterne (Sprint 3)
+│   │   └── market_data.py      # Yahoo Finance API
+│   ├── hitl/                   # Human-in-the-Loop
+│   │   └── dashboard.py        # Streamlit dashboard
 │   └── utils/
 │       └── logger.py           # Sistema di logging
+├── scripts/
+│   ├── check_setup.py          # Verifica configurazione sistema
+│   ├── process_nlp.py          # NLP processing pipeline
+│   ├── load_to_database.py     # Caricamento DB
+│   ├── generate_report.py      # Generazione report (+ Trade Signals)
+│   ├── backfill_market_data.py # Backfill dati Yahoo Finance
+│   └── run_dashboard.sh        # Avvio dashboard HITL
+├── migrations/
+│   ├── 004_add_market_intelligence_schema.sql
+│   └── 005_add_trade_signals.sql  # Tabella trade_signals
 ├── data/                       # Dati temporanei (gitignored)
 ├── reports/                    # Report generati (gitignored)
 ├── requirements.txt
@@ -296,6 +321,48 @@ python scripts/generate_report.py --no-save
 - `reports/intelligence_report_YYYYMMDD_HHMMSS.json` (strutturato)
 - `reports/intelligence_report_YYYYMMDD_HHMMSS.md` (markdown)
 
+#### Pipeline Macro-First (Sprint 3 - Raccomandato)
+
+La nuova pipeline serializzata ottimizza costi API e qualità dei segnali:
+
+```bash
+# Pipeline completa con Trade Signals
+python scripts/generate_report.py --macro-first
+
+# Solo segnali report-level (più veloce, -90% costi)
+python scripts/generate_report.py --macro-first --skip-article-signals
+
+# Con parametri custom
+python scripts/generate_report.py --macro-first --days 3 --top-articles 100
+```
+
+**Flusso Macro-First:**
+1. **Genera Macro Report** → Analisi RAG completa
+2. **Condensa Contesto** → ~500 token (vs 5000+ token originali)
+3. **Estrai Report Signals** → Segnali high-conviction (sintesi multi-articolo)
+4. **Filtra Articoli con Ticker** → Solo articoli con ticker whitelist
+5. **Estrai Article Signals** → Segnali per-articolo con alignment check
+6. **Salva in DB** → Tabella `trade_signals` normalizzata
+
+**Benefici:**
+- ✅ Riduzione costi API ~90% (contesto condensato)
+- ✅ Segnali più accurati (macro alignment check)
+- ✅ Schema strutturato Pydantic (validazione automatica)
+- ✅ Persistenza normalizzata per analytics
+
+#### Trade Signals Schema
+
+Ogni segnale include:
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `ticker` | string | Simbolo ticker (es. LMT, TSM) |
+| `signal` | enum | BULLISH, BEARISH, NEUTRAL, WATCHLIST |
+| `timeframe` | enum | SHORT_TERM, MEDIUM_TERM, LONG_TERM |
+| `rationale` | string | Motivazione specifica |
+| `confidence` | float | 0.0-1.0 (report: 0.7+, article: variabile) |
+| `alignment_score` | float | Allineamento con narrativa macro |
+
 **RAG Reranking** (attivo di default):
 
 Il sistema usa un approccio 2-stage per massimizzare qualità del retrieval:
@@ -394,26 +461,28 @@ Supply Chain Dive, Semiconductor Engineering
 ## 🛠️ Stato Sviluppo
 
 ### ✅ Fase 1: Data Ingestion (COMPLETATA)
-- [x] Parser RSS multi-fonte (23 feed attivi)
+- [x] Parser RSS multi-fonte (33 feed attivi)
 - [x] Estrazione full-text con Trafilatura + Newspaper3k
 - [x] Filtro per data (solo articoli ultimi 24h)
 - [x] Export JSON con metadata completo
+- [x] Deduplicazione automatica (hash + content-based)
 
 ### ✅ Fase 2: NLP Processing (COMPLETATA)
 - [x] Pulizia e normalizzazione testo (spaCy)
 - [x] Named Entity Recognition (PERSON, ORG, GPE, DATE)
 - [x] Chunking semantico con overlap (500 words, 50 overlap)
 - [x] Embedding generation (384-dim, paraphrase-multilingual-MiniLM-L12-v2)
+- [x] Ticker mapping per geopolitical market movers
 
 ### ✅ Fase 3: Storage & RAG (COMPLETATA)
 - [x] Schema PostgreSQL con pgvector
 - [x] Connection pooling e batch inserts
 - [x] Semantic search con HNSW index
-- [x] 134 articoli + 183 chunks caricati
+- [x] Cross-encoder reranking (ms-marco-MiniLM)
 
 ### ✅ Fase 4: LLM Report Generation (COMPLETATA)
-- [x] Integrazione Google Gemini API
-- [x] RAG context retrieval (semantic search su chunks storici)
+- [x] Integrazione Google Gemini API (2.5 Flash)
+- [x] RAG context retrieval + query expansion
 - [x] Prompt engineering strutturato
 - [x] Export JSON + Markdown
 - [x] Script CLI: `scripts/generate_report.py`
@@ -424,6 +493,16 @@ Supply Chain Dive, Semiconductor Engineering
 - [x] Sistema rating e feedback (1-5 stelle)
 - [x] Database schema per report e feedback
 - [x] Workflow: Draft → Reviewed → Approved
+
+### ✅ Sprint 3: Trade Signals & Market Intelligence (COMPLETATA)
+- [x] **Pipeline Macro-First**: Report → Condense → Signals
+- [x] **Trade Signals Extraction**: BULLISH/BEARISH/NEUTRAL per ticker
+- [x] **Ticker Whitelist**: 50+ ticker geopoliticamente rilevanti (`config/top_50_tickers.yaml`)
+- [x] **Macro Alignment Check**: Segnali article-level con score di allineamento
+- [x] **Pydantic Schemas**: Validazione strutturata (`src/llm/schemas.py`)
+- [x] **Database Normalizzato**: Tabella `trade_signals` con FK a reports/articles
+- [x] **Yahoo Finance Integration**: `src/integrations/market_data.py`
+- [x] **Backfill Script**: `scripts/backfill_market_data.py`
 
 ### 🔄 Fase 6: Automazione (PROSSIMA)
 - [ ] Scheduler per esecuzione giornaliera (cron/systemd)
@@ -481,16 +560,20 @@ Questo è un progetto in sviluppo attivo. Per contribuire:
 - [Sentence Transformers](https://www.sbert.net/) - Semantic embeddings
 - [Streamlit](https://streamlit.io/) - Dashboard interattiva HITL
 - [Google Gemini](https://ai.google.dev/) - LLM per report generation
+- [yfinance](https://github.com/ranaroussi/yfinance) - Yahoo Finance API per dati mercato
+- [Pydantic](https://docs.pydantic.dev/) - Validazione schema Trade Signals
 
 ### Tool e Tecnologie
 
 - **Database**: PostgreSQL 14+ con pgvector extension
 - **NLP Models**: en_core_web_sm (spaCy), paraphrase-multilingual-MiniLM-L12-v2
+- **Reranking**: cross-encoder/ms-marco-MiniLM-L-6-v2
 - **Vector Dimension**: 384-dim embeddings
-- **LLM**: Gemini 1.5 Flash (default, free tier)
+- **LLM**: Gemini 2.5 Flash (default, free tier)
+- **Market Data**: Yahoo Finance (via yfinance)
 
 ---
 
-**Status Progetto**: 🟢 Fasi 1-5 Completate | 🔄 Fase 6 in Pianificazione
+**Status Progetto**: 🟢 Fasi 1-5 + Sprint 3 Completate | 🔄 Fase 6 in Pianificazione
 
-**Ultima modifica**: 2025-11-25
+**Ultima modifica**: 2025-12-27

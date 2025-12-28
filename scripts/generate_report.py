@@ -74,6 +74,16 @@ def main():
         action='store_true',
         help='Generate structured analysis (Trade Signals, Impact Score) for each article (Sprint 2.2)'
     )
+    parser.add_argument(
+        '--macro-first',
+        action='store_true',
+        help='Enable serialized pipeline: Macro Report -> Condensed Context -> Trade Signals (recommended)'
+    )
+    parser.add_argument(
+        '--skip-article-signals',
+        action='store_true',
+        help='With --macro-first, only extract report-level signals (faster, lower cost)'
+    )
 
     args = parser.parse_args()
 
@@ -120,7 +130,78 @@ def main():
     for area in focus_areas:
         logger.info(f"  - {area}")
 
-    # Generate report
+    # Check if macro-first pipeline is enabled
+    if args.macro_first:
+        logger.info("\n" + "=" * 80)
+        logger.info("[MACRO-FIRST MODE] Serialized pipeline enabled")
+        logger.info("=" * 80)
+
+        try:
+            report = generator.run_macro_first_pipeline(
+                focus_areas=focus_areas,
+                days=args.days,
+                save=not args.no_save,
+                save_to_db=True,
+                output_dir=args.output_dir,
+                top_articles=args.top_articles,
+                min_similarity=args.min_similarity,
+                min_fallback=args.min_articles,
+                skip_article_signals=args.skip_article_signals
+            )
+
+            if not report['success']:
+                logger.error(f"Macro-first pipeline failed: {report.get('error')}")
+                return 1
+
+            # Print trade signals summary
+            print("\n" + "=" * 80)
+            print("TRADE SIGNALS SUMMARY")
+            print("=" * 80)
+
+            if report.get('report_signals'):
+                print("\n📊 REPORT-LEVEL SIGNALS (High-Conviction):")
+                for sig in report['report_signals']:
+                    emoji = "🟢" if sig['signal'] == 'BULLISH' else "🔴" if sig['signal'] == 'BEARISH' else "🟡"
+                    print(f"\n  {emoji} {sig['ticker']} | {sig['signal']} | {sig['timeframe']}")
+                    print(f"     Rationale: {sig['rationale']}")
+                    print(f"     Confidence: {sig['confidence']:.0%}")
+                    print(f"     Themes: {', '.join(sig.get('supporting_themes', []))}")
+
+            if report.get('article_signals'):
+                print(f"\n📰 ARTICLE-LEVEL SIGNALS: {sum(len(a['signals']) for a in report['article_signals'])} signals from {len(report['article_signals'])} articles")
+
+                for article_data in report['article_signals'][:5]:  # Show first 5
+                    print(f"\n  Article: {article_data['article_title'][:60]}...")
+                    for sig in article_data['signals']:
+                        emoji = "🟢" if sig['signal'] == 'BULLISH' else "🔴" if sig['signal'] == 'BEARISH' else "🟡"
+                        print(f"    {emoji} {sig['ticker']}: {sig['signal']} (alignment: {sig['alignment_score']:.0%})")
+
+                if len(report['article_signals']) > 5:
+                    print(f"\n  ... and {len(report['article_signals']) - 5} more articles with signals")
+
+            # Stats
+            print("\n" + "-" * 80)
+            print("PIPELINE STATS:")
+            print(f"  Report-level signals: {len(report.get('report_signals', []))}")
+            print(f"  Articles with tickers: {report.get('articles_with_tickers_count', 0)}")
+            print(f"  Article-level signals: {sum(len(a['signals']) for a in report.get('article_signals', []))}")
+            print(f"  Token savings: ~{5000 - report.get('token_savings_estimate', 500)} tokens/article")
+            print("-" * 80)
+
+            # Print full report
+            print("\n" + "=" * 80)
+            print("INTELLIGENCE REPORT")
+            print("=" * 80)
+            print(report['report_text'])
+
+            logger.info("\n✓ Macro-first pipeline complete!")
+            return 0
+
+        except Exception as e:
+            logger.error(f"Error during macro-first pipeline: {e}", exc_info=True)
+            return 1
+
+    # Generate report (original flow)
     try:
         logger.info(f"\n[STEP 3] Generating report (analyzing last {args.days} day(s))...")
         logger.info(f"Filtering parameters: top_articles={args.top_articles}, "
