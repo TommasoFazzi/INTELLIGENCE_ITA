@@ -9,7 +9,7 @@ import os
 import json
 import hashlib
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, date
 from contextlib import contextmanager
 
 import psycopg2
@@ -374,15 +374,26 @@ class DatabaseManager:
         self,
         query_embedding: List[float],
         top_k: int = 10,
-        category: Optional[str] = None
+        category: Optional[str] = None,
+        # NEW FILTERS for enhanced search
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        sources: Optional[List[str]] = None,
+        gpe_entities: Optional[List[str]] = None,
+        min_similarity: float = 0.0
     ) -> List[Dict[str, Any]]:
         """
-        Perform semantic search using vector similarity.
+        Perform semantic search using vector similarity with optional filters.
 
         Args:
             query_embedding: Query embedding vector (384 dimensions)
             top_k: Number of results to return
             category: Optional category filter
+            start_date: Filter articles published after this date
+            end_date: Filter articles published before this date
+            sources: Filter by article sources (e.g., ['Reuters', 'Bloomberg'])
+            gpe_entities: Filter by geographic entities (GPE) from JSONB (e.g., ['Taiwan', 'China'])
+            min_similarity: Minimum similarity threshold (0-1)
 
         Returns:
             List of matching chunks with article metadata
@@ -411,9 +422,34 @@ class DatabaseManager:
 
                     params = [query_embedding]
 
+                    # Category filter
                     if category:
                         query += " AND a.category = %s"
                         params.append(category)
+
+                    # Date range filters
+                    if start_date:
+                        query += " AND a.published_date >= %s"
+                        params.append(start_date)
+
+                    if end_date:
+                        query += " AND a.published_date <= %s"
+                        params.append(end_date)
+
+                    # Source filter
+                    if sources:
+                        query += " AND a.source = ANY(%s)"
+                        params.append(sources)
+
+                    # Geographic filtering via GPE entities (JSONB)
+                    if gpe_entities:
+                        query += """
+                            AND EXISTS (
+                                SELECT 1 FROM jsonb_array_elements_text(a.entities->'by_type'->'GPE') gpe
+                                WHERE gpe = ANY(%s)
+                            )
+                        """
+                        params.append(gpe_entities)
 
                     query += " ORDER BY c.embedding <=> %s::vector LIMIT %s"
                     params.extend([query_embedding, top_k])
@@ -422,20 +458,23 @@ class DatabaseManager:
 
                     results = []
                     for row in cur.fetchall():
-                        results.append({
-                            'chunk_id': row[0],
-                            'content': row[1],
-                            'chunk_index': row[2],
-                            'word_count': row[3],
-                            'article_id': row[4],
-                            'title': row[5],
-                            'link': row[6],
-                            'source': row[7],
-                            'published_date': row[8],
-                            'category': row[9],
-                            'embedding': row[10],
-                            'similarity': float(row[11])
-                        })
+                        similarity = float(row[11])
+                        # Apply min_similarity filter
+                        if similarity >= min_similarity:
+                            results.append({
+                                'chunk_id': row[0],
+                                'content': row[1],
+                                'chunk_index': row[2],
+                                'word_count': row[3],
+                                'article_id': row[4],
+                                'title': row[5],
+                                'link': row[6],
+                                'source': row[7],
+                                'published_date': row[8],
+                                'category': row[9],
+                                'embedding': row[10],
+                                'similarity': similarity
+                            })
 
                     return results
 
@@ -1257,6 +1296,461 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting pending entities: {e}")
             return []
+
+
+    # ===================================================================
+    # Report Embedding Methods (for The Oracle RAG)
+    # ===================================================================
+
+    def update_report_embedding(
+        self,
+        report_id: int,
+        embedding: List[float]
+    ) -> bool:
+        """
+        Update report with embedding vector for semantic search.
+
+        Args:
+            report_id: Report ID
+            embedding: Embedding vector (384 dimensions)
+
+        Returns:
+            True if updated successfully, False otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE reports
+                        SET content_embedding = %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    """, (embedding, report_id))
+
+                    if cur.rowcount > 0:
+                        logger.debug(f"Updated embedding for report {report_id}")
+                        return True
+                    return False
+
+        except Exception as e:
+            logger.error(f"Error updating report embedding: {e}")
+            return False
+
+    def semantic_search_reports(
+        self,
+        query_embedding: List[float],
+        top_k: int = 5,
+        min_similarity: float = 0.3,
+        # NEW FILTERS for enhanced search
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        status: Optional[str] = None,
+        report_type: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Search reports by semantic similarity using vector search with optional filters.
+
+        Args:
+            query_embedding: Query embedding vector (384 dimensions)
+            top_k: Maximum number of results to return
+            min_similarity: Minimum similarity threshold (0-1)
+            start_date: Filter reports after this date
+            end_date: Filter reports before this date
+            status: Filter by report status ('draft', 'reviewed', 'approved')
+            report_type: Filter by report type ('daily', 'weekly')
+
+        Returns:
+            List of matching report dictionaries with similarity scores
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    query = """
+                        SELECT
+                            id,
+                            report_date,
+                            draft_content,
+                            final_content,
+                            status,
+                            report_type,
+                            metadata,
+                            1 - (content_embedding <=> %s::vector) as similarity
+                        FROM reports
+                        WHERE content_embedding IS NOT NULL
+                    """
+
+                    params = [query_embedding]
+
+                    # Date range filters
+                    if start_date:
+                        query += " AND report_date >= %s"
+                        params.append(start_date)
+
+                    if end_date:
+                        query += " AND report_date <= %s"
+                        params.append(end_date)
+
+                    # Status filter
+                    if status:
+                        query += " AND status = %s"
+                        params.append(status)
+
+                    # Report type filter
+                    if report_type:
+                        query += " AND report_type = %s"
+                        params.append(report_type)
+
+                    query += " ORDER BY content_embedding <=> %s::vector LIMIT %s"
+                    params.extend([query_embedding, top_k])
+
+                    cur.execute(query, params)
+
+                    results = []
+                    for row in cur.fetchall():
+                        similarity = float(row[7])
+                        if similarity >= min_similarity:
+                            results.append({
+                                'id': row[0],
+                                'report_date': row[1],
+                                'draft_content': row[2],
+                                'final_content': row[3],
+                                'status': row[4],
+                                'report_type': row[5],
+                                'metadata': row[6],
+                                'similarity': similarity
+                            })
+
+                    return results
+
+        except Exception as e:
+            logger.error(f"Semantic search reports error: {e}")
+            return []
+
+    def get_reports_without_embeddings(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Get reports that don't have embeddings yet (for backfill).
+
+        Args:
+            limit: Maximum number of reports to return
+
+        Returns:
+            List of report dictionaries without embeddings
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT
+                            id,
+                            report_date,
+                            draft_content,
+                            final_content,
+                            status
+                        FROM reports
+                        WHERE content_embedding IS NULL
+                        ORDER BY report_date DESC
+                        LIMIT %s
+                    """, (limit,))
+
+                    reports = []
+                    for row in cur.fetchall():
+                        reports.append({
+                            'id': row[0],
+                            'report_date': row[1],
+                            'draft_content': row[2],
+                            'final_content': row[3],
+                            'status': row[4]
+                        })
+
+                    return reports
+
+        except Exception as e:
+            logger.error(f"Error getting reports without embeddings: {e}")
+            return []
+
+    # ===================================================================
+    # Full-Text Search and Hybrid Search Methods (FASE 3)
+    # ===================================================================
+
+    def full_text_search(
+        self,
+        query: str,
+        top_k: int = 20,
+        category: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        sources: Optional[List[str]] = None,
+        gpe_entities: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Full-text search using PostgreSQL ts_query.
+
+        Requires migration 007 to be applied (adds tsvector columns and GIN indexes).
+
+        Args:
+            query: Search keywords (e.g., "Taiwan semiconductor")
+            top_k: Max results
+            category: Optional category filter
+            start_date: Filter articles published after this date
+            end_date: Filter articles published before this date
+            sources: Filter by article sources
+            gpe_entities: Filter by geographic entities (GPE)
+
+        Returns:
+            List of chunks with ts_rank scores
+
+        Example:
+            >>> results = db.full_text_search("Taiwan semiconductor", top_k=10)
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    # Build dynamic WHERE clause
+                    where_clauses = ["1=1"]
+                    params = [query]  # First param for ts_query
+
+                    # Category filter
+                    if category:
+                        where_clauses.append("a.category = %s")
+                        params.append(category)
+
+                    # Date range filters
+                    if start_date:
+                        where_clauses.append("a.published_date >= %s")
+                        params.append(start_date)
+
+                    if end_date:
+                        where_clauses.append("a.published_date <= %s")
+                        params.append(end_date)
+
+                    # Source filter
+                    if sources:
+                        where_clauses.append("a.source = ANY(%s)")
+                        params.append(sources)
+
+                    # Geographic filtering via GPE entities
+                    if gpe_entities:
+                        where_clauses.append("""
+                            EXISTS (
+                                SELECT 1 FROM jsonb_array_elements_text(a.entities->'by_type'->'GPE') gpe
+                                WHERE gpe = ANY(%s)
+                            )
+                        """)
+                        params.append(gpe_entities)
+
+                    where_sql = " AND ".join(where_clauses)
+
+                    # FTS query with ts_rank for scoring
+                    # websearch_to_tsquery supports natural query syntax ("Taiwan AND semiconductor")
+                    query_sql = f"""
+                        SELECT
+                            c.id as chunk_id,
+                            c.content,
+                            c.chunk_index,
+                            c.word_count,
+                            a.id as article_id,
+                            a.title,
+                            a.link,
+                            a.source,
+                            a.published_date,
+                            a.category,
+                            ts_rank(c.content_tsv, websearch_to_tsquery('multilingual', %s)) as fts_score
+                        FROM chunks c
+                        JOIN articles a ON c.article_id = a.id
+                        WHERE {where_sql}
+                          AND c.content_tsv @@ websearch_to_tsquery('multilingual', %s)
+                        ORDER BY fts_score DESC
+                        LIMIT %s
+                    """
+
+                    params.extend([query, top_k])
+                    cur.execute(query_sql, params)
+
+                    results = []
+                    for row in cur.fetchall():
+                        results.append({
+                            'chunk_id': row[0],
+                            'content': row[1],
+                            'chunk_index': row[2],
+                            'word_count': row[3],
+                            'article_id': row[4],
+                            'title': row[5],
+                            'link': row[6],
+                            'source': row[7],
+                            'published_date': row[8],
+                            'category': row[9],
+                            'fts_score': float(row[10])
+                        })
+
+                    return results
+
+        except Exception as e:
+            logger.error(f"Full-text search error: {e}")
+            # If migration not applied, return empty list
+            if "column" in str(e) and "content_tsv" in str(e):
+                logger.warning("Migration 007 not applied. Run: psql -d intelligence_ita -f migrations/007_add_full_text_search.sql")
+            return []
+
+    def hybrid_search(
+        self,
+        query: str,
+        query_embedding: List[float],
+        top_k: int = 10,
+        vector_top_k: int = 50,
+        keyword_top_k: int = 50,
+        fusion_method: str = "rrf",
+        vector_weight: float = 0.6,
+        keyword_weight: float = 0.4,
+        **filters
+    ) -> List[Dict[str, Any]]:
+        """
+        Hybrid search combining vector similarity + keyword relevance.
+
+        Uses Reciprocal Rank Fusion (RRF) or weighted score combination.
+
+        Args:
+            query: Search query string
+            query_embedding: Query embedding vector
+            top_k: Final number of results
+            vector_top_k: Over-fetch for vector search (default 50)
+            keyword_top_k: Over-fetch for keyword search (default 50)
+            fusion_method: "rrf" (Reciprocal Rank Fusion) or "weighted"
+            vector_weight: Weight for vector scores (if weighted fusion)
+            keyword_weight: Weight for keyword scores (if weighted fusion)
+            **filters: Same filters as semantic_search (category, start_date, etc.)
+
+        Returns:
+            List of fused and re-ranked chunks
+
+        Example:
+            >>> results = db.hybrid_search(
+            ...     query="Taiwan semiconductor",
+            ...     query_embedding=embedding,
+            ...     top_k=10,
+            ...     category="tech_economy"
+            ... )
+        """
+        # 1. Run both searches in parallel (over-fetch)
+        vector_results = self.semantic_search(
+            query_embedding=query_embedding,
+            top_k=vector_top_k,
+            **filters
+        )
+
+        keyword_results = self.full_text_search(
+            query=query,
+            top_k=keyword_top_k,
+            **filters
+        )
+
+        # 2. Fuse scores
+        if fusion_method == "rrf":
+            fused = self._reciprocal_rank_fusion(vector_results, keyword_results)
+        else:  # weighted
+            fused = self._weighted_fusion(
+                vector_results, keyword_results,
+                vector_weight, keyword_weight
+            )
+
+        # 3. Return top-k
+        return fused[:top_k]
+
+    def _reciprocal_rank_fusion(
+        self,
+        vector_results: List[Dict],
+        keyword_results: List[Dict],
+        k: int = 60
+    ) -> List[Dict[str, Any]]:
+        """
+        Reciprocal Rank Fusion (RRF) for score-free result fusion.
+
+        RRF formula: score = sum(1 / (k + rank_i))
+
+        Advantages:
+        - No score normalization needed
+        - Robust to score distribution differences
+        - Simple and effective
+
+        Args:
+            vector_results: Results from vector search
+            keyword_results: Results from keyword search
+            k: RRF constant (default 60, standard value from literature)
+
+        Returns:
+            Fused and sorted results
+        """
+        scores = {}
+
+        # Score from vector search (by rank)
+        for rank, result in enumerate(vector_results, 1):
+            chunk_id = result['chunk_id']
+            scores[chunk_id] = scores.get(chunk_id, 0) + 1 / (k + rank)
+
+        # Score from keyword search (by rank)
+        for rank, result in enumerate(keyword_results, 1):
+            chunk_id = result['chunk_id']
+            scores[chunk_id] = scores.get(chunk_id, 0) + 1 / (k + rank)
+
+        # Merge results (use vector_results as base for metadata)
+        chunk_map = {r['chunk_id']: r for r in vector_results + keyword_results}
+
+        # Sort by RRF score
+        fused = [
+            {**chunk_map[chunk_id], 'fusion_score': score}
+            for chunk_id, score in sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        ]
+
+        return fused
+
+    def _weighted_fusion(
+        self,
+        vector_results: List[Dict],
+        keyword_results: List[Dict],
+        vector_weight: float,
+        keyword_weight: float
+    ) -> List[Dict[str, Any]]:
+        """
+        Weighted linear combination of normalized scores.
+
+        Formula: final_score = α * norm(vector_score) + β * norm(keyword_score)
+
+        Requires score normalization (min-max scaling).
+
+        Args:
+            vector_results: Results from vector search
+            keyword_results: Results from keyword search
+            vector_weight: Weight for vector scores (alpha)
+            keyword_weight: Weight for keyword scores (beta)
+
+        Returns:
+            Fused and sorted results
+        """
+        # Normalize vector scores (similarity: 0-1)
+        vector_map = {r['chunk_id']: r for r in vector_results}
+        max_vec_sim = max((r.get('similarity', 0) for r in vector_results), default=1.0)
+
+        # Normalize keyword scores (ts_rank: variable range)
+        keyword_map = {r['chunk_id']: r for r in keyword_results}
+        max_kw_score = max((r.get('fts_score', 0) for r in keyword_results), default=1.0)
+
+        # Compute weighted scores
+        all_chunk_ids = set(vector_map.keys()) | set(keyword_map.keys())
+        scores = {}
+
+        for chunk_id in all_chunk_ids:
+            vec_score = vector_map.get(chunk_id, {}).get('similarity', 0) / max_vec_sim
+            kw_score = keyword_map.get(chunk_id, {}).get('fts_score', 0) / max_kw_score
+
+            scores[chunk_id] = (vector_weight * vec_score + keyword_weight * kw_score)
+
+        # Merge and sort
+        chunk_map = {**vector_map, **keyword_map}
+        fused = [
+            {**chunk_map[chunk_id], 'fusion_score': score}
+            for chunk_id, score in sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        ]
+
+        return fused
 
 
 if __name__ == "__main__":
