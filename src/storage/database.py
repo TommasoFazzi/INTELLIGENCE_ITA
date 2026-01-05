@@ -1064,6 +1064,64 @@ class DatabaseManager:
             logger.error(f"Error getting reports by date range: {e}")
             return []
 
+    def get_weekly_reports_by_date_range(
+        self,
+        start_date: datetime.date,
+        end_date: datetime.date
+    ) -> List[Dict[str, Any]]:
+        """
+        Get ONLY weekly reports within a date range.
+
+        Weekly reports are identified by having 'reports_count' in metadata,
+        which distinguishes them from daily reports (which have 'days_covered').
+
+        Args:
+            start_date: Start date (inclusive)
+            end_date: End date (inclusive)
+
+        Returns:
+            List of weekly report dictionaries
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    query = """
+                        SELECT
+                            id, report_date, generated_at, model_used,
+                            draft_content, final_content, status, report_type,
+                            metadata, sources, human_reviewed_at, human_reviewer
+                        FROM reports
+                        WHERE report_date BETWEEN %s AND %s
+                          AND metadata->>'reports_count' IS NOT NULL
+                        ORDER BY report_date ASC
+                    """
+
+                    cur.execute(query, (start_date, end_date))
+
+                    reports = []
+                    for row in cur.fetchall():
+                        reports.append({
+                            'id': row[0],
+                            'report_date': row[1],
+                            'generated_at': row[2],
+                            'model_used': row[3],
+                            'draft_content': row[4],
+                            'final_content': row[5],
+                            'status': row[6],
+                            'report_type': row[7],
+                            'metadata': row[8],
+                            'sources': row[9],
+                            'human_reviewed_at': row[10],
+                            'human_reviewer': row[11]
+                        })
+
+                    logger.info(f"✓ Found {len(reports)} weekly reports from {start_date} to {end_date}")
+                    return reports
+
+        except Exception as e:
+            logger.error(f"Error getting weekly reports by date range: {e}")
+            return []
+
     def get_recent_feedback(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Get recent feedback across all reports.

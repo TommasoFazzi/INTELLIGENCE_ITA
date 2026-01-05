@@ -269,6 +269,79 @@ def render_compact_header(report: dict):
             help=", ".join(detected_tickers[:10]) if detected_tickers else "Nessuno"
         )
 
+    # Sources section
+    render_sources_section(report)
+
+
+def render_sources_section(report: dict):
+    """Render expandable sources section with nested expanders."""
+    sources = report.get('sources', {})
+
+    if not sources:
+        return
+
+    recent_articles = sources.get('recent_articles', [])
+    historical_context = sources.get('historical_context', [])
+
+    total_sources = len(recent_articles) + len(historical_context)
+
+    if total_sources == 0:
+        return
+
+    with st.expander(f"📚 Fonti Utilizzate ({len(recent_articles)} articoli + {len(historical_context)} RAG)"):
+        # Recent articles in sub-expander
+        if recent_articles:
+            with st.expander(f"📰 Articoli Recenti ({len(recent_articles)})", expanded=False):
+                # Group by source for better organization
+                sources_grouped = {}
+                for article in recent_articles:
+                    src = article.get('source', 'Unknown')
+                    if src not in sources_grouped:
+                        sources_grouped[src] = []
+                    sources_grouped[src].append(article)
+
+                for src_name, articles in sorted(sources_grouped.items()):
+                    st.markdown(f"**{src_name}** ({len(articles)})")
+                    for article in articles:
+                        title = article.get('title', 'Senza titolo')
+                        link = article.get('link', '')
+                        pub_date = article.get('published_date', '')
+
+                        # Format date
+                        if pub_date:
+                            try:
+                                pub_date = str(pub_date)[:10]
+                            except:
+                                pass
+
+                        if link:
+                            st.markdown(f"- [{title[:70]}{'...' if len(title) > 70 else ''}]({link}) *({pub_date})*")
+                        else:
+                            st.markdown(f"- {title[:70]}{'...' if len(title) > 70 else ''} *({pub_date})*")
+                    st.markdown("")  # Spacing between sources
+
+        # Historical context in sub-expander
+        if historical_context:
+            with st.expander(f"🕰️ Contesto Storico RAG ({len(historical_context)})", expanded=False):
+                for i, ctx in enumerate(historical_context, 1):
+                    title = ctx.get('title', 'Senza titolo')
+                    link = ctx.get('link', '')
+                    similarity = ctx.get('similarity', 0)
+                    sim_pct = int(similarity * 100) if similarity else 0
+
+                    # Color code by similarity
+                    if sim_pct >= 80:
+                        badge = "🟢"
+                    elif sim_pct >= 60:
+                        badge = "🟡"
+                    else:
+                        badge = "🔴"
+
+                    if link:
+                        st.markdown(f"{badge} [{title[:60]}{'...' if len(title) > 60 else ''}]({link}) - **{sim_pct}%**")
+                    else:
+                        st.markdown(f"{badge} {title[:60]}{'...' if len(title) > 60 else ''} - **{sim_pct}%**")
+
 
 def render_split_view(report: dict):
     """Render split view: Original vs Editor."""

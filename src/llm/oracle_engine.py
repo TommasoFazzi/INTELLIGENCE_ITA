@@ -27,6 +27,7 @@ import google.generativeai as genai
 from ..storage.database import DatabaseManager
 from ..utils.logger import get_logger
 from ..utils.stopwords import clean_query
+from .query_analyzer import get_query_analyzer, merge_filters
 
 logger = get_logger(__name__)
 
@@ -287,16 +288,75 @@ RISPOSTA DETTAGLIATA:"""
         - Stopword filtering for semantic disambiguation
         - Hybrid search (vector + keyword)
         - Filtering by date, category, geography
+
+        New in FASE 4 (Query Analysis):
+        - Pre-search query analysis with Gemini
+        - Automatic extraction of temporal/categorical/geographic filters
+        - Merge extracted filters with UI filters (UI takes precedence)
         """
         try:
-            # 1. Clean query (remove stopwords while preserving entities)
-            cleaned_query = clean_query(query)
-            logger.debug(f"Original query: '{query}' → Cleaned: '{cleaned_query}'")
+            # ===========================================
+            # STEP 0: Query Analysis Layer (NEW)
+            # Extract structured filters from natural language
+            # ===========================================
+            extracted_filters = {}
+            query_for_search = query
 
-            # 2. Generate query embedding from cleaned query
+            try:
+                analyzer = get_query_analyzer()
+                analysis_result = analyzer.analyze(query)
+
+                if analysis_result['success']:
+                    extracted_filters = analysis_result['filters']
+                    # Use optimized semantic query for embedding if available
+                    semantic_query = extracted_filters.get('semantic_query', '')
+                    if semantic_query and len(semantic_query) > 3:
+                        query_for_search = semantic_query
+
+                    logger.info(
+                        f"Query analysis: extracted filters "
+                        f"(dates={extracted_filters.get('start_date')}->{extracted_filters.get('end_date')}, "
+                        f"gpe={extracted_filters.get('gpe_filter')}, "
+                        f"categories={extracted_filters.get('categories')}, "
+                        f"confidence={extracted_filters.get('extraction_confidence', 0):.0%})"
+                    )
+                else:
+                    logger.debug(f"Query analysis returned no filters: {analysis_result.get('error', 'unknown')}")
+
+            except Exception as e:
+                logger.warning(f"Query analyzer error (continuing with standard search): {e}")
+
+            # Merge extracted filters with UI filters (UI takes precedence)
+            merged = merge_filters(
+                extracted_filters,
+                ui_start_date=start_date,
+                ui_end_date=end_date,
+                ui_categories=categories,
+                ui_gpe_filter=gpe_filter,
+                ui_sources=sources
+            )
+
+            # Use merged filters for all subsequent operations
+            final_start_date = merged['start_date']
+            final_end_date = merged['end_date']
+            final_categories = merged['categories']
+            final_gpe_filter = merged['gpe_filter']
+            final_sources = merged['sources']
+
+            # ===========================================
+            # STEP 1: Clean query
+            # ===========================================
+            cleaned_query = clean_query(query_for_search)
+            logger.debug(f"Original: '{query}' -> Semantic: '{query_for_search}' -> Cleaned: '{cleaned_query}'")
+
+            # ===========================================
+            # STEP 2: Generate query embedding
+            # ===========================================
             query_embedding = self.embedding_model.encode(cleaned_query).tolist()
 
-            # 3. Search based on mode and search_type
+            # ===========================================
+            # STEP 3: Search with MERGED filters
+            # ===========================================
             chunks = []
             reports = []
 
@@ -306,40 +366,40 @@ RISPOSTA DETTAGLIATA:"""
                     chunks = self.db.semantic_search(
                         query_embedding=query_embedding,
                         top_k=chunk_top_k,
-                        category=categories[0] if categories else None,
-                        start_date=start_date,
-                        end_date=end_date,
-                        sources=sources,
-                        gpe_entities=gpe_filter
+                        category=final_categories[0] if final_categories else None,
+                        start_date=final_start_date,
+                        end_date=final_end_date,
+                        sources=final_sources,
+                        gpe_entities=final_gpe_filter
                     )
                 elif search_type == "keyword":
                     chunks = self.db.full_text_search(
                         query=cleaned_query,
                         top_k=chunk_top_k,
-                        category=categories[0] if categories else None,
-                        start_date=start_date,
-                        end_date=end_date,
-                        sources=sources,
-                        gpe_entities=gpe_filter
+                        category=final_categories[0] if final_categories else None,
+                        start_date=final_start_date,
+                        end_date=final_end_date,
+                        sources=final_sources,
+                        gpe_entities=final_gpe_filter
                     )
                 else:  # hybrid (default)
                     chunks = self.db.hybrid_search(
                         query=cleaned_query,
                         query_embedding=query_embedding,
                         top_k=chunk_top_k,
-                        category=categories[0] if categories else None,
-                        start_date=start_date,
-                        end_date=end_date,
-                        sources=sources,
-                        gpe_entities=gpe_filter
+                        category=final_categories[0] if final_categories else None,
+                        start_date=final_start_date,
+                        end_date=final_end_date,
+                        sources=final_sources,
+                        gpe_entities=final_gpe_filter
                     )
 
             if mode in ("both", "strategic"):
                 reports = self.search_reports(
                     query_embedding,
                     top_k=report_top_k,
-                    start_date=start_date,
-                    end_date=end_date
+                    start_date=final_start_date,
+                    end_date=final_end_date
                 )
 
             # 3. Check if we have any results
@@ -386,6 +446,22 @@ RISPOSTA DETTAGLIATA:"""
                 "mode": mode,
                 "metadata": {
                     "query": query,
+                    "semantic_query": query_for_search,  # Optimized query used for embedding
+                    "extracted_filters": {
+                        "start_date": str(extracted_filters.get('start_date')) if extracted_filters.get('start_date') else None,
+                        "end_date": str(extracted_filters.get('end_date')) if extracted_filters.get('end_date') else None,
+                        "categories": extracted_filters.get('categories'),
+                        "gpe_filter": extracted_filters.get('gpe_filter'),
+                        "sources": extracted_filters.get('sources'),
+                        "confidence": extracted_filters.get('extraction_confidence', 0)
+                    },
+                    "applied_filters": {  # Final filters after merge (what was actually used)
+                        "start_date": str(final_start_date) if final_start_date else None,
+                        "end_date": str(final_end_date) if final_end_date else None,
+                        "categories": final_categories,
+                        "gpe_filter": final_gpe_filter,
+                        "sources": final_sources
+                    },
                     "chunks_found": len(chunks),
                     "reports_found": len(reports),
                     "context_length": len(context),

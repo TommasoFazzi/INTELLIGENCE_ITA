@@ -252,3 +252,70 @@ class ArticleSignalsResult(BaseModel):
         ...,
         description="Brief summary of how this article fits the macro narrative"
     )
+
+
+# ============================================================================
+# QUERY ANALYZER SCHEMA (Query pre-processing for Oracle)
+# ============================================================================
+
+class ExtractedFilters(BaseModel):
+    """
+    Structured filters extracted from natural language query.
+
+    Used by QueryAnalyzer to enable temporal/categorical filtering in RAG.
+    Solves the problem of vector search not understanding date constraints.
+
+    Example:
+        Input: "Cosa è successo a Taiwan negli ultimi 7 giorni?"
+        Output: ExtractedFilters(
+            gpe_filter=['Taiwan'],
+            start_date='2024-12-26',
+            end_date='2025-01-02',
+            semantic_query='Taiwan events developments'
+        )
+    """
+
+    start_date: Optional[str] = Field(
+        None,
+        description="ISO date (YYYY-MM-DD) for range start. "
+                    "Extract from 'ultimi X giorni', 'da settembre', 'il 15 dicembre'."
+    )
+    end_date: Optional[str] = Field(
+        None,
+        description="ISO date (YYYY-MM-DD) for range end. Usually today unless specified."
+    )
+    categories: Optional[list[Literal["GEOPOLITICS", "DEFENSE", "ECONOMY", "CYBER", "ENERGY"]]] = Field(
+        None,
+        description="Inferred categories. 'cyber attack' -> CYBER, 'difesa' -> DEFENSE"
+    )
+    gpe_filter: Optional[list[str]] = Field(
+        None,
+        description="Geographic entities normalized to English: 'Cina' -> 'China'"
+    )
+    sources: Optional[list[str]] = Field(
+        None,
+        description="News sources if explicitly mentioned: 'Reuters', 'Bloomberg'"
+    )
+    semantic_query: str = Field(
+        ...,
+        description="Query optimized for semantic search - temporal expressions removed"
+    )
+    extraction_confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence in extraction accuracy (0.0-1.0)"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "start_date": "2024-12-26",
+                "end_date": "2025-01-02",
+                "categories": ["CYBER"],
+                "gpe_filter": ["Russia", "Ukraine"],
+                "sources": None,
+                "semantic_query": "cyber attacks critical infrastructure",
+                "extraction_confidence": 0.85
+            }
+        }
