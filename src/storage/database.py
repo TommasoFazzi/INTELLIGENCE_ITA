@@ -590,6 +590,84 @@ class DatabaseManager:
             logger.error(f"Error getting recent articles: {e}")
             return []
 
+    def get_all_article_embeddings(
+        self,
+        days: int = 30,
+        exclude_assigned: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all article embeddings for batch clustering (DBSCAN/HDBSCAN).
+
+        Args:
+            days: Time window in days (0 = all articles)
+            exclude_assigned: If True, exclude articles already assigned to storylines
+
+        Returns:
+            List of {id, title, embedding, entities, category, published_date, source}
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    query = """
+                        SELECT
+                            a.id,
+                            a.title,
+                            a.full_text_embedding,
+                            a.entities,
+                            a.category,
+                            a.published_date,
+                            a.source
+                        FROM articles a
+                        WHERE a.full_text_embedding IS NOT NULL
+                    """
+                    params = []
+
+                    # Time window filter
+                    if days > 0:
+                        query += " AND a.published_date > NOW() - INTERVAL '%s days'"
+                        params.append(days)
+
+                    # Exclude already assigned articles
+                    if exclude_assigned:
+                        query += """
+                            AND NOT EXISTS (
+                                SELECT 1 FROM article_storylines als
+                                WHERE als.article_id = a.id
+                            )
+                        """
+
+                    query += " ORDER BY a.published_date DESC"
+
+                    cur.execute(query, params)
+
+                    articles = []
+                    for row in cur.fetchall():
+                        # Handle embedding conversion
+                        embedding = row[2]
+                        if embedding is not None:
+                            # pgvector returns as list or numpy array
+                            if hasattr(embedding, 'tolist'):
+                                embedding = embedding.tolist()
+                            elif not isinstance(embedding, list):
+                                embedding = list(embedding)
+
+                        articles.append({
+                            'id': row[0],
+                            'title': row[1],
+                            'embedding': embedding,
+                            'entities': row[3] or {},
+                            'category': row[4],
+                            'published_date': row[5],
+                            'source': row[6]
+                        })
+
+                    logger.info(f"✓ Loaded {len(articles)} articles with embeddings for clustering")
+                    return articles
+
+        except Exception as e:
+            logger.error(f"Error getting article embeddings: {e}")
+            return []
+
     def get_article_by_link(self, link: str) -> Optional[Dict[str, Any]]:
         """
         Get a specific article by its link.

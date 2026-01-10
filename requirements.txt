@@ -31,6 +31,9 @@ pydantic>=2.12.0
 # HITL Interface
 streamlit==1.51.0
 
+# Machine Learning / Clustering
+scikit-learn==1.4.0
+
 # Utilities
 schedule==1.2.1
 python-dateutil==2.8.2

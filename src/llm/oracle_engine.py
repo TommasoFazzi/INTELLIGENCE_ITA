@@ -46,10 +46,10 @@ class OracleEngine:
     """
 
     # Default configuration
-    DEFAULT_CHUNK_TOP_K = 7
-    DEFAULT_REPORT_TOP_K = 5
-    DEFAULT_MIN_SIMILARITY = 0.25
-    DEFAULT_CONTEXT_MAX_CHARS = 15000
+    DEFAULT_CHUNK_TOP_K = 10
+    DEFAULT_REPORT_TOP_K = 8
+    DEFAULT_MIN_SIMILARITY = 0.30
+    DEFAULT_CONTEXT_MAX_CHARS = 60000  # Full reports (~30k each) + articles
 
     def __init__(
         self,
@@ -181,8 +181,9 @@ class OracleEngine:
                 date_str = str(report_date)[:10] if report_date else 'N/A'
 
             content = report.get('final_content') or report.get('draft_content', '')
-            # Truncate individual documents (increased for more context)
-            content = content[:4000] if len(content) > 4000 else content
+            # Pass full report - Investment Implications starts at ~55% and Level 3 at ~85%
+            # Gemini handles 30k chars easily, no need to truncate reports
+            content = content[:28000] if len(content) > 28000 else content
 
             doc_text = f"""
 <DOCUMENTO_{i}>
@@ -427,7 +428,7 @@ RISPOSTA DETTAGLIATA:"""
             # e riduce le allucinazioni (temperature 0.4)
             gen_config = genai.types.GenerationConfig(
                 max_output_tokens=4096,  # Aumentato per consentire risposte piu lunghe
-                temperature=0.4,         # Basso per rigore analitico
+                temperature=0.6,         # Basso per rigore analitico
                 top_p=0.95
             )
 

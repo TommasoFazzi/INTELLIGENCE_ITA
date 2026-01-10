@@ -1091,6 +1091,9 @@ Respond with JSON analysis following the full schema above:"""
 
 **YOUR TASK:**
 Analyze today's news articles and provide a comprehensive intelligence report focused on strategic relevance and actionable investment implications. Prioritize events that represent breaking points in existing trends and competition between major powers, even in seemingly peripheral regions.
+Transform raw news into a structured, high-precision intelligence briefing.
+Your goal is to balance **Macro-Strategic Context** with **Micro-Tactical Details**.
+NEVER provide a macro claim without the specific micro-event that supports it.
 
 **FOCUS AREAS:**
 {chr(10).join(f"- {area}" for area in focus_areas)}

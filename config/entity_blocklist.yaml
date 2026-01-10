@@ -419,6 +419,94 @@ financial_jargon:
   - "Main Street"
 
 # ============================================================================
+# Parsing Artifacts (Common NER errors)
+# ============================================================================
+parsing_artifacts:
+  # Punctuation extracted as entities
+  - "–"
+  - "-"
+  - "—"
+  - "..."
+  - ":"
+  - ";"
+
+  # Verbs mistakenly extracted
+  - "Shows"
+  - "Says"
+  - "Reports"
+  - "Holds"
+  - "Means"
+  - "Calls"
+  - "Seeks"
+  - "Warns"
+  - "Claims"
+  - "Announces"
+  - "Reveals"
+  - "Confirms"
+
+  # Noun phrases that aren't entities
+  - "Operations"
+  - "attacks"
+  - "meeting"
+  - "decision"
+  - "statement"
+  - "announcement"
+  - "agreement"
+  - "negotiations"
+
+# ============================================================================
+# Nationality Adjectives (Not GPE entities)
+# ============================================================================
+nationality_adjectives:
+  - "Israeli"
+  - "Chinese"
+  - "Russian"
+  - "Ukrainian"
+  - "American"
+  - "British"
+  - "European"
+  - "Iranian"
+  - "Iraqi"
+  - "Syrian"
+  - "Palestinian"
+  - "Lebanese"
+  - "Turkish"
+  - "Saudi"
+  - "Egyptian"
+  - "Indian"
+  - "Pakistani"
+  - "Afghan"
+  - "Korean"
+  - "Japanese"
+  - "German"
+  - "French"
+  - "Italian"
+  - "Spanish"
+  - "Polish"
+  - "Taiwanese"
+
+# ============================================================================
+# Generic Roles (Not specific people)
+# ============================================================================
+generic_roles:
+  - "Executives"
+  - "Officials"
+  - "Senators"
+  - "Ministers"
+  - "Analysts"
+  - "Experts"
+  - "Leaders"
+  - "Spokesman"
+  - "Spokesperson"
+  - "Representative"
+  - "Delegate"
+  - "Ambassador"  # When not specific
+  - "President"   # When not specific
+  - "Prime Minister"
+  - "Foreign Minister"
+  - "Defense Minister"
+
+# ============================================================================
 # Miscellaneous False Positives
 # ============================================================================
 miscellaneous:

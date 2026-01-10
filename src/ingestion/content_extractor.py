@@ -3,17 +3,43 @@ Content Extractor Module
 
 This module extracts full-text content from article URLs using specialized libraries.
 It tries multiple extraction methods to get the best quality content.
+
+Extraction Strategy:
+1. Trafilatura (fast, best for news)
+2. Newspaper3k (fallback)
+3. Cloudscraper (for anti-bot protected sites like politico.com)
 """
 
 import requests
-from typing import Optional, Dict
+import random
+from typing import Optional, Dict, List
 from datetime import datetime
 import trafilatura
 from newspaper import Article as NewspaperArticle
 
+try:
+    import cloudscraper
+    CLOUDSCRAPER_AVAILABLE = True
+except ImportError:
+    CLOUDSCRAPER_AVAILABLE = False
+
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Pool di User-Agent realistici per evitare blocchi
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+]
+
+# Domini noti per richiedere cloudscraper (anti-bot protection)
+PROTECTED_DOMAINS = [
+    'politico.com',
+]
 
 
 class ContentExtractor:
@@ -28,13 +54,30 @@ class ContentExtractor:
             user_agent: Custom user agent string
         """
         self.timeout = timeout
-        self.user_agent = user_agent or (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        )
+        self.user_agent = user_agent or self._get_random_ua()
+
+        # Standard requests session
         self.session = requests.Session()
         self.session.headers.update({'User-Agent': self.user_agent})
+
+        # Cloudscraper session for anti-bot protected sites
+        self.cloudscraper_session = None
+        if CLOUDSCRAPER_AVAILABLE:
+            try:
+                self.cloudscraper_session = cloudscraper.create_scraper(
+                    browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
+                )
+                logger.debug("Cloudscraper session initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize cloudscraper: {e}")
+
+    def _get_random_ua(self) -> str:
+        """Get a random user agent from the pool."""
+        return random.choice(USER_AGENTS)
+
+    def _is_protected_domain(self, url: str) -> bool:
+        """Check if URL belongs to a known anti-bot protected domain."""
+        return any(domain in url for domain in PROTECTED_DOMAINS)
 
     def extract_with_trafilatura(self, url: str, html: str = None) -> Optional[Dict]:
         """
@@ -116,10 +159,54 @@ class ContentExtractor:
 
         return None
 
+    def extract_with_cloudscraper(self, url: str) -> Optional[Dict]:
+        """
+        Extract content using Cloudscraper for anti-bot protected sites.
+
+        This method bypasses Cloudflare and similar bot protection by
+        emulating a real browser's TLS fingerprint and challenge responses.
+
+        Args:
+            url: Article URL
+
+        Returns:
+            Dictionary with extracted content or None
+        """
+        if not self.cloudscraper_session:
+            logger.debug("Cloudscraper not available")
+            return None
+
+        try:
+            # Fetch with cloudscraper
+            response = self.cloudscraper_session.get(
+                url,
+                timeout=self.timeout + 5  # Extra time for challenge solving
+            )
+
+            if response.status_code == 200:
+                # Pass fetched HTML to trafilatura for extraction
+                content = self.extract_with_trafilatura(url, html=response.text)
+                if content:
+                    content['extraction_method'] = 'cloudscraper+trafilatura'
+                    logger.info(f"Successfully extracted with Cloudscraper: {url}")
+                    return content
+
+            logger.debug(f"Cloudscraper got status {response.status_code} for {url}")
+
+        except Exception as e:
+            logger.debug(f"Cloudscraper extraction failed for {url}: {e}")
+
+        return None
+
     def extract_content(self, url: str, html: str = None) -> Optional[Dict]:
         """
         Extract full-text content from URL using multiple methods.
-        Tries Trafilatura first, then falls back to Newspaper3k.
+
+        Extraction order:
+        1. For protected domains: Try cloudscraper first
+        2. Trafilatura (fast, best for news)
+        3. Newspaper3k (fallback)
+        4. Cloudscraper (last resort for any failed extraction)
 
         Args:
             url: Article URL
@@ -129,6 +216,13 @@ class ContentExtractor:
             Dictionary with extracted content and metadata
         """
         logger.info(f"Extracting content from: {url}")
+
+        # For known protected domains, try cloudscraper first
+        if self._is_protected_domain(url):
+            logger.debug(f"Protected domain detected, trying cloudscraper first: {url}")
+            content = self.extract_with_cloudscraper(url)
+            if content and content.get('text'):
+                return content
 
         # Try Trafilatura first (best for news)
         content = self.extract_with_trafilatura(url, html)
@@ -141,6 +235,12 @@ class ContentExtractor:
         if content and content.get('text'):
             logger.info(f"Successfully extracted with Newspaper3k: {url}")
             return content
+
+        # Last resort: try cloudscraper for any failed URL (might be anti-bot)
+        if not self._is_protected_domain(url):  # Avoid double attempt
+            content = self.extract_with_cloudscraper(url)
+            if content and content.get('text'):
+                return content
 
         logger.warning(f"Failed to extract content from: {url}")
         return None
