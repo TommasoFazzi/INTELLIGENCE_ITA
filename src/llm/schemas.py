@@ -319,3 +319,102 @@ class ExtractedFilters(BaseModel):
                 "extraction_confidence": 0.85
             }
         }
+
+
+# ============================================================================
+# MACRO DASHBOARD SCHEMAS
+# ============================================================================
+# Used by the two-step macro reasoning pipeline where:
+# 1. LLM interprets raw macro data (temperature 0.45)
+# 2. Dashboard is generated with interpretive labels
+# 3. Report includes macro context with reasoning
+
+class MacroDashboardItem(BaseModel):
+    """
+    Single indicator for the macro dashboard display.
+
+    Example: {"indicator": "VIX", "value": "14.2", "change": "+0.5%", "label": "Calm", "emoji": "🟢"}
+    """
+    indicator: str = Field(
+        ...,
+        description="Short indicator name (e.g., 'OIL', 'VIX', '10Y', 'DXY')",
+        max_length=30  # Increased for longer names like 'INFLATION EXPECTATION 5Y'
+    )
+    value: str = Field(
+        ...,
+        description="Formatted value (e.g., '$78.50', '14.2', '4.1%')"
+    )
+    change: str = Field(
+        ...,
+        description="Change from previous day (e.g., '-1.2%', '+5bp', 'flat')"
+    )
+    label: str = Field(
+        ...,
+        description="Interpretive label (e.g., 'Calm', 'Elevated Fear', 'Supply Concern')",
+        max_length=30
+    )
+    emoji: str = Field(
+        default="",
+        description="Status emoji (e.g., '🟢', '🔴', '⚠️', '📈')"
+    )
+
+
+class MacroAnalysisResult(BaseModel):
+    """
+    Complete output from Step 1 macro interpretation.
+
+    LLM analyzes all 16 macro indicators from OpenBB and generates:
+    - Dashboard items with interpretive labels
+    - Risk regime classification
+    - Narrative explaining the macro environment
+    """
+    dashboard_items: list[MacroDashboardItem] = Field(
+        ...,
+        description="6-8 key indicators selected for dashboard display",
+        min_length=3,
+        max_length=10
+    )
+
+    risk_regime: Literal[
+        "RISK_ON", "RISK_OFF", "MIXED", "TRANSITION",
+        "CAUTIOUS", "CAUTIOUS_RISK_ON", "CAUTIOUS_RISK_OFF",
+        "NEUTRAL", "DEFENSIVE"
+    ] = Field(
+        ...,
+        description="Overall market risk regime based on indicator synthesis"
+    )
+
+    macro_narrative: str = Field(
+        ...,
+        description="3-4 sentence interpretation of the macro environment",
+        min_length=100,
+        max_length=1500  # Increased for more detailed narratives
+    )
+
+    key_divergences: Optional[list[str]] = Field(
+        default=None,
+        description="Notable divergences or anomalies to highlight (e.g., 'VIX low despite geopolitical tension')"
+    )
+
+    watch_items: Optional[list[str]] = Field(
+        default=None,
+        description="Indicators to monitor for regime change signals"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "dashboard_items": [
+                    {"indicator": "OIL", "value": "$78.50", "change": "-1.2%", "label": "Supply Easing", "emoji": "📉"},
+                    {"indicator": "VIX", "value": "14.2", "change": "+0.5", "label": "Calm", "emoji": "🟢"},
+                    {"indicator": "10Y YIELD", "value": "4.1%", "change": "+5bp", "label": "Hawkish Hold", "emoji": "📊"},
+                    {"indicator": "DXY", "value": "104.2", "change": "-0.3%", "label": "Mild Weakness", "emoji": "💵"},
+                    {"indicator": "HY SPREAD", "value": "3.2%", "change": "flat", "label": "No Stress", "emoji": "✅"},
+                    {"indicator": "COPPER", "value": "$4.15", "change": "+0.8%", "label": "Growth Signal", "emoji": "🏭"}
+                ],
+                "risk_regime": "RISK_ON",
+                "macro_narrative": "Markets are in a low-volatility, risk-on regime. VIX at 14.2 indicates investor complacency despite Middle East headlines. Oil weakness (-1.2%) suggests demand concerns outweigh supply risks. Copper strength points to intact global growth expectations. Monitor HY spreads for early stress signals.",
+                "key_divergences": ["VIX complacent despite elevated geopolitical risk"],
+                "watch_items": ["HY spreads", "Yield curve flattening"]
+            }
+        }

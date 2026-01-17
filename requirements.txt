@@ -18,9 +18,20 @@ psycopg2-binary==2.9.9
 pgvector==0.2.4
 sqlalchemy==2.0.25
 
-# Market Data (Sprint 3)
-yfinance==0.2.66  # Latest 0.2.x with Yahoo Finance API fixes
-pandas>=2.2.0  # Python 3.13 compatible
+# Market Data (Sprint 3 - OpenBB Granular Install)
+# --- OpenBB Core & Extensions ---
+openbb-core>=1.1.0        # Base engine (lightweight)
+openbb-economy>=1.1.0     # Macro data (GDP, CPI, Rates)
+openbb-equity>=1.1.0      # Stocks (Price, Fundamentals)
+
+# --- OpenBB Providers (Data sources) ---
+openbb-yfinance           # Yahoo Finance provider
+openbb-fred               # Federal Reserve macro data
+# openbb-fmp              # (Optional) Financial Modeling Prep - uncomment if you have API key
+
+# --- Fallback & Dependencies ---
+yfinance==0.2.66          # Fallback if OpenBB fails
+pandas>=2.2.0             # Python 3.13 compatible
 
 # LLM APIs (uncomment based on your choice)
 # openai==1.10.0

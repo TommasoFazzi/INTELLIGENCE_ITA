@@ -20,7 +20,16 @@ from pydantic import ValidationError
 from ..storage.database import DatabaseManager
 from ..nlp.processing import NLPProcessor
 from ..utils.logger import get_logger
-from .schemas import IntelligenceReportMVP, IntelligenceReport
+from .schemas import IntelligenceReportMVP, IntelligenceReport, MacroAnalysisResult, MacroDashboardItem
+
+# Lazy import for OpenBB integration
+def get_openbb_service():
+    """Lazy load OpenBB service to avoid circular imports."""
+    try:
+        from ..integrations.openbb_service import OpenBBMarketService
+        return OpenBBMarketService
+    except ImportError:
+        return None
 
 logger = get_logger(__name__)
 
@@ -969,6 +978,218 @@ Respond with JSON analysis following the full schema above:"""
                 'raw_llm_output': None
             }
 
+    # ========================================================================
+    # MACRO DASHBOARD GENERATION (Two-Step Pipeline)
+    # ========================================================================
+
+    def _generate_macro_analysis(
+        self,
+        macro_context_raw: str,
+        target_date
+    ) -> Dict[str, Any]:
+        """
+        Step 1: LLM interprets raw macro data to generate interpretive analysis.
+
+        Analyzes all 16 OpenBB indicators and generates:
+        - Dashboard items with interpretive labels (e.g., VIX 14.2 -> "Calm")
+        - Risk regime classification (RISK_ON, RISK_OFF, MIXED, TRANSITION)
+        - Narrative explaining the macro environment
+
+        Args:
+            macro_context_raw: Raw macro data text from OpenBB get_macro_context_text()
+            target_date: Date of the data
+
+        Returns:
+            Dictionary with:
+            - success: bool
+            - result: MacroAnalysisResult dict if success
+            - error: str if failure
+        """
+        logger.info("[STEP 0.5] Generating macro interpretation (two-step pipeline)...")
+
+        date_str = target_date.strftime('%Y-%m-%d') if hasattr(target_date, 'strftime') else str(target_date)
+
+        # Construct prompt for macro interpretation
+        macro_analysis_prompt = f"""You are a macro strategist interpreting today's market indicators.
+
+RAW DATA ({date_str}):
+{macro_context_raw}
+
+TASK: Analyze ALL indicators and generate an interpretive analysis.
+
+=== INTERPRETATION RULES ===
+
+**RATES:**
+- 10Y_YIELD up >10bp: "Hawkish Shift" | down >10bp: "Dovish Signal"
+- 2Y_YIELD up faster than 10Y: "Flattening/Inversion Risk"
+- YIELD_CURVE (10Y-2Y) < 0: "Inverted (Recession Signal)" | > 0.5%: "Healthy Steepening"
+
+**VOLATILITY:**
+- VIX < 15: "Calm/Complacent" | 15-20: "Cautious" | 20-30: "Elevated Fear" | >30: "Panic"
+
+**COMMODITIES:**
+- Oil (Brent/WTI) up >2%: "Supply Concern / Geopolitical Risk" | down >2%: "Demand Worry"
+- GOLD up >1%: "Safe Haven Bid" | down >1%: "Risk-On Rotation"
+- COPPER up: "Growth Optimism (Dr. Copper)" | down: "Slowdown Signal"
+
+**FX:**
+- DXY up >0.5%: "Risk-Off / Dollar Strength" | down >0.5%: "Risk-On / Dollar Weakness"
+- USD/JPY up: "Carry Trade Active" | down sharply: "Risk-Off / Yen Strength"
+- EUR/USD: correlate with ECB vs Fed policy divergence
+
+**INDICES:**
+- SP500 up >1%: "Risk-On Rally" | down >1%: "Risk-Off Selling"
+
+**CREDIT_RISK:**
+- HY_SPREAD widening >20bp: "Credit Stress" | narrowing: "Credit Appetite"
+- HY_SPREAD > 5%: "High Stress" | < 3.5%: "Complacent"
+
+**INFLATION:**
+- 5Y_INFLATION_EXPECTATION up >5bp: "Inflation Fears Rising"
+- 5Y below 2%: "Deflation Concern" | above 2.5%: "Overheating Risk"
+
+**SHIPPING:**
+- CASS_FREIGHT falling: "Supply Chain Easing / Demand Slowdown"
+- CASS_FREIGHT rising: "Logistics Bottleneck / Demand Recovery"
+
+=== OUTPUT FORMAT (JSON) ===
+
+{{
+    "dashboard_items": [
+        {{"indicator": "OIL", "value": "$78.50", "change": "-1.2%", "label": "Supply Easing", "emoji": "📉"}},
+        {{"indicator": "VIX", "value": "14.2", "change": "+0.5", "label": "Calm", "emoji": "🟢"}},
+        {{"indicator": "10Y YIELD", "value": "4.1%", "change": "+5bp", "label": "Hawkish Hold", "emoji": "📊"}},
+        {{"indicator": "DXY", "value": "104.2", "change": "-0.3%", "label": "Mild Weakness", "emoji": "💵"}},
+        {{"indicator": "HY SPREAD", "value": "3.2%", "change": "flat", "label": "No Stress", "emoji": "✅"}},
+        {{"indicator": "COPPER", "value": "$4.15", "change": "+0.8%", "label": "Growth Signal", "emoji": "🏭"}}
+    ],
+    "risk_regime": "RISK_ON",
+    "macro_narrative": "Markets are in a low-volatility, risk-on regime. VIX at 14.2 indicates investor complacency despite Middle East headlines. Oil weakness (-1.2%) suggests demand concerns outweigh supply risks. Copper strength points to intact global growth expectations. Monitor HY spreads for early stress signals.",
+    "key_divergences": ["VIX complacent despite elevated geopolitical risk"],
+    "watch_items": ["HY spreads", "Yield curve flattening"]
+}}
+
+Select 6-8 MOST RELEVANT indicators for today's dashboard.
+Focus on what's MOVING and what has INTERPRETIVE significance.
+
+Respond with JSON only:"""
+
+        try:
+            response = self.model.generate_content(
+                macro_analysis_prompt,
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "temperature": 0.45,  # Higher for interpretive analysis
+                }
+            )
+
+            raw_output = response.text
+            logger.debug(f"Macro analysis raw output: {raw_output[:300]}...")
+
+            # Validate with Pydantic
+            try:
+                validated_analysis = MacroAnalysisResult.model_validate_json(raw_output)
+                logger.info("✅ Macro analysis validation PASSED")
+
+                return {
+                    'success': True,
+                    'result': validated_analysis.model_dump(),
+                    'raw_llm_output': raw_output
+                }
+
+            except ValidationError as e:
+                logger.warning(f"⚠️ Macro analysis validation FAILED: {e}")
+                # Try to parse JSON anyway for partial recovery
+                try:
+                    raw_json = json.loads(raw_output)
+                    return {
+                        'success': False,
+                        'result': raw_json,  # Partial result
+                        'validation_errors': [str(err) for err in e.errors()],
+                        'raw_llm_output': raw_output
+                    }
+                except json.JSONDecodeError:
+                    return {
+                        'success': False,
+                        'error': 'Invalid JSON output',
+                        'validation_errors': [str(err) for err in e.errors()],
+                        'raw_llm_output': raw_output
+                    }
+
+        except Exception as e:
+            logger.error(f"❌ Macro analysis generation failed: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'raw_llm_output': None
+            }
+
+    def _format_macro_dashboard(
+        self,
+        macro_analysis: Dict[str, Any],
+        target_date
+    ) -> str:
+        """
+        Format macro analysis into inline dashboard for report header.
+
+        Output format:
+        **MACRO DASHBOARD**
+        `OIL: $78.50 (📉 Supply Easing)` | `VIX: 14.2 (🟢 Calm)` | `10Y: 4.1%`
+
+        *Risk Regime: RISK_ON*
+
+        [3-4 sentence macro narrative]
+
+        Args:
+            macro_analysis: Result from _generate_macro_analysis()
+            target_date: Date for header
+
+        Returns:
+            Formatted markdown string for report header
+        """
+        date_str = target_date.strftime('%d/%m/%Y') if hasattr(target_date, 'strftime') else str(target_date)
+
+        items = macro_analysis.get('dashboard_items', [])
+        regime = macro_analysis.get('risk_regime', 'MIXED')
+        narrative = macro_analysis.get('macro_narrative', '')
+        divergences = macro_analysis.get('key_divergences', [])
+        watch = macro_analysis.get('watch_items', [])
+
+        # Format each dashboard item as inline code block
+        formatted_items = []
+        for item in items[:8]:  # Max 8 items
+            indicator = item.get('indicator', '')
+            value = item.get('value', '')
+            change = item.get('change', '')
+            label = item.get('label', '')
+            emoji = item.get('emoji', '')
+
+            if label:
+                formatted_items.append(f"`{indicator}: {value} ({emoji} {label})`")
+            else:
+                formatted_items.append(f"`{indicator}: {value} ({change})`")
+
+        dashboard_line = " | ".join(formatted_items)
+
+        # Build divergences section if present
+        divergence_section = ""
+        if divergences:
+            divergence_section = f"\n\n**⚠️ Key Divergences:** {', '.join(divergences)}"
+
+        # Build watch items section if present
+        watch_section = ""
+        if watch:
+            watch_section = f"\n\n**👁️ Watch:** {', '.join(watch)}"
+
+        return f"""🌍 **MACRO DASHBOARD** ({date_str})
+
+{dashboard_line}
+
+*Risk Regime: {regime}*
+
+{narrative}{divergence_section}{watch_section}
+"""
+
     def generate_report(
         self,
         focus_areas: Optional[List[str]] = None,
@@ -997,6 +1218,46 @@ Respond with JSON analysis following the full schema above:"""
         logger.info("=" * 80)
         logger.info("GENERATING INTELLIGENCE REPORT")
         logger.info("=" * 80)
+
+        # [STEP 0] Fetch macro data from OpenBB (if available)
+        macro_context_text = ""
+        macro_dashboard_text = ""
+        macro_analysis_result = None
+        today = None
+
+        OpenBBMarketService = get_openbb_service()
+        if OpenBBMarketService:
+            try:
+                logger.info("\n[STEP 0] Fetching macro economic context...")
+                from datetime import date as date_type
+                openbb_service = OpenBBMarketService(self.db)
+                today = date_type.today()
+
+                # Ensure macro data is available
+                openbb_service.ensure_daily_macro_data(today)
+
+                # Get formatted macro context for LLM prompt (raw data)
+                macro_context_text = openbb_service.get_macro_context_text(today)
+                if macro_context_text:
+                    logger.info(f"✓ Macro context loaded ({len(macro_context_text)} chars)")
+
+                    # [STEP 0.5] Generate interpretive macro analysis (two-step pipeline)
+                    macro_analysis_result = self._generate_macro_analysis(macro_context_text, today)
+
+                    if macro_analysis_result.get('success') or macro_analysis_result.get('result'):
+                        result_data = macro_analysis_result.get('result', {})
+                        macro_dashboard_text = self._format_macro_dashboard(result_data, today)
+                        logger.info(f"✓ Macro dashboard generated ({len(macro_dashboard_text)} chars)")
+                    else:
+                        logger.warning("  Macro analysis generation failed, using raw context")
+                else:
+                    logger.info("  No macro data available for today")
+            except Exception as e:
+                logger.warning(f"OpenBB macro fetch failed (non-blocking): {e}")
+                macro_context_text = ""
+                macro_dashboard_text = ""
+        else:
+            logger.debug("OpenBB service not available, skipping macro context")
 
         # Default focus areas - aligned with feed coverage
         if focus_areas is None:
@@ -1086,8 +1347,41 @@ Respond with JSON analysis following the full schema above:"""
         recent_articles_text = self.format_recent_articles(recent_articles)
         rag_context_text = self.format_rag_context(unique_rag_results)
 
-        # Step 4: Construct prompt
-        prompt = f"""You are an intelligence analyst generating a daily intelligence briefing.
+        # Step 4: Construct prompt (with macro dashboard + raw data for reference)
+        report_date = datetime.now().strftime('%Y-%m-%d')
+
+        # Build header section with macro dashboard (if available)
+        header_section = ""
+        if macro_dashboard_text:
+            header_section = f"""# 🌍 Daily Intelligence Briefing - {report_date}
+
+{macro_dashboard_text}
+
+---
+
+"""
+            logger.info("  Macro dashboard injected into prompt header")
+
+            # Also include raw macro data for LLM reference (but after dashboard)
+            if macro_context_text:
+                header_section += f"""
+=== RAW MACRO DATA (for LLM reference - DO NOT include in report) ===
+{macro_context_text}
+
+---
+
+"""
+        elif macro_context_text:
+            # Fallback: use raw context if dashboard generation failed
+            header_section = f"""
+{macro_context_text}
+
+---
+
+"""
+            logger.info("  Raw macro context injected (dashboard unavailable)")
+
+        prompt = f"""{header_section}You are an intelligence analyst generating a daily intelligence briefing.
 
 **YOUR TASK:**
 Analyze today's news articles and provide a comprehensive intelligence report focused on strategic relevance and actionable investment implications. Prioritize events that represent breaking points in existing trends and competition between major powers, even in seemingly peripheral regions.
@@ -1170,10 +1464,15 @@ For each insight, always include: specific tickers, concrete catalysts with exac
 **Now generate the intelligence report:**
 """
 
-        # Step 5: Generate report with Gemini
-        logger.info(f"\n[STEP 4] Generating report with Gemini...")
+        # Step 5: Generate report with Gemini (temperature 0.35 for narrative quality)
+        logger.info(f"\n[STEP 4] Generating report with Gemini (temperature: 0.35)...")
         try:
-            response = self.model.generate_content(prompt)
+            response = self.model.generate_content(
+                prompt,
+                generation_config={
+                    "temperature": 0.35,  # Slightly higher for narrative flow
+                }
+            )
             report_text = response.text
             logger.info(f"✓ Report generated successfully ({len(report_text)} characters)")
         except Exception as e:
@@ -1194,7 +1493,14 @@ For each insight, always include: specific tickers, concrete catalysts with exac
                 'recent_articles_count': len(recent_articles),
                 'historical_chunks_count': len(unique_rag_results),
                 'days_covered': days,
-                'model_used': self.model.model_name
+                'model_used': self.model.model_name,
+                'macro_analysis': {
+                    'enabled': bool(macro_analysis_result),
+                    'risk_regime': macro_analysis_result.get('result', {}).get('risk_regime') if macro_analysis_result else None,
+                    'dashboard_items_count': len(macro_analysis_result.get('result', {}).get('dashboard_items', [])) if macro_analysis_result else 0,
+                    'temperature_step1': 0.45,
+                    'temperature_step2': 0.35
+                } if macro_analysis_result else None
             },
             'sources': {
                 'recent_articles': [
