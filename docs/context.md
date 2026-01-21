@@ -1,0 +1,68 @@
+# Docs Context
+
+## Purpose
+Technical documentation for the INTELLIGENCE_ITA project. Contains detailed guides for each phase of the pipeline, implementation notes, and architectural documentation.
+
+## Architecture Role
+Knowledge base for developers and users. Documents system design decisions, implementation details, and operational procedures. Complements inline code documentation.
+
+## Key Files
+
+### Project Overview
+- `PROJECT_SUMMARY.md` - High-level project summary (~21k chars)
+  - Tech stack overview
+  - Feature list
+  - Architecture diagram
+  - Metrics and statistics
+
+- `QUICKSTART.md` - Quick start guide (~6k chars)
+  - Installation steps
+  - Basic usage
+  - Common commands
+
+### Phase Documentation
+- `PHASE4_REPORT_GENERATION.md` - LLM report generation details (~18k chars)
+  - RAG pipeline architecture
+  - Query expansion strategy
+  - Cross-encoder reranking
+  - Trade signal extraction
+  - Prompt templates
+
+- `PHASE5_HITL.md` - Human-in-the-Loop system documentation (~20k chars)
+  - Dashboard architecture
+  - Feedback collection
+  - Report review workflow
+  - Multi-page app structure
+
+### Implementation Details
+- `HITL_FEEDBACK_LOOP.md` - Feedback loop architecture (~20k chars)
+  - Feedback categories
+  - Prompt improvement workflow
+  - Quality metrics
+
+- `INTELLIGENCE_MAP_IMPLEMENTATION.md` - Map visualization guide (~6k chars)
+  - Mapbox setup
+  - Entity geocoding
+  - Frontend architecture
+
+- `REFACTORING_SUMMARY.md` - Code refactoring notes (~1k chars)
+  - Recent changes
+  - Technical debt
+
+## Dependencies
+
+- **Internal**: Referenced by all modules
+- **External**: None (Markdown files)
+
+## Data Flow
+
+- **Input**: Developer knowledge, implementation decisions
+- **Output**: Documentation for users and developers
+
+## Related Documentation
+
+- `README.md` (project root) - Main project README
+- `intelligence-map/README.md` - Map setup instructions
+- `tests/README.md` - Test documentation
+- `DEDUPLICATION_IMPLEMENTATION.md` (root) - Dedup strategy
+- `RERANKING_IMPLEMENTATION.md` (root) - Reranking details
