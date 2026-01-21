@@ -1,0 +1,56 @@
+{
+  "daily_briefing": {
+    "name": "Daily Intelligence Briefing",
+    "description": "L'ultimo report geopolitico generato dall'AI",
+    "category": "Intelligence ITA",
+    "type": "markdown",
+    "endpoint": "get_latest_report",
+    "gridData": { "w": 20, "h": 12 },
+    "source": "Intelligence ITA"
+  },
+  "conviction_board": {
+    "name": "Conviction Board",
+    "description": "Ticker selezionati per narrativa + momentum",
+    "category": "Intelligence ITA",
+    "type": "table",
+    "endpoint": "get_conviction_board",
+    "gridData": { "w": 20, "h": 8 },
+    "source": "Intelligence ITA"
+  },
+  "macro_summary": {
+    "name": "Macro Context",
+    "description": "Indicatori macro attuali",
+    "category": "Intelligence ITA",
+    "type": "markdown",
+    "endpoint": "get_macro_summary",
+    "gridData": { "w": 12, "h": 6 },
+    "source": "OpenBB + FRED"
+  },
+  "metric_articles_24h": {
+    "name": "Articles (24h)",
+    "description": "Articoli processati nelle ultime 24 ore",
+    "category": "Intelligence ITA",
+    "type": "metric",
+    "endpoint": "get_metric_articles_24h",
+    "gridData": { "w": 4, "h": 3 },
+    "source": "Intelligence ITA"
+  },
+  "metric_active_signals": {
+    "name": "Active Signals",
+    "description": "Segnali di trading attivi",
+    "category": "Intelligence ITA",
+    "type": "metric",
+    "endpoint": "get_metric_active_signals",
+    "gridData": { "w": 4, "h": 3 },
+    "source": "Intelligence ITA"
+  },
+  "metric_sources_active": {
+    "name": "Sources Active",
+    "description": "Feed RSS attivi nelle ultime 24h",
+    "category": "Intelligence ITA",
+    "type": "metric",
+    "endpoint": "get_metric_sources_active",
+    "gridData": { "w": 4, "h": 3 },
+    "source": "Intelligence ITA"
+  }
+}

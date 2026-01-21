@@ -188,6 +188,9 @@ class ReportLevelSignal(BaseModel):
 
     These are HIGH-CONVICTION signals derived from the synthesis of
     multiple articles, not individual article events.
+
+    Financial Intelligence v2 fields (intelligence_score, etc.) are
+    populated by ValuationEngine after LLM extraction.
     """
     ticker: str = Field(..., description="Stock ticker symbol from whitelist")
     signal: Literal["BULLISH", "BEARISH", "NEUTRAL", "WATCHLIST"]
@@ -205,6 +208,30 @@ class ReportLevelSignal(BaseModel):
     supporting_themes: list[str] = Field(
         ...,
         description="Which macro themes support this signal"
+    )
+
+    # Financial Intelligence v2 fields (populated post-LLM by ValuationEngine)
+    intelligence_score: Optional[int] = Field(
+        None,
+        ge=0,
+        le=100,
+        description="Market-validated score (0-100) combining LLM confidence with technical/fundamental analysis"
+    )
+    sma_200_deviation: Optional[float] = Field(
+        None,
+        description="Price deviation from 200-day SMA (%)"
+    )
+    pe_rel_valuation: Optional[float] = Field(
+        None,
+        description="P/E ratio relative to sector median (>1 = expensive)"
+    )
+    valuation_rating: Optional[Literal["UNDERVALUED", "FAIR", "OVERVALUED", "BUBBLE", "LOSS_MAKING", "UNKNOWN"]] = Field(
+        None,
+        description="Valuation category based on P/E analysis"
+    )
+    data_quality: Optional[Literal["FULL", "PARTIAL", "INSUFFICIENT"]] = Field(
+        None,
+        description="Quality of market data available for scoring"
     )
 
 

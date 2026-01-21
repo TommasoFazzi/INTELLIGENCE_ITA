@@ -22,7 +22,7 @@ Usage:
 
 import os
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any
 from decimal import Decimal, InvalidOperation
 
@@ -317,13 +317,19 @@ class OpenBBMarketService:
             value = None
 
             try:
-                # Method 1: Try OpenBB
-                if obb:
-                    value = self._fetch_indicator_openbb(obb, key, config, target_date)
-
-                # Method 2: Fallback to yfinance if OpenBB failed
-                if value is None and 'symbol' in config:
+                # For FRED series (rates, spreads): use OpenBB FRED
+                # For symbols (commodities, FX, indices): use yfinance directly for real-time data
+                if 'fred_series' in config:
+                    # FRED data - use OpenBB (not real-time anyway)
+                    if obb:
+                        value = self._fetch_indicator_openbb(obb, key, config, target_date)
+                elif 'symbol' in config:
+                    # Market quotes - prefer yfinance direct for fresh real-time data
+                    # (OpenBB has caching issues that return stale prices)
                     value = self._fetch_indicator_yfinance(config['symbol'])
+                    # Fallback to OpenBB if yfinance fails
+                    if value is None and obb:
+                        value = self._fetch_indicator_openbb(obb, key, config, target_date)
 
                 if value is not None:
                     self._save_macro_indicator(
@@ -693,7 +699,13 @@ class OpenBBMarketService:
         # Check cache
         cached = self._get_cached_fundamentals(ticker)
         if cached and cached.get('cache_expires_at'):
-            if cached['cache_expires_at'] > datetime.now():
+            # Use timezone-aware comparison (DB stores timezone-aware timestamps)
+            cache_expiry = cached['cache_expires_at']
+            now = datetime.now(timezone.utc)
+            # Make cache_expiry timezone-aware if it isn't
+            if cache_expiry.tzinfo is None:
+                cache_expiry = cache_expiry.replace(tzinfo=timezone.utc)
+            if cache_expiry > now:
                 logger.debug(f"Fundamentals cache HIT: {ticker}")
                 return cached
 
@@ -734,8 +746,24 @@ class OpenBBMarketService:
             except Exception:
                 pass
 
-            data['cache_expires_at'] = datetime.now() + timedelta(days=7)
-            data['data_source'] = 'openbb'
+            # Fallback to yfinance for missing PE ratio (critical for scoring)
+            if data.get('pe_ratio') is None:
+                try:
+                    import yfinance as yf
+                    stock = yf.Ticker(ticker)
+                    info = stock.info
+                    pe = info.get('trailingPE') or info.get('forwardPE')
+                    if pe:
+                        data['pe_ratio'] = self._safe_decimal(pe)
+                        logger.debug(f"Got PE ratio from yfinance fallback: {pe}")
+                    # Also fill sector if missing
+                    if not data.get('sector'):
+                        data['sector'] = info.get('sector')
+                except Exception as e:
+                    logger.debug(f"yfinance PE fallback failed for {ticker}: {e}")
+
+            data['cache_expires_at'] = datetime.now(timezone.utc) + timedelta(days=7)
+            data['data_source'] = 'openbb+yfinance' if data.get('pe_ratio') else 'openbb'
 
             self._save_fundamentals(data)
             return data
@@ -763,7 +791,7 @@ class OpenBBMarketService:
                 'debt_to_equity': self._safe_decimal(info.get('debtToEquity')),
                 'profit_margin': self._safe_decimal(info.get('profitMargins')),
                 'dividend_yield': self._safe_decimal(info.get('dividendYield')),
-                'cache_expires_at': datetime.now() + timedelta(days=7),
+                'cache_expires_at': datetime.now(timezone.utc) + timedelta(days=7),
                 'data_source': 'yfinance'
             }
 

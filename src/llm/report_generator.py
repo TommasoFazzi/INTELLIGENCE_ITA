@@ -22,6 +22,24 @@ from ..nlp.processing import NLPProcessor
 from ..utils.logger import get_logger
 from .schemas import IntelligenceReportMVP, IntelligenceReport, MacroAnalysisResult, MacroDashboardItem
 
+# Financial Intelligence v2 - Lazy import to avoid circular dependencies
+def get_valuation_engine():
+    """Lazy load ValuationEngine for signal enrichment."""
+    try:
+        from ..finance.validator import ValuationEngine
+        return ValuationEngine
+    except ImportError:
+        logger.warning("Finance module not available - signals will not be enriched")
+        return None
+
+def get_signal_enricher():
+    """Lazy load signal enrichment function."""
+    try:
+        from ..finance.scoring import enrich_signal_with_intelligence
+        return enrich_signal_with_intelligence
+    except ImportError:
+        return None
+
 # Lazy import for OpenBB integration
 def get_openbb_service():
     """Lazy load OpenBB service to avoid circular imports."""
@@ -1917,8 +1935,35 @@ Respond with JSON array only:"""
             raw_signals = json.loads(raw_output)
             validated_signals = []
 
+            # === FINANCIAL INTELLIGENCE v2: Sandwich Enrichment ===
+            ValuationEngine = get_valuation_engine()
+            enrich_signal = get_signal_enricher()
+            valuation_engine = None
+            if ValuationEngine and enrich_signal:
+                try:
+                    valuation_engine = ValuationEngine(self.db)
+                    logger.info("Financial Intelligence v2 enabled for signal enrichment")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize ValuationEngine: {e}")
+
             for sig in raw_signals:
                 try:
+                    ticker = sig.get('ticker')
+
+                    # === SANDWICH: Enrich signal with market validation ===
+                    if ticker and valuation_engine and enrich_signal:
+                        try:
+                            metrics = valuation_engine.build_ticker_metrics(ticker)
+                            llm_confidence = sig.get('confidence', 0.8)
+                            sig = enrich_signal(sig, metrics, llm_confidence)
+                            logger.debug(
+                                f"  {ticker}: intel_score={sig.get('intelligence_score')}, "
+                                f"sma_dev={sig.get('sma_200_deviation', 'N/A')}, "
+                                f"valuation={sig.get('valuation_rating', 'N/A')}"
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to enrich signal for {ticker}: {e}")
+
                     validated = ReportLevelSignal.model_validate(sig)
                     validated_signals.append(validated.model_dump())
                 except Exception as e:
@@ -1926,7 +1971,11 @@ Respond with JSON array only:"""
 
             logger.info(f"✓ Extracted {len(validated_signals)} macro-level signals")
             for sig in validated_signals:
-                logger.info(f"  {sig['ticker']}: {sig['signal']} ({sig['timeframe']}) - confidence: {sig['confidence']:.0%}")
+                intel_score = sig.get('intelligence_score', 'N/A')
+                logger.info(
+                    f"  {sig['ticker']}: {sig['signal']} ({sig['timeframe']}) - "
+                    f"confidence: {sig['confidence']:.0%}, intel_score: {intel_score}"
+                )
 
             return {
                 'success': True,
@@ -2042,8 +2091,29 @@ Respond with JSON only:"""
             parsed = json.loads(raw_output)
             validated_signals = []
 
+            # === FINANCIAL INTELLIGENCE v2: Sandwich Enrichment ===
+            ValuationEngine = get_valuation_engine()
+            enrich_signal = get_signal_enricher()
+            valuation_engine = None
+            if ValuationEngine and enrich_signal:
+                try:
+                    valuation_engine = ValuationEngine(self.db)
+                except Exception as e:
+                    logger.debug(f"ValuationEngine not available: {e}")
+
             for sig in parsed.get('signals', []):
                 try:
+                    ticker = sig.get('ticker')
+
+                    # === SANDWICH: Enrich signal with market validation ===
+                    if ticker and valuation_engine and enrich_signal:
+                        try:
+                            metrics = valuation_engine.build_ticker_metrics(ticker)
+                            llm_confidence = sig.get('confidence', 0.5)
+                            sig = enrich_signal(sig, metrics, llm_confidence)
+                        except Exception as e:
+                            logger.debug(f"Failed to enrich article signal for {ticker}: {e}")
+
                     validated = ArticleLevelSignal.model_validate(sig)
                     validated_signals.append(validated.model_dump())
                 except Exception as e:
@@ -2096,11 +2166,19 @@ Respond with JSON only:"""
                             cur.execute("""
                                 INSERT INTO trade_signals
                                 (report_id, article_id, ticker, signal, timeframe,
-                                 rationale, confidence, alignment_score, signal_source, category)
-                                VALUES (%s, NULL, %s, %s, %s, %s, %s, 1.0, 'report', %s)
+                                 rationale, confidence, alignment_score, signal_source, category,
+                                 intelligence_score, sma_200_deviation, pe_rel_valuation,
+                                 valuation_rating, data_quality)
+                                VALUES (%s, NULL, %s, %s, %s, %s, %s, 1.0, 'report', %s,
+                                        %s, %s, %s, %s, %s)
                                 ON CONFLICT (report_id, ticker, signal, timeframe)
                                 WHERE article_id IS NULL
-                                DO NOTHING
+                                DO UPDATE SET
+                                    intelligence_score = EXCLUDED.intelligence_score,
+                                    sma_200_deviation = EXCLUDED.sma_200_deviation,
+                                    pe_rel_valuation = EXCLUDED.pe_rel_valuation,
+                                    valuation_rating = EXCLUDED.valuation_rating,
+                                    data_quality = EXCLUDED.data_quality
                             """, (
                                 report_id,
                                 sig['ticker'],
@@ -2108,7 +2186,12 @@ Respond with JSON only:"""
                                 sig['timeframe'],
                                 sig['rationale'],
                                 sig.get('confidence', 0.8),
-                                sig.get('category')
+                                sig.get('category'),
+                                sig.get('intelligence_score'),
+                                sig.get('sma_200_deviation'),
+                                sig.get('pe_rel_valuation'),
+                                sig.get('valuation_rating'),
+                                sig.get('data_quality', 'FULL')
                             ))
                             if cur.rowcount > 0:
                                 stats['saved_report_signals'] += 1
@@ -2126,11 +2209,19 @@ Respond with JSON only:"""
                                 cur.execute("""
                                     INSERT INTO trade_signals
                                     (report_id, article_id, ticker, signal, timeframe,
-                                     rationale, confidence, alignment_score, signal_source, category)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'article', %s)
+                                     rationale, confidence, alignment_score, signal_source, category,
+                                     intelligence_score, sma_200_deviation, pe_rel_valuation,
+                                     valuation_rating, data_quality)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'article', %s,
+                                            %s, %s, %s, %s, %s)
                                     ON CONFLICT (report_id, article_id, ticker, signal, timeframe)
                                     WHERE article_id IS NOT NULL
-                                    DO NOTHING
+                                    DO UPDATE SET
+                                        intelligence_score = EXCLUDED.intelligence_score,
+                                        sma_200_deviation = EXCLUDED.sma_200_deviation,
+                                        pe_rel_valuation = EXCLUDED.pe_rel_valuation,
+                                        valuation_rating = EXCLUDED.valuation_rating,
+                                        data_quality = EXCLUDED.data_quality
                                 """, (
                                     report_id,
                                     article_id,
@@ -2140,7 +2231,12 @@ Respond with JSON only:"""
                                     sig['rationale'],
                                     sig.get('confidence', 0.5),
                                     sig.get('alignment_score', 0.5),
-                                    sig.get('category')
+                                    sig.get('category'),
+                                    sig.get('intelligence_score'),
+                                    sig.get('sma_200_deviation'),
+                                    sig.get('pe_rel_valuation'),
+                                    sig.get('valuation_rating'),
+                                    sig.get('data_quality', 'FULL')
                                 ))
                                 if cur.rowcount > 0:
                                     stats['saved_article_signals'] += 1

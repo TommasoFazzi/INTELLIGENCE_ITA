@@ -340,6 +340,182 @@ class MarketDataService:
             logger.error(f"Failed to get latest market data for {ticker}: {e}")
             return None
 
+    def fetch_ticker_with_sma200(
+        self,
+        ticker: str,
+        period: str = "1y",
+        use_cache: bool = True
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Fetch OHLCV with SMA200 calculation for Financial Intelligence v2.
+
+        Args:
+            ticker: Stock symbol (e.g., 'LMT', 'RHM.DE')
+            period: Data period (default '1y' for 200+ trading days)
+            use_cache: Use cached data if available
+
+        Returns:
+            Dict with:
+            - ticker, price, sma_200, sma_200_deviation_pct
+            - days_of_history (for data quality assessment)
+            - close_price, fetched_at, source
+        """
+        # Check cache
+        cache_key = f"{ticker}_sma200"
+        if use_cache and cache_key in self._cache:
+            cached_data = self._cache[cache_key]
+            cache_age = datetime.now() - cached_data['fetched_at']
+            if cache_age < self.cache_ttl:
+                logger.debug(f"SMA200 cache HIT for {ticker}")
+                return cached_data['data']
+
+        try:
+            logger.info(f"Fetching {ticker} with SMA200 (period: {period})...")
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period=period)
+
+            if hist.empty:
+                logger.warning(f"No historical data for {ticker}")
+                return None
+
+            current_price = float(hist['Close'].iloc[-1])
+            days_available = len(hist)
+
+            # Calculate SMA200
+            sma_200 = None
+            sma_200_deviation_pct = None
+
+            if days_available >= 200:
+                sma_200 = float(hist['Close'].rolling(window=200).mean().iloc[-1])
+                sma_200_deviation_pct = ((current_price - sma_200) / sma_200) * 100
+                logger.debug(f"{ticker}: SMA200={sma_200:.2f}, deviation={sma_200_deviation_pct:.1f}%")
+            elif days_available >= 50:
+                # Partial data: use available mean as approximation
+                sma_200 = float(hist['Close'].mean())
+                sma_200_deviation_pct = ((current_price - sma_200) / sma_200) * 100
+                logger.info(f"{ticker}: Only {days_available} days, using mean as SMA proxy")
+            else:
+                logger.warning(f"{ticker}: Insufficient history ({days_available} days)")
+
+            data = {
+                'ticker': ticker,
+                'price': current_price,
+                'close_price': Decimal(str(round(current_price, 4))),
+                'sma_200': sma_200,
+                'sma_200_deviation_pct': sma_200_deviation_pct,
+                'days_of_history': days_available,
+                'source': 'yahoo_finance',
+                'fetched_at': datetime.now()
+            }
+
+            # Cache the result
+            self._cache[cache_key] = {
+                'data': data,
+                'fetched_at': datetime.now()
+            }
+
+            return data
+
+        except Exception as e:
+            logger.error(f"Failed to fetch {ticker} with SMA200: {e}")
+            return None
+
+    def get_sector_pe_median(
+        self,
+        sector: str,
+        region: str = "US",
+        cache_ttl_days: int = 7
+    ) -> Optional[float]:
+        """
+        Get median P/E for a sector with database caching.
+
+        Calculation order:
+        1. Check sector_pe_medians table cache
+        2. Calculate from company_fundamentals if expired/missing
+        3. Fallback to None if insufficient data
+
+        Args:
+            sector: GICS sector name (e.g., 'Technology', 'Industrials')
+            region: Market region ('US', 'EU', 'ASIA', 'OTHER')
+            cache_ttl_days: Cache duration in days
+
+        Returns:
+            Median P/E ratio or None if unavailable
+        """
+        import statistics
+
+        # Check database cache first
+        cached_pe = self._get_cached_sector_pe(sector)
+        if cached_pe is not None:
+            return cached_pe
+
+        # Calculate from company_fundamentals
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT pe_ratio
+                        FROM company_fundamentals
+                        WHERE sector = %s
+                          AND pe_ratio > 0
+                          AND pe_ratio < 100
+                          AND last_updated > NOW() - INTERVAL '30 days'
+                    """, (sector,))
+
+                    pe_values = [float(row[0]) for row in cur.fetchall()]
+
+                    if len(pe_values) >= 5:
+                        median_pe = statistics.median(pe_values)
+                        self._save_sector_pe_cache(sector, median_pe, len(pe_values))
+                        logger.info(f"Calculated sector PE for {sector}: {median_pe:.1f} (n={len(pe_values)})")
+                        return median_pe
+                    else:
+                        logger.debug(f"Insufficient data for {sector} PE (n={len(pe_values)})")
+                        return None
+
+        except Exception as e:
+            logger.error(f"Failed to calculate sector PE for {sector}: {e}")
+            return None
+
+    def _get_cached_sector_pe(self, sector: str) -> Optional[float]:
+        """Check sector_pe_medians table for cached value."""
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT pe_median
+                        FROM sector_pe_medians
+                        WHERE sector = %s
+                          AND cache_expires_at > NOW()
+                    """, (sector,))
+                    row = cur.fetchone()
+                    if row:
+                        logger.debug(f"Sector PE cache HIT: {sector} = {row[0]}")
+                        return float(row[0])
+                    return None
+        except Exception as e:
+            logger.debug(f"Failed to get cached sector PE: {e}")
+            return None
+
+    def _save_sector_pe_cache(self, sector: str, pe_median: float, sample_size: int):
+        """Save sector PE to database cache."""
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO sector_pe_medians (sector, pe_median, sample_size, cache_expires_at)
+                        VALUES (%s, %s, %s, NOW() + INTERVAL '7 days')
+                        ON CONFLICT (sector) DO UPDATE SET
+                            pe_median = EXCLUDED.pe_median,
+                            sample_size = EXCLUDED.sample_size,
+                            last_updated = NOW(),
+                            cache_expires_at = NOW() + INTERVAL '7 days'
+                    """, (sector, pe_median, sample_size))
+                    conn.commit()
+                    logger.debug(f"Cached sector PE for {sector}: {pe_median}")
+        except Exception as e:
+            logger.error(f"Failed to cache sector PE: {e}")
+
     def clear_cache(self):
         """Clear the in-memory cache."""
         self._cache.clear()
