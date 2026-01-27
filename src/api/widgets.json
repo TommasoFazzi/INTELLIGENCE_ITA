@@ -52,5 +52,14 @@
     "endpoint": "get_metric_sources_active",
     "gridData": { "w": 4, "h": 3 },
     "source": "Intelligence ITA"
+  },
+  "intelligence_scores": {
+    "name": "Intelligence Scores",
+    "description": "Trade signals con breakdown completo: price, SMA200, PE ratio, valuation",
+    "category": "Intelligence ITA",
+    "type": "table",
+    "endpoint": "api/v1/openbb/intelligence_scores",
+    "gridData": { "w": 24, "h": 10 },
+    "source": "Intelligence ITA"
   }
 }

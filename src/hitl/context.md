@@ -44,5 +44,11 @@ Quality assurance layer between LLM report generation and final publication. Ena
 ## Related Files
 
 - `Home.py` - Streamlit home page (project root)
-- `pages/` - Multi-page dashboard structure (if exists)
+- `pages/` - Multi-page dashboard structure:
+  - `1_Daily_Briefing.py` - Report editor with split view
+  - `2_The_Oracle.py` - RAG query interface
+  - `3_Intelligence_Scores.py` - Intelligence scores dashboard
+    - Full scoring breakdown table (price, SMA200, PE, valuation)
+    - Filtri: days, min_score, signal type, data quality
+    - Export CSV, score distribution chart
 - `scripts/run_dashboard.sh` - Dashboard launcher

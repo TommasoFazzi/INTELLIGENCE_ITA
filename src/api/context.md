@@ -24,9 +24,25 @@ HTTP interface layer between the database and frontend applications. Exposes ent
   - `EntityFeature` - GeoJSON Feature wrapper
   - `EntityCollection` - GeoJSON FeatureCollection response
 
-- `openbb_backend.py` - OpenBB widget backend (optional)
-  - Integration point for OpenBB widgets
-  - `widgets.json` - Widget configuration
+- `openbb_backend.py` - OpenBB Workspace backend (port 7779)
+  - CORS configured for `pro.openbb.co`, `localhost:1420`
+  - `widgets.json` - Widget configuration for OpenBB Workspace
+
+  **Endpoints:**
+  - `GET /widgets.json` - Widget configuration for OpenBB Workspace
+  - `GET /get_latest_report` - Markdown: latest intelligence report
+  - `GET /get_macro_summary` - Markdown: macro economic indicators
+  - `GET /get_conviction_board` - Table: active trade signals
+  - `GET /get_metric_articles_24h` - Metric: articles processed
+  - `GET /get_metric_active_signals` - Metric: active signals count
+  - `GET /get_metric_sources_active` - Metric: RSS sources active
+  - `GET /api/v1/openbb/chart_overlay` - Chart OHLCV + signal annotations
+  - `GET /api/v1/openbb/high_conviction_signals` - High-conviction signals (score >= 70)
+  - `GET /api/v1/openbb/intelligence_scores` - **Full scoring breakdown**
+    - Query params: `days` (default: 7), `min_score` (default: 0)
+    - Returns: ticker, company_name, sector, signal, intelligence_score,
+      llm_confidence, price, sma_200, sma_200_deviation_pct, pe_ratio,
+      pe_rel_valuation, valuation_rating, data_quality, rationale
 
 ## Dependencies
 

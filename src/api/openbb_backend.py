@@ -496,6 +496,118 @@ def get_high_conviction_signals(min_score: int = 70, days: int = 7):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/v1/openbb/intelligence_scores")
+def get_intelligence_scores(days: int = 7, min_score: int = 0):
+    """
+    Get intelligence scores with full breakdown of scoring components.
+
+    Returns all data used to calculate the intelligence score:
+    - Price, SMA200, SMA deviation
+    - PE ratio, sector median, PE relative valuation
+    - LLM confidence, valuation rating, data quality
+
+    Args:
+        days: Lookback period in days (default: 7)
+        min_score: Minimum intelligence score filter (default: 0)
+
+    Returns:
+        Complete scoring breakdown for each signal.
+    """
+    from datetime import datetime
+
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                # Query with JOINs to get all scoring data
+                cur.execute("""
+                    SELECT
+                        ts.ticker,
+                        ts.signal,
+                        ts.timeframe,
+                        ts.intelligence_score,
+                        ts.confidence,
+                        ts.sma_200_deviation,
+                        ts.pe_rel_valuation,
+                        ts.valuation_rating,
+                        ts.data_quality,
+                        ts.category,
+                        ts.rationale,
+                        ts.created_at,
+                        cf.company_name,
+                        cf.sector,
+                        cf.pe_ratio,
+                        md.close_price
+                    FROM trade_signals ts
+                    LEFT JOIN company_fundamentals cf
+                        ON UPPER(ts.ticker) = UPPER(cf.ticker)
+                    LEFT JOIN LATERAL (
+                        SELECT close_price
+                        FROM market_data
+                        WHERE UPPER(ticker) = UPPER(ts.ticker)
+                        ORDER BY date DESC
+                        LIMIT 1
+                    ) md ON true
+                    WHERE ts.intelligence_score IS NOT NULL
+                      AND ts.intelligence_score >= %s
+                      AND ts.created_at > NOW() - INTERVAL '%s days'
+                    ORDER BY ts.intelligence_score DESC, ts.created_at DESC
+                    LIMIT 100
+                """, (min_score, days))
+
+                signals = []
+                for row in cur.fetchall():
+                    ticker = row[0]
+                    sma_deviation = float(row[5]) if row[5] else None
+                    price = float(row[15]) if row[15] else None
+
+                    # Calculate SMA 200 from price and deviation
+                    sma_200 = None
+                    if price and sma_deviation is not None:
+                        # sma_deviation = ((price - sma) / sma) * 100
+                        # sma = price / (1 + sma_deviation/100)
+                        sma_200 = round(price / (1 + sma_deviation / 100), 2)
+
+                    signals.append({
+                        "ticker": ticker,
+                        "company_name": row[12],
+                        "sector": row[13],
+                        "signal": row[1],
+                        "timeframe": row[2],
+
+                        # Score
+                        "intelligence_score": row[3],
+                        "llm_confidence": float(row[4]) if row[4] else None,
+
+                        # Technical data
+                        "price": price,
+                        "sma_200": sma_200,
+                        "sma_200_deviation_pct": sma_deviation,
+
+                        # Fundamental data
+                        "pe_ratio": float(row[14]) if row[14] else None,
+                        "pe_rel_valuation": float(row[6]) if row[6] else None,
+                        "valuation_rating": row[7],
+
+                        # Metadata
+                        "data_quality": row[8],
+                        "category": row[9],
+                        "rationale": row[10],
+                        "created_at": row[11].isoformat() if row[11] else None
+                    })
+
+        return {
+            "generated_at": datetime.now().isoformat(),
+            "days": days,
+            "min_score": min_score,
+            "count": len(signals),
+            "signals": signals
+        }
+
+    except Exception as e:
+        logger.error(f"Intelligence scores error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ===================================================================
 # Health Check
 # ===================================================================
