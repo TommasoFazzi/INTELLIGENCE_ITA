@@ -6,6 +6,7 @@ with proper handling of missing/partial data.
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Optional, Literal
 
 
@@ -49,6 +50,13 @@ class TickerMetrics:
     # Metadata
     data_quality: Literal["FULL", "PARTIAL", "INSUFFICIENT"] = "FULL"
     days_of_history: int = 0
+
+    # Audit trail - traccia provenienza dati
+    price_source: Literal["yfinance", "openbb", "cache", "unavailable"] = "yfinance"
+    sma_source: Literal["calculated_200d", "proxy_mean", "unavailable"] = "calculated_200d"
+    pe_source: Literal["openbb", "yfinance", "benchmark_etf", "unavailable"] = "openbb"
+    sector_pe_source: Literal["database", "calculated", "benchmark_etf", "unavailable"] = "database"
+    fetched_at: Optional[datetime] = None
 
     @property
     def is_loss_making(self) -> bool:
@@ -97,4 +105,10 @@ class TickerMetrics:
             "days_of_history": self.days_of_history,
             "is_loss_making": self.is_loss_making,
             "is_bubble_territory": self.is_bubble_territory,
+            # Audit trail
+            "price_source": self.price_source,
+            "sma_source": self.sma_source,
+            "pe_source": self.pe_source,
+            "sector_pe_source": self.sector_pe_source,
+            "fetched_at": self.fetched_at.isoformat() if self.fetched_at else None,
         }

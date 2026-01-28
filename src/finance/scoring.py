@@ -180,14 +180,15 @@ def enrich_signal_with_intelligence(
         - data_quality
     """
     # Get confidence from signal or use default
+    # NOTE: Default 0.5 (neutral) - non assumere alta confidence quando mancante
     confidence = llm_confidence
     if confidence is None:
-        confidence = signal_dict.get("confidence", 0.8)
+        confidence = signal_dict.get("confidence", 0.5)
     if isinstance(confidence, str):
         try:
             confidence = float(confidence)
         except ValueError:
-            confidence = 0.8
+            confidence = 0.5
 
     # Calculate intelligence score
     intelligence_score, data_quality = calculate_intelligence_score(
@@ -211,5 +212,15 @@ def enrich_signal_with_intelligence(
     )
     signal_dict["valuation_rating"] = valuation_rating
     signal_dict["data_quality"] = data_quality
+
+    # Audit trail - traccia provenienza dati per trasparenza UI
+    signal_dict["price_source"] = metrics.price_source
+    signal_dict["sma_source"] = metrics.sma_source
+    signal_dict["pe_source"] = metrics.pe_source
+    signal_dict["sector_pe_source"] = metrics.sector_pe_source
+    signal_dict["fetched_at"] = (
+        metrics.fetched_at.isoformat() if metrics.fetched_at else None
+    )
+    signal_dict["days_of_history"] = metrics.days_of_history
 
     return signal_dict

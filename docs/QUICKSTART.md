@@ -83,10 +83,10 @@ python -m src.ingestion.pipeline
 python scripts/process_nlp.py
 
 # 3. Load to Database
-python scripts/load_to_database.py
+python scripts/load_to_database.py 
 
 # 4. Generate Report
-python scripts/generate_report.py
+python scripts/generate_report.py --macro-first --skip-article-signals
 
 # 5. Il report è salvato in reports/intelligence_report_YYYYMMDD_HHMMSS.md
 cat reports/intelligence_report_*.md | tail -n 100

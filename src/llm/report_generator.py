@@ -2168,9 +2168,11 @@ Respond with JSON only:"""
                                 (report_id, article_id, ticker, signal, timeframe,
                                  rationale, confidence, alignment_score, signal_source, category,
                                  intelligence_score, sma_200_deviation, pe_rel_valuation,
-                                 valuation_rating, data_quality)
+                                 valuation_rating, data_quality,
+                                 price_source, sma_source, pe_source, sector_pe_source,
+                                 fetched_at, days_of_history)
                                 VALUES (%s, NULL, %s, %s, %s, %s, %s, 1.0, 'report', %s,
-                                        %s, %s, %s, %s, %s)
+                                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                 ON CONFLICT (report_id, ticker, signal, timeframe)
                                 WHERE article_id IS NULL
                                 DO UPDATE SET
@@ -2178,7 +2180,13 @@ Respond with JSON only:"""
                                     sma_200_deviation = EXCLUDED.sma_200_deviation,
                                     pe_rel_valuation = EXCLUDED.pe_rel_valuation,
                                     valuation_rating = EXCLUDED.valuation_rating,
-                                    data_quality = EXCLUDED.data_quality
+                                    data_quality = EXCLUDED.data_quality,
+                                    price_source = EXCLUDED.price_source,
+                                    sma_source = EXCLUDED.sma_source,
+                                    pe_source = EXCLUDED.pe_source,
+                                    sector_pe_source = EXCLUDED.sector_pe_source,
+                                    fetched_at = EXCLUDED.fetched_at,
+                                    days_of_history = EXCLUDED.days_of_history
                             """, (
                                 report_id,
                                 sig['ticker'],
@@ -2191,7 +2199,13 @@ Respond with JSON only:"""
                                 sig.get('sma_200_deviation'),
                                 sig.get('pe_rel_valuation'),
                                 sig.get('valuation_rating'),
-                                sig.get('data_quality', 'FULL')
+                                sig.get('data_quality', 'FULL'),
+                                sig.get('price_source'),
+                                sig.get('sma_source'),
+                                sig.get('pe_source'),
+                                sig.get('sector_pe_source'),
+                                sig.get('fetched_at'),
+                                sig.get('days_of_history')
                             ))
                             if cur.rowcount > 0:
                                 stats['saved_report_signals'] += 1
@@ -2211,9 +2225,11 @@ Respond with JSON only:"""
                                     (report_id, article_id, ticker, signal, timeframe,
                                      rationale, confidence, alignment_score, signal_source, category,
                                      intelligence_score, sma_200_deviation, pe_rel_valuation,
-                                     valuation_rating, data_quality)
+                                     valuation_rating, data_quality,
+                                     price_source, sma_source, pe_source, sector_pe_source,
+                                     fetched_at, days_of_history)
                                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'article', %s,
-                                            %s, %s, %s, %s, %s)
+                                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                     ON CONFLICT (report_id, article_id, ticker, signal, timeframe)
                                     WHERE article_id IS NOT NULL
                                     DO UPDATE SET
@@ -2221,7 +2237,13 @@ Respond with JSON only:"""
                                         sma_200_deviation = EXCLUDED.sma_200_deviation,
                                         pe_rel_valuation = EXCLUDED.pe_rel_valuation,
                                         valuation_rating = EXCLUDED.valuation_rating,
-                                        data_quality = EXCLUDED.data_quality
+                                        data_quality = EXCLUDED.data_quality,
+                                        price_source = EXCLUDED.price_source,
+                                        sma_source = EXCLUDED.sma_source,
+                                        pe_source = EXCLUDED.pe_source,
+                                        sector_pe_source = EXCLUDED.sector_pe_source,
+                                        fetched_at = EXCLUDED.fetched_at,
+                                        days_of_history = EXCLUDED.days_of_history
                                 """, (
                                     report_id,
                                     article_id,
@@ -2236,7 +2258,13 @@ Respond with JSON only:"""
                                     sig.get('sma_200_deviation'),
                                     sig.get('pe_rel_valuation'),
                                     sig.get('valuation_rating'),
-                                    sig.get('data_quality', 'FULL')
+                                    sig.get('data_quality', 'FULL'),
+                                    sig.get('price_source'),
+                                    sig.get('sma_source'),
+                                    sig.get('pe_source'),
+                                    sig.get('sector_pe_source'),
+                                    sig.get('fetched_at'),
+                                    sig.get('days_of_history')
                                 ))
                                 if cur.rowcount > 0:
                                     stats['saved_article_signals'] += 1

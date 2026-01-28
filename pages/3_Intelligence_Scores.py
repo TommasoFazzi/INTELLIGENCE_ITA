@@ -66,7 +66,13 @@ def fetch_intelligence_scores_history(days: int = 30, min_score: int = 0):
                         cf.company_name,
                         cf.sector,
                         cf.pe_ratio,
-                        md.close_price
+                        md.close_price,
+                        ts.price_source,
+                        ts.sma_source,
+                        ts.pe_source,
+                        ts.sector_pe_source,
+                        ts.fetched_at,
+                        ts.days_of_history
                     FROM trade_signals ts
                     LEFT JOIN company_fundamentals cf
                         ON UPPER(ts.ticker) = UPPER(cf.ticker)
@@ -88,7 +94,9 @@ def fetch_intelligence_scores_history(days: int = 30, min_score: int = 0):
                     'ticker', 'signal', 'timeframe', 'intelligence_score', 'confidence',
                     'sma_200_deviation', 'pe_rel_valuation', 'valuation_rating',
                     'data_quality', 'category', 'rationale', 'created_at',
-                    'company_name', 'sector', 'pe_ratio', 'price'
+                    'company_name', 'sector', 'pe_ratio', 'price',
+                    'price_source', 'sma_source', 'pe_source', 'sector_pe_source',
+                    'fetched_at', 'days_of_history'
                 ]
 
                 return pd.DataFrame(rows, columns=columns)
@@ -205,7 +213,11 @@ def render_filters():
         "Data Quality",
         options=['FULL', 'PARTIAL', 'INSUFFICIENT'],
         default=[],
-        help="Filtra per qualità dati"
+        help="""Filtra per qualità dati:
+
+- FULL: Tutti i dati disponibili (prezzo, SMA200 su 200+ giorni, PE, settore PE)
+- PARTIAL: Alcuni dati mancanti o SMA su <200 giorni (proxy mean)
+- INSUFFICIENT: Solo prezzo o storico <100 giorni"""
     )
 
     st.sidebar.divider()
@@ -264,7 +276,11 @@ def format_dataframe(df: pd.DataFrame, df_full_history: pd.DataFrame) -> pd.Data
         lambda x: f"{valuation_emoji.get(x, '')} {x}" if x else '-'
     )
 
-    display_df['Quality'] = df['data_quality'].fillna('-')
+    # Data quality with emoji badges
+    quality_emoji = {"FULL": "🟢", "PARTIAL": "🟡", "INSUFFICIENT": "🔴"}
+    display_df['Quality'] = df['data_quality'].apply(
+        lambda x: f"{quality_emoji.get(x, '⚪')} {x}" if x else '⚪ N/A'
+    )
     display_df['Category'] = df['category'].fillna('-')
     display_df['Date'] = df['created_at'].apply(
         lambda x: x.strftime('%Y-%m-%d') if hasattr(x, 'strftime') else str(x)[:10] if x else '-'
@@ -419,6 +435,33 @@ def render_detail_expander(ticker: str, latest_row: dict, history_df: pd.DataFra
             st.write(f"- PE Relative: {latest_row.get('PE Rel', '-')}")
             st.write(f"- Valuation: {latest_row.get('Valuation', '-')}")
 
+        # Data Quality Assessment section
+        st.markdown("**📊 Data Quality Assessment**")
+        quality = latest_row.get('data_quality', 'UNKNOWN')
+        quality_badge = {"FULL": "🟢", "PARTIAL": "🟡", "INSUFFICIENT": "🔴"}.get(quality, "⚪")
+        st.markdown(f"**Qualità Dati**: {quality_badge} {quality}")
+
+        with st.expander("🔍 Dettaglio Sorgenti Dati", expanded=False):
+            src_col1, src_col2 = st.columns(2)
+            with src_col1:
+                st.write(f"- **Prezzo**: {latest_row.get('price_source', 'N/A')}")
+                st.write(f"- **SMA 200**: {latest_row.get('sma_source', 'N/A')}")
+            with src_col2:
+                st.write(f"- **P/E Ratio**: {latest_row.get('pe_source', 'N/A')}")
+                st.write(f"- **Settore PE**: {latest_row.get('sector_pe_source', 'N/A')}")
+
+            days = latest_row.get('days_of_history', 0) or 0
+            if days < 100:
+                st.warning(f"⚠️ Solo {days} giorni di storico - dati insufficienti")
+            elif days < 200:
+                st.info(f"📊 {days} giorni di storico - SMA basata su proxy mean")
+            else:
+                st.success(f"✅ {days} giorni di storico - SMA calcolata correttamente")
+
+            fetched = latest_row.get('fetched_at')
+            if fetched:
+                st.caption(f"Dati recuperati: {fetched}")
+
         st.markdown("**Rationale**")
         st.info(latest_row.get('rationale', 'Nessun rationale disponibile'))
 
@@ -537,9 +580,16 @@ def main():
         display_idx = df_latest_list.index(latest_idx)
         display_row = display_df.iloc[display_idx].to_dict()
 
-        # Get rationale from original data
+        # Get rationale and audit trail from original data
         latest_data = df_latest[latest_mask].iloc[0]
         display_row['rationale'] = latest_data['rationale']
+        display_row['data_quality'] = latest_data.get('data_quality')
+        display_row['price_source'] = latest_data.get('price_source')
+        display_row['sma_source'] = latest_data.get('sma_source')
+        display_row['pe_source'] = latest_data.get('pe_source')
+        display_row['sector_pe_source'] = latest_data.get('sector_pe_source')
+        display_row['fetched_at'] = latest_data.get('fetched_at')
+        display_row['days_of_history'] = latest_data.get('days_of_history')
 
         # Render with full history
         render_detail_expander(ticker, display_row, df_filtered)
