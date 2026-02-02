@@ -11,6 +11,7 @@ Usage:
 import sys
 import argparse
 from pathlib import Path
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -33,6 +34,18 @@ def main():
         type=int,
         default=1,
         help='Number of days to look back for articles (default: 1)'
+    )
+    parser.add_argument(
+        '--from-time',
+        type=str,
+        default=None,
+        help='Start time for articles (ISO format: YYYY-MM-DDTHH:MM, e.g., 2024-01-15T09:00)'
+    )
+    parser.add_argument(
+        '--to-time',
+        type=str,
+        default=None,
+        help='End time for articles (ISO format: YYYY-MM-DDTHH:MM, e.g., 2024-01-16T09:00)'
     )
     parser.add_argument(
         '--no-save',
@@ -87,6 +100,30 @@ def main():
 
     args = parser.parse_args()
 
+    # Parse and validate time window arguments
+    from_time = None
+    to_time = None
+
+    if args.from_time:
+        try:
+            from_time = datetime.fromisoformat(args.from_time)
+        except ValueError:
+            logger.error(f"Invalid --from-time format: {args.from_time}")
+            logger.error("Expected ISO format: YYYY-MM-DDTHH:MM (e.g., 2024-01-15T09:00)")
+            return 1
+
+    if args.to_time:
+        try:
+            to_time = datetime.fromisoformat(args.to_time)
+        except ValueError:
+            logger.error(f"Invalid --to-time format: {args.to_time}")
+            logger.error("Expected ISO format: YYYY-MM-DDTHH:MM (e.g., 2024-01-16T09:00)")
+            return 1
+
+    if from_time and to_time and from_time >= to_time:
+        logger.error(f"--from-time ({args.from_time}) must be before --to-time ({args.to_time})")
+        return 1
+
     logger.info("=" * 80)
     logger.info("INTELLIGENCE REPORT GENERATION")
     logger.info("=" * 80)
@@ -134,12 +171,18 @@ def main():
     if args.macro_first:
         logger.info("\n" + "=" * 80)
         logger.info("[MACRO-FIRST MODE] Serialized pipeline enabled")
+        if from_time or to_time:
+            logger.info(f"Time window: {from_time or 'N/A'} → {to_time or 'N/A'}")
+        else:
+            logger.info(f"Time window: last {args.days} day(s)")
         logger.info("=" * 80)
 
         try:
             report = generator.run_macro_first_pipeline(
                 focus_areas=focus_areas,
                 days=args.days,
+                from_time=from_time,
+                to_time=to_time,
                 save=not args.no_save,
                 save_to_db=True,
                 output_dir=args.output_dir,
@@ -203,12 +246,17 @@ def main():
 
     # Generate report (original flow)
     try:
-        logger.info(f"\n[STEP 3] Generating report (analyzing last {args.days} day(s))...")
+        if from_time or to_time:
+            logger.info(f"\n[STEP 3] Generating report (time window: {from_time or 'N/A'} → {to_time or 'N/A'})...")
+        else:
+            logger.info(f"\n[STEP 3] Generating report (analyzing last {args.days} day(s))...")
         logger.info(f"Filtering parameters: top_articles={args.top_articles}, "
                    f"min_similarity={args.min_similarity}, min_fallback={args.min_articles}")
         report = generator.generate_report(
             focus_areas=focus_areas,
             days=args.days,
+            from_time=from_time,
+            to_time=to_time,
             rag_top_k=5,
             top_articles=args.top_articles,
             min_similarity=args.min_similarity,

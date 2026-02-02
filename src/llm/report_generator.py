@@ -1212,6 +1212,8 @@ Respond with JSON only:"""
         self,
         focus_areas: Optional[List[str]] = None,
         days: int = 1,
+        from_time: Optional[datetime] = None,
+        to_time: Optional[datetime] = None,
         rag_queries: Optional[List[str]] = None,
         rag_top_k: int = 5,
         top_articles: int = 60,
@@ -1223,7 +1225,9 @@ Respond with JSON only:"""
 
         Args:
             focus_areas: List of topics to focus on (e.g., ["cybersecurity", "geopolitics"])
-            days: Number of days to look back for recent articles
+            days: Number of days to look back for recent articles (if from_time/to_time not set)
+            from_time: Optional start time for explicit time window (takes precedence over days)
+            to_time: Optional end time for explicit time window (takes precedence over days)
             rag_queries: Custom RAG search queries. If None, auto-generates from focus areas
             rag_top_k: Number of historical chunks per RAG query
             top_articles: Maximum number of top relevant articles to include (default: 60)
@@ -1294,8 +1298,11 @@ Respond with JSON only:"""
             ]
 
         # Step 1: Get recent articles
-        logger.info(f"\n[STEP 1] Fetching articles from last {days} day(s)...")
-        all_recent_articles = self.db.get_recent_articles(days=days)
+        if from_time or to_time:
+            logger.info(f"\n[STEP 1] Fetching articles (time window: {from_time or 'N/A'} → {to_time or 'N/A'})...")
+        else:
+            logger.info(f"\n[STEP 1] Fetching articles from last {days} day(s)...")
+        all_recent_articles = self.db.get_recent_articles(days=days, from_time=from_time, to_time=to_time)
         logger.info(f"✓ Retrieved {len(all_recent_articles)} recent articles")
 
         if not all_recent_articles:
@@ -2304,6 +2311,8 @@ Respond with JSON only:"""
         self,
         focus_areas: Optional[List[str]] = None,
         days: int = 1,
+        from_time: Optional[datetime] = None,
+        to_time: Optional[datetime] = None,
         save: bool = True,
         save_to_db: bool = True,
         output_dir: str = "reports",
@@ -2325,7 +2334,9 @@ Respond with JSON only:"""
 
         Args:
             focus_areas: Topics to focus on
-            days: Number of days to look back
+            days: Number of days to look back (if from_time/to_time not set)
+            from_time: Optional start time for explicit time window (takes precedence over days)
+            to_time: Optional end time for explicit time window (takes precedence over days)
             save: Whether to save report to file
             save_to_db: Whether to save to database
             output_dir: Directory for saved reports
@@ -2345,6 +2356,8 @@ Respond with JSON only:"""
         report = self.generate_report(
             focus_areas=focus_areas,
             days=days,
+            from_time=from_time,
+            to_time=to_time,
             top_articles=top_articles,
             min_similarity=min_similarity,
             min_fallback=min_fallback

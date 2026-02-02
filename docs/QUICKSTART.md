@@ -79,6 +79,9 @@ Il browser si aprirà automaticamente su http://localhost:8501
 # 1. Ingestion (nuovi articoli)
 python -m src.ingestion.pipeline
 
+# 2. Fetching market data
+python scripts/fetch_daily_market_data.py
+
 # 2. NLP Processing
 python scripts/process_nlp.py
 

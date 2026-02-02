@@ -535,13 +535,21 @@ class DatabaseManager:
             logger.error(f"Error getting statistics: {e}")
             return {}
 
-    def get_recent_articles(self, days: int = 1, category: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_recent_articles(
+        self,
+        days: int = 1,
+        category: Optional[str] = None,
+        from_time: Optional[datetime] = None,
+        to_time: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
         """
         Get recent articles from database.
 
         Args:
-            days: Number of days to look back
+            days: Number of days to look back (used if from_time/to_time not specified)
             category: Optional category filter
+            from_time: Optional start time for explicit time window (takes precedence over days)
+            to_time: Optional end time for explicit time window (takes precedence over days)
 
         Returns:
             List of article dictionaries
@@ -554,10 +562,21 @@ class DatabaseManager:
                             id, title, link, published_date, source, category,
                             subcategory, summary, full_text, entities, nlp_metadata, full_text_embedding
                         FROM articles
-                        WHERE published_date > NOW() - INTERVAL '%s days'
+                        WHERE 1=1
                     """
+                    params = []
 
-                    params = [days]
+                    # Explicit time window takes precedence over days
+                    if from_time or to_time:
+                        if from_time:
+                            query += " AND published_date >= %s"
+                            params.append(from_time)
+                        if to_time:
+                            query += " AND published_date <= %s"
+                            params.append(to_time)
+                    else:
+                        query += " AND published_date > NOW() - INTERVAL '%s days'"
+                        params.append(days)
 
                     if category:
                         query += " AND category = %s"
