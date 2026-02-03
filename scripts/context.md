@@ -4,7 +4,9 @@
 Automation and utility scripts for pipeline execution, data management, and maintenance tasks. Provides CLI tools for running the intelligence pipeline, backfilling data, cleaning entities, and generating reports.
 
 ## Architecture Role
-Operational layer that orchestrates the core modules. Scripts tie together ingestion → NLP → database → LLM report generation. Used for both manual execution and automated scheduling (cron).
+Operational layer that orchestrates the core modules. Scripts tie together ingestion → NLP → database → LLM report generation.
+
+**Primary orchestrator**: `daily_pipeline.py` executes all 5 steps sequentially with logging, error handling, and configurable fail-fast behavior. Supports manual execution and automated scheduling via launchd (macOS, 8:00 AM daily).
 
 ## Key Files
 
@@ -12,6 +14,14 @@ Operational layer that orchestrates the core modules. Scripts tie together inges
 - `check_setup.py` - Verify system configuration (Python, env, DB, spaCy, models)
 
 ### Pipeline Execution
+- `daily_pipeline.py` - **Orchestrator**: runs full pipeline in one command (Phase 6)
+  - `--dry-run` - Validate without executing
+  - `--step N` - Run only step N (1-5)
+  - `--from-step N` - Start from step N
+  - `--verbose` - Enable DEBUG logging
+  - `--skip-weekly` - Skip weekly/monthly reports
+  - **Auto weekly**: Step 6 (weekly_report) runs on Sundays
+  - **Auto monthly**: Step 7 (monthly_recap) runs after 4 weekly reports
 - `process_nlp.py` - Run NLP processing on ingested articles
 - `load_to_database.py` - Load processed articles to PostgreSQL
 - `generate_report.py` - Generate daily intelligence reports
@@ -48,9 +58,10 @@ Operational layer that orchestrates the core modules. Scripts tie together inges
 ### Ticker Management
 - `seed_tickers.py` - Seed ticker whitelist to database
 
-### Dashboard
+### Dashboard & Scheduling
 - `run_dashboard.sh` - Launch Streamlit dashboard
 - `run_weekly_report.sh` - Cron script for weekly reports
+- `com.intelligence-ita.daily-pipeline.plist` - launchd config for 8:00 AM scheduling (macOS)
 
 ### Migrations
 - `run_migration_003.py` - Run specific migration
@@ -75,11 +86,24 @@ Operational layer that orchestrates the core modules. Scripts tie together inges
 ## Common Usage
 
 ```bash
-# Full pipeline
+# Full pipeline (one command - recommended)
+python scripts/daily_pipeline.py
+
+# Full pipeline (step by step)
 python -m src.ingestion.pipeline
+python scripts/fetch_daily_market_data.py
 python scripts/process_nlp.py
 python scripts/load_to_database.py
 python scripts/generate_report.py --macro-first
+
+# Dry run (validate only)
+python scripts/daily_pipeline.py --dry-run
+
+# Resume from specific step
+python scripts/daily_pipeline.py --from-step 3
+
+# Enable automatic scheduling (8:00 AM daily)
+launchctl load ~/Library/LaunchAgents/com.intelligence-ita.daily-pipeline.plist
 
 # Weekly report
 python scripts/generate_weekly_report.py

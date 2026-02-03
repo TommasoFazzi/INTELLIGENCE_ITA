@@ -5,7 +5,7 @@
 Sistema completo di intelligence news analysis con pipeline end-to-end:
 **RSS Ingestion → NLP Processing → Vector Database → LLM Report Generation → Human Review**
 
-**Status**: ✅ Fasi 1-5 completate (pronto per produzione)
+**Status**: ✅ Fasi 1-6 completate (pronto per produzione)
 
 ## System Architecture
 
@@ -158,11 +158,14 @@ INTELLIGENCE_ITA/
 │       └── logger.py                 # Logging utilities
 │
 ├── scripts/
+│   ├── daily_pipeline.py             # Pipeline orchestrator (Phase 6)
 │   ├── process_nlp.py                # NLP processing CLI
 │   ├── load_to_database.py           # Database loader CLI
 │   ├── generate_report.py            # Report generator CLI
+│   ├── fetch_daily_market_data.py    # Market data fetcher
 │   ├── run_dashboard.sh              # Dashboard launcher
-│   └── check_setup.py                # System health check
+│   ├── check_setup.py                # System health check
+│   └── com.intelligence-ita.daily-pipeline.plist  # launchd config
 │
 ├── docs/
 │   ├── QUICKSTART.md                 # Getting started guide
@@ -217,13 +220,41 @@ INTELLIGENCE_ITA/
 - Status workflow (Draft → Reviewed → Approved)
 - Source links and RAG context viewer
 
+### ✅ Phase 6: Pipeline Automation
+- `daily_pipeline.py` orchestrator
+- 7-step execution (5 daily + 2 conditional)
+- Configurable fail-fast/continue behavior
+- launchd scheduling (macOS, 8:00 AM)
+- macOS notifications on completion
+- Automatic log cleanup (>30 days)
+- CLI options: `--dry-run`, `--step`, `--from-step`, `--verbose`, `--skip-weekly`
+- **Weekly report**: auto-generates on Sundays (step 6)
+- **Monthly recap**: auto-generates after 4 weekly reports (step 7)
+
 ## Usage Examples
+
+### Daily Pipeline (Automated - Phase 6)
+
+```bash
+# One-command execution
+python scripts/daily_pipeline.py           # Runs all 5 steps
+
+# Options
+python scripts/daily_pipeline.py --dry-run      # Validate only
+python scripts/daily_pipeline.py --verbose      # Debug logging
+python scripts/daily_pipeline.py --step 3       # Only NLP step
+python scripts/daily_pipeline.py --from-step 3  # From NLP onwards
+
+# Automatic scheduling (8:00 AM daily)
+launchctl load ~/Library/LaunchAgents/com.intelligence-ita.daily-pipeline.plist
+```
 
 ### Daily Pipeline (Manual)
 
 ```bash
 # Step-by-step execution
 python -m src.ingestion.pipeline           # ~3 min
+python scripts/fetch_daily_market_data.py  # ~1 min
 python scripts/process_nlp.py              # ~4 min
 python scripts/load_to_database.py         # ~1 sec
 python scripts/generate_report.py          # ~15 sec
@@ -506,11 +537,14 @@ results = nlp.batch_process(articles_list, max_workers=4)
 
 ## Future Roadmap
 
-### Phase 6: Automation (Next)
-- Cron job for daily execution
-- Email distribution of approved reports
-- Slack/Discord notifications
-- Error alerting and monitoring
+### ✅ Phase 6: Automation (Completed)
+- [x] `daily_pipeline.py` orchestrator (5 steps in one command)
+- [x] launchd scheduling for macOS (8:00 AM daily)
+- [x] Detailed logging with timestamps and exit codes
+- [x] Fail-fast with configurable continue-on-failure
+- [x] macOS notifications on success/failure
+- [ ] Email distribution of approved reports (future)
+- [ ] Slack/Discord notifications (future)
 
 ### Phase 7: Advanced Analytics
 - Trend analysis over time
@@ -562,6 +596,6 @@ MIT License
 
 ---
 
-**Last Updated**: 2025-11-25
-**Version**: 1.0.0
-**Status**: Production Ready
+**Last Updated**: 2026-02-03
+**Version**: 1.1.0
+**Status**: Production Ready (Phase 6 complete)

@@ -95,12 +95,45 @@ python scripts/generate_report.py --macro-first --skip-article-signals
 cat reports/intelligence_report_*.md | tail -n 100
 ```
 
-### Metodo 3: One-Liner (Futuro - Fase 6)
+### Metodo 3: Daily Pipeline Automatizzata
 
 ```bash
-# Script unificato (da implementare in Fase 6)
-./scripts/daily_pipeline.sh
+# Esegue l'intera pipeline in un comando
+python scripts/daily_pipeline.py
+
+# Opzioni disponibili:
+python scripts/daily_pipeline.py --dry-run      # Solo verifica, non esegue
+python scripts/daily_pipeline.py --verbose      # Log dettagliato (DEBUG)
+python scripts/daily_pipeline.py --step 3       # Solo step specifico (1-5)
+python scripts/daily_pipeline.py --from-step 3  # Da step 3 in poi
+
+# Steps:
+#   1. ingestion        - Fetch RSS feeds
+#   2. market_data      - Fetch market data (opzionale, continua se fallisce)
+#   3. nlp_processing   - NLP processing
+#   4. load_to_database - Load to database
+#   5. generate_report  - Generate daily report
+#   6. weekly_report    - Weekly meta-analysis (solo domenica)
+#   7. monthly_recap    - Monthly recap (dopo 4 weekly report)
 ```
+
+### Metodo 4: Scheduling Automatico (ore 8:00)
+
+```bash
+# Installa il job launchd (macOS)
+launchctl load ~/Library/LaunchAgents/com.intelligence-ita.daily-pipeline.plist
+
+# Verifica stato
+launchctl list | grep intelligence-ita
+
+# Test manuale del job
+launchctl start com.intelligence-ita.daily-pipeline
+
+# Disattiva
+launchctl unload ~/Library/LaunchAgents/com.intelligence-ita.daily-pipeline.plist
+```
+
+I log della pipeline automatica sono salvati in `logs/daily_pipeline_YYYYMMDD_HHMMSS.log`
 
 ## Struttura Output
 
@@ -112,8 +145,13 @@ INTELLIGENCE_ITA/
 ├── reports/
 │   ├── intelligence_report_20251125_091000.json  # Structured
 │   └── intelligence_report_20251125_091000.md    # Readable
-└── logs/
-    └── app_20251125.log                    # System logs
+├── logs/
+│   ├── daily_pipeline_20251125_080000.log  # Pipeline orchestrator log
+│   ├── pipeline_20251125_080100.log        # Ingestion log
+│   └── launchd_stdout.log                  # Scheduled job output
+└── scripts/
+    ├── daily_pipeline.py                   # Pipeline orchestrator
+    └── com.intelligence-ita.daily-pipeline.plist  # launchd config
 ```
 
 ## Risoluzione Problemi Comuni
@@ -188,12 +226,13 @@ streamlit run src/hitl/dashboard.py --server.port 8502
 ## FAQ
 
 **Q: Quanto tempo richiede l'esecuzione giornaliera?**
-A: ~5-10 minuti totali:
+A: ~10-15 minuti totali con `python scripts/daily_pipeline.py`:
 - Ingestion: 2-3 min
-- NLP: 3-4 min
+- Market Data: 1-2 min
+- NLP: 5-7 min
 - Database: <1 min
-- Report: 10-15 sec
-- Review: 5-10 min (umano)
+- Report: 1-2 min
+- Review: 5-10 min (umano, opzionale)
 
 **Q: Quanti articoli raccoglie al giorno?**
 A: Dipende dalle fonti, tipicamente 100-200 articoli nelle 24h.
@@ -212,6 +251,12 @@ A: Sì, la dashboard Streamlit può girare in modalità headless. Accedi via bro
 
 **Q: Come aggiungo nuove fonti RSS?**
 A: Modifica `config/feeds.yaml` aggiungendo nuove entries con URL e categoria.
+
+**Q: Come funziona lo scheduling automatico?**
+A: Il file `com.intelligence-ita.daily-pipeline.plist` configura launchd (macOS) per eseguire la pipeline ogni giorno alle 8:00. Gestisce automaticamente il wake-from-sleep e salva log dettagliati. Configurazioni in `.env`: `PIPELINE_NOTIFY_ON_SUCCESS`, `PIPELINE_NOTIFY_ON_FAILURE`, `PIPELINE_MAX_LOG_DAYS`.
+
+**Q: Cosa succede se uno step della pipeline fallisce?**
+A: Di default la pipeline si ferma (fail-fast). L'eccezione è lo step `market_data` che è opzionale e non blocca la pipeline. I log dettagliati sono in `logs/daily_pipeline_*.log` con stdout/stderr di ogni step.
 
 ## Performance Benchmark
 
