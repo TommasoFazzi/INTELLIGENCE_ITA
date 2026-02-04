@@ -10,8 +10,10 @@ from typing import Optional
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, HTTPException
+import os
+from fastapi import FastAPI, HTTPException, Depends, Query, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
 from src.storage.database import DatabaseManager
@@ -26,7 +28,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS for Next.js frontend
+# Configure CORS for Next.js frontend (restricted methods and headers)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -35,9 +37,39 @@ app.add_middleware(
         "http://localhost:3002"
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "OPTIONS"],  # Only allow necessary methods
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],  # Only necessary headers
 )
+
+# ===================================================================
+# API Key Authentication
+# ===================================================================
+
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+# Load API key from environment (generate one if not set)
+API_KEY = os.getenv("INTELLIGENCE_API_KEY")
+
+async def verify_api_key(api_key: str = Security(api_key_header)) -> str:
+    """Verify API key for protected endpoints."""
+    if not API_KEY:
+        # If no API key is configured, allow access (development mode)
+        return "dev_mode"
+
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="API key required. Provide X-API-Key header."
+        )
+
+    if api_key != API_KEY:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid API key"
+        )
+
+    return api_key
 
 # Initialize database
 db = DatabaseManager()
@@ -84,13 +116,18 @@ async def root():
 
 
 @app.get("/api/v1/map/entities", response_model=EntityCollection)
-async def get_entities(limit: int = 1000):
+async def get_entities(
+    limit: int = Query(default=1000, ge=1, le=1000, description="Max entities (1-1000)"),
+    api_key: str = Depends(verify_api_key)
+):
     """
     Get all entities with coordinates in GeoJSON format.
-    
+
+    Requires API key authentication via X-API-Key header.
+
     Args:
-        limit: Maximum number of entities to return (default: 1000)
-    
+        limit: Maximum number of entities to return (1-1000)
+
     Returns:
         GeoJSON FeatureCollection
     """
@@ -98,20 +135,25 @@ async def get_entities(limit: int = 1000):
         geojson = db.get_entities_with_coordinates(limit=limit)
         logger.info(f"Returned {len(geojson['features'])} entities")
         return geojson
-    
+
     except Exception as e:
         logger.error(f"Error fetching entities: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/v1/map/entities/{entity_id}")
-async def get_entity(entity_id: int):
+async def get_entity(
+    entity_id: int,
+    api_key: str = Depends(verify_api_key)
+):
     """
     Get single entity details.
-    
+
+    Requires API key authentication via X-API-Key header.
+
     Args:
         entity_id: Entity ID
-    
+
     Returns:
         Entity details with related articles
     """

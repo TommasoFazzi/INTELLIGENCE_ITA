@@ -207,7 +207,12 @@ export default function TacticalMap() {
 
                         try {
                             // Fetch full entity details including related articles
-                            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/map/entities/${entityId}`);
+                            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/map/entities/${entityId}`, {
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(process.env.NEXT_PUBLIC_API_KEY && { 'X-API-Key': process.env.NEXT_PUBLIC_API_KEY }),
+                                },
+                            });
 
                             if (!response.ok) {
                                 throw new Error(`Failed to fetch entity: ${response.statusText}`);
