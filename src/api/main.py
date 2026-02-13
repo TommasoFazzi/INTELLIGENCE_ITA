@@ -18,14 +18,15 @@ from pydantic import BaseModel
 
 from src.storage.database import DatabaseManager
 from src.utils.logger import get_logger
+from src.api.routers import dashboard, reports
 
 logger = get_logger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Intelligence Map API",
-    description="REST API for Intelligence Map entity visualization",
-    version="1.0.0"
+    title="Intelligence ITA API",
+    description="REST API for Intelligence ITA platform - Dashboard, Reports, and Map visualization",
+    version="1.1.0"
 )
 
 # Configure CORS for Next.js frontend (restricted methods and headers)
@@ -40,6 +41,10 @@ app.add_middleware(
     allow_methods=["GET", "OPTIONS"],  # Only allow necessary methods
     allow_headers=["Content-Type", "Authorization", "X-API-Key"],  # Only necessary headers
 )
+
+# Include routers
+app.include_router(dashboard.router)
+app.include_router(reports.router)
 
 # ===================================================================
 # API Key Authentication
@@ -106,18 +111,27 @@ class EntityCollection(BaseModel):
 async def root():
     """API root endpoint"""
     return {
-        "name": "Intelligence Map API",
-        "version": "1.0.0",
+        "name": "Intelligence ITA API",
+        "version": "1.1.0",
         "endpoints": {
-            "entities": "/api/v1/map/entities",
-            "entity_detail": "/api/v1/map/entities/{id}"
+            "map": {
+                "entities": "/api/v1/map/entities",
+                "entity_detail": "/api/v1/map/entities/{id}"
+            },
+            "dashboard": {
+                "stats": "/api/v1/dashboard/stats"
+            },
+            "reports": {
+                "list": "/api/v1/reports",
+                "detail": "/api/v1/reports/{id}"
+            }
         }
     }
 
 
 @app.get("/api/v1/map/entities", response_model=EntityCollection)
 async def get_entities(
-    limit: int = Query(default=1000, ge=1, le=1000, description="Max entities (1-1000)"),
+    limit: int = Query(default=5000, ge=1, le=5000, description="Max entities (1-5000)"),
     api_key: str = Depends(verify_api_key)
 ):
     """
