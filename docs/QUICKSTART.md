@@ -50,11 +50,10 @@ python scripts/load_to_database.py
 # 4. Genera report intelligence (10-15 sec)
 python scripts/generate_report.py
 
-# 5. Apri dashboard per revisione
-./scripts/run_dashboard.sh
-```
 
-Il browser si aprirà automaticamente su http://localhost:8501
+```
+streamlit run /Users/tommasofazzi/INTELLIGENCE_ITA/INTELLIGENCE_ITA/Home.py
+Il browser si aprirà automaticamente su **http://localhost:8501**
 
 ## Workflow Giornaliero
 
