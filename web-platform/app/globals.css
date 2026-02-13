@@ -1,0 +1,330 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+/* ============================================
+   Custom Design Tokens (INTEL ITA Theme)
+   ============================================ */
+:root {
+  --radius: 0.625rem;
+
+  /* Dark theme as default (military/tactical aesthetic) */
+  --background: #0A1628;
+  --foreground: #ededed;
+  --card: #1a2332;
+  --card-foreground: #ededed;
+  --popover: #1a2332;
+  --popover-foreground: #ededed;
+
+  /* Primary: Orange (tactical accent) */
+  --primary: #FF6B35;
+  --primary-foreground: #ffffff;
+
+  /* Secondary: Blue (info accent) */
+  --secondary: #00A8E8;
+  --secondary-foreground: #ffffff;
+
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #ededed;
+  --destructive: #ef4444;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #FF6B35;
+
+  /* Chart colors */
+  --chart-1: #FF6B35;
+  --chart-2: #00A8E8;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #8b5cf6;
+
+  /* Sidebar */
+  --sidebar: #0f1a2b;
+  --sidebar-foreground: #ededed;
+  --sidebar-primary: #FF6B35;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #FF6B35;
+
+  /* Custom colors for landing page */
+  --color-navy-900: #0A1628;
+  --color-navy-800: #1a2332;
+  --color-navy-700: #1e293b;
+  --color-orange-500: #FF6B35;
+  --color-orange-600: #F77F00;
+  --color-blue-500: #00A8E8;
+  --color-blue-600: #0077B6;
+
+  /* Glow shadows */
+  --shadow-glow-orange: 0 0 30px rgba(255, 107, 53, 0.3);
+  --shadow-glow-blue: 0 0 30px rgba(0, 168, 232, 0.3);
+}
+
+/* Light mode override (optional, for future use) */
+.light {
+  --background: #ffffff;
+  --foreground: #0A1628;
+  --card: #f8fafc;
+  --card-foreground: #0A1628;
+  --popover: #ffffff;
+  --popover-foreground: #0A1628;
+  --primary: #FF6B35;
+  --primary-foreground: #ffffff;
+  --secondary: #00A8E8;
+  --secondary-foreground: #ffffff;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0A1628;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #FF6B35;
+}
+
+/* ============================================
+   Keyframe Animations
+   ============================================ */
+@keyframes scanline {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(30px, -30px); }
+}
+
+@keyframes pulse-custom {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes border-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ripple-animation {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* ============================================
+   Animation Utility Classes
+   ============================================ */
+.animate-scanline {
+  animation: scanline 8s linear infinite;
+}
+
+.animate-float {
+  animation: float 8s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 8s ease-in-out infinite -4s;
+}
+
+.animate-pulse-custom {
+  animation: pulse-custom 2s ease-in-out infinite;
+}
+
+.animate-border-rotate {
+  animation: border-rotate 3s linear infinite;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Staggered animation delays */
+.animation-delay-100 { animation-delay: 100ms; }
+.animation-delay-200 { animation-delay: 200ms; }
+.animation-delay-300 { animation-delay: 300ms; }
+.animation-delay-400 { animation-delay: 400ms; }
+.animation-delay-500 { animation-delay: 500ms; }
+
+/* ============================================
+   Gradient Utilities
+   ============================================ */
+.gradient-text {
+  background: linear-gradient(135deg, var(--color-orange-500), var(--color-blue-500));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--color-orange-500), var(--color-blue-500));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* ============================================
+   Grid Overlay Pattern
+   ============================================ */
+.grid-overlay {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* ============================================
+   Glassmorphism
+   ============================================ */
+.glass {
+  background: rgba(10, 22, 40, 0.8);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   Mapbox GL Overrides (Dark Theme)
+   ============================================ */
+.mapboxgl-ctrl-group {
+  background: rgba(10, 22, 40, 0.9) !important;
+  border: 1px solid rgba(255, 107, 53, 0.3) !important;
+}
+
+.mapboxgl-ctrl-group button {
+  background: transparent !important;
+  color: #FF6B35 !important;
+}
+
+.mapboxgl-ctrl-group button:hover {
+  background: rgba(255, 107, 53, 0.1) !important;
+}
+
+.mapboxgl-popup-content {
+  background: rgba(10, 22, 40, 0.95) !important;
+  color: #ededed !important;
+  border: 1px solid rgba(255, 107, 53, 0.3) !important;
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: rgba(10, 22, 40, 0.95) !important;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-navy-900);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-navy-700);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-orange-500);
+  }
+}
