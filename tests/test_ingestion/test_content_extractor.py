@@ -321,12 +321,13 @@ def test_extract_batch_handles_missing_url(mock_extract, extractor):
 @patch.object(ContentExtractor, 'extract_content')
 def test_extract_batch_tracks_success_and_failures(mock_extract, extractor):
     """Test: traccia successi e fallimenti."""
-    # Prima chiamata successo, seconda fallimento
-    mock_extract.side_effect = [
-        {'text': 'Success'},
-        None,
-        {'text': 'Success again'}
-    ]
+    # URL-dependent mock to be order-independent under concurrent execution
+    def mock_side_effect(url, html=None):
+        if url == 'https://example.com/2':
+            return None  # Fallimento
+        return {'text': 'Success'}
+
+    mock_extract.side_effect = mock_side_effect
 
     articles = [
         {'title': 'Article 1', 'link': 'https://example.com/1'},

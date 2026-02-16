@@ -4,6 +4,7 @@ Main ingestion pipeline that orchestrates feed parsing and content extraction.
 
 import json
 import hashlib
+import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
@@ -86,6 +87,60 @@ class IngestionPipeline:
 
         return unique
 
+    async def _run_async(
+        self,
+        category: Optional[str] = None,
+        extract_content: bool = True,
+        max_age_days: int = 1
+    ) -> List[Dict]:
+        """
+        Async core of the ingestion pipeline.
+
+        Calls async methods directly to avoid nested asyncio.run() calls.
+        A single event loop governs both feed parsing and content extraction.
+        """
+        # Step 1: Parse RSS feeds concurrently
+        logger.info("\n[STEP 1] Parsing RSS feeds concurrently...")
+        articles = await self.feed_parser._parse_all_feeds_async(category=category)
+
+        if not articles:
+            logger.warning("No articles found from RSS feeds")
+            return []
+
+        logger.info(f"Parsed {len(articles)} articles from RSS feeds")
+
+        # Step 1.5: Quick hash deduplication (sync, pure computation)
+        logger.info("\n[STEP 1.5] Deduplicating articles (quick hash)...")
+        articles = self.deduplicate_by_quick_hash(articles)
+
+        if not articles:
+            logger.warning("No articles remaining after deduplication")
+            return []
+
+        # Filter articles by age (sync, pure computation)
+        if max_age_days > 0:
+            cutoff_date = datetime.now() - timedelta(days=max_age_days)
+            original_count = len(articles)
+            articles = [
+                a for a in articles
+                if a.get('published') and a['published'] >= cutoff_date
+            ]
+            filtered_count = original_count - len(articles)
+            if filtered_count > 0:
+                logger.info(f"Filtered out {filtered_count} articles older than {max_age_days} day(s)")
+            logger.info(f"{len(articles)} recent articles remaining")
+
+        # Step 2: Extract full content concurrently
+        if extract_content and self.content_extractor:
+            logger.info("\n[STEP 2] Extracting full article content concurrently...")
+            articles = await self.content_extractor._extract_batch_async(articles)
+            success_count = sum(1 for a in articles if a.get('extraction_success'))
+            logger.info(f"Extracted full content for {success_count}/{len(articles)} articles")
+        else:
+            logger.info("\n[STEP 2] Skipping full content extraction")
+
+        return articles
+
     def run(
         self,
         category: Optional[str] = None,
@@ -95,6 +150,9 @@ class IngestionPipeline:
     ) -> List[Dict]:
         """
         Run the complete ingestion pipeline.
+
+        Uses a single asyncio.run() to orchestrate all async I/O
+        (feed fetching + content extraction) under one event loop.
 
         Args:
             category: Optional category filter
@@ -106,54 +164,18 @@ class IngestionPipeline:
             List of processed articles
         """
         logger.info("=" * 80)
-        logger.info("Starting news ingestion pipeline")
+        logger.info("Starting news ingestion pipeline (async)")
         logger.info("=" * 80)
 
-        # Step 1: Parse RSS feeds
-        logger.info("\n[STEP 1] Parsing RSS feeds...")
-        articles = self.feed_parser.parse_all_feeds(category=category)
+        articles = asyncio.run(
+            self._run_async(category, extract_content, max_age_days)
+        )
 
-        if not articles:
-            logger.warning("No articles found from RSS feeds")
-            return []
-
-        logger.info(f"✓ Parsed {len(articles)} articles from RSS feeds")
-
-        # Step 1.5: Quick hash deduplication
-        logger.info("\n[STEP 1.5] Deduplicating articles (quick hash)...")
-        articles = self.deduplicate_by_quick_hash(articles)
-
-        if not articles:
-            logger.warning("No articles remaining after deduplication")
-            return []
-
-        # Filter articles by age
-        if max_age_days > 0:
-            cutoff_date = datetime.now() - timedelta(days=max_age_days)
-            original_count = len(articles)
-            articles = [
-                a for a in articles
-                if a.get('published') and a['published'] >= cutoff_date
-            ]
-            filtered_count = original_count - len(articles)
-            if filtered_count > 0:
-                logger.info(f"✓ Filtered out {filtered_count} articles older than {max_age_days} day(s)")
-            logger.info(f"✓ {len(articles)} recent articles remaining")
-
-        # Step 2: Extract full content (optional)
-        if extract_content and self.content_extractor:
-            logger.info("\n[STEP 2] Extracting full article content...")
-            articles = self.content_extractor.extract_batch(articles)
-            success_count = sum(1 for a in articles if a.get('extraction_success'))
-            logger.info(f"✓ Extracted full content for {success_count}/{len(articles)} articles")
-        else:
-            logger.info("\n[STEP 2] Skipping full content extraction")
-
-        # Step 3: Save output
-        if save_output:
+        # Step 3: Save output (sync I/O, outside async loop)
+        if save_output and articles:
             logger.info("\n[STEP 3] Saving results...")
             output_file = self._save_output(articles, category)
-            logger.info(f"✓ Results saved to: {output_file}")
+            logger.info(f"Results saved to: {output_file}")
 
         logger.info("\n" + "=" * 80)
         logger.info("Pipeline execution completed successfully")

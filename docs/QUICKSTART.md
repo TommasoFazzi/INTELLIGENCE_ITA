@@ -38,7 +38,7 @@ python scripts/load_to_database.py --init-only
 ## Prima Esecuzione (10 minuti)
 
 ```bash
-# 1. Raccogli articoli ultimi 24h (2-3 min)
+# 1. Raccogli articoli ultimi 24h (~1-2 min, fetch parallelo con aiohttp)
 python -m src.ingestion.pipeline
 
 # 2. Processa con NLP (3-4 min)
@@ -225,8 +225,8 @@ streamlit run src/hitl/dashboard.py --server.port 8502
 ## FAQ
 
 **Q: Quanto tempo richiede l'esecuzione giornaliera?**
-A: ~10-15 minuti totali con `python scripts/daily_pipeline.py`:
-- Ingestion: 2-3 min
+A: ~8-12 minuti totali con `python scripts/daily_pipeline.py`:
+- Ingestion: ~1-2 min (async, fetch parallelo con aiohttp)
 - Market Data: 1-2 min
 - NLP: 5-7 min
 - Database: <1 min
@@ -263,13 +263,13 @@ Test su MacBook Air M1 con PostgreSQL locale:
 
 | Fase | Articoli | Tempo | Note |
 |------|----------|-------|------|
-| Ingestion (24h) | 134 | 2m 15s | 23 feed, extract_content=True |
+| Ingestion (24h) | 134 | ~1-2m | 33 feed, async aiohttp, extract_content=True |
 | NLP Processing | 134 | 3m 45s | Embeddings + chunking |
 | Database Load | 134 + 183 chunks | 0.8s | Batch insert con pooling |
 | Report Gen | 1 report | 12s | Gemini 1.5 Flash, 5 RAG queries |
 | HITL Review | 1 report | 5-10m | Dipende da revisore |
 
-**Total automation time**: ~6-7 minuti (senza HITL review)
+**Total automation time**: ~5-6 minuti (senza HITL review)
 
 ## Costi Operativi
 

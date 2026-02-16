@@ -18,10 +18,11 @@ Quality assurance layer ensuring code correctness before deployment. Tests are o
 
 ### Test Modules
 
-- `test_ingestion/` - Feed parsing and content extraction tests
-  - Feed parser tests (RSS parsing, fallback scraping)
-  - Content extractor tests (Trafilatura, Newspaper3k)
+- `test_ingestion/` - Feed parsing, content extraction, and async pipeline tests
+  - Feed parser tests (RSS parsing, fallback scraping, async `_fetch_and_parse_feed`)
+  - Content extractor tests (Trafilatura, Newspaper3k, concurrent batch extraction)
   - Deduplication tests (hash-based)
+  - Pipeline integration tests (mock `_parse_all_feeds_async` / `_extract_batch_async` with `AsyncMock`)
 
 - `test_nlp/` - NLP processing tests
   - Text cleaning tests
@@ -63,6 +64,8 @@ Quality assurance layer ensuring code correctness before deployment. Tests are o
   - `pytest` - Test framework
   - `pytest-cov` - Coverage reporting
   - `pytest-mock` - Mocking utilities
+  - `pytest-asyncio` - Async test support
+  - `unittest.mock.AsyncMock` - Mocking async methods
 
 ## Data Flow
 

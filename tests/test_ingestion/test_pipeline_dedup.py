@@ -7,8 +7,8 @@ Questi test verificano:
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
+from datetime import datetime, timedelta
 from src.ingestion.pipeline import IngestionPipeline
 
 
@@ -199,15 +199,15 @@ def test_deduplicate_by_quick_hash_unicode_handling(pipeline):
 @pytest.mark.unit
 def test_run_calls_deduplicate_after_parsing(pipeline):
     """Test: run() chiama deduplicate_by_quick_hash dopo parse_all_feeds."""
-    # Mock parse_all_feeds
     mock_articles = [
-        {'title': 'A', 'link': 'https://ex.com/a', 'published': datetime(2025, 11, 29, 10, 0, 0)},
-        {'title': 'A', 'link': 'https://ex.com/a', 'published': datetime(2025, 11, 29, 10, 0, 0)},  # Duplicate
-        {'title': 'B', 'link': 'https://ex.com/b', 'published': datetime(2025, 11, 29, 10, 0, 0)},
+        {'title': 'A', 'link': 'https://ex.com/a', 'published': datetime.now()},
+        {'title': 'A', 'link': 'https://ex.com/a', 'published': datetime.now()},  # Duplicate
+        {'title': 'B', 'link': 'https://ex.com/b', 'published': datetime.now()},
     ]
 
-    with patch.object(pipeline.feed_parser, 'parse_all_feeds') as mock_parse:
-        mock_parse.return_value = mock_articles
+    # Mock the async internal method (pipeline.run calls _run_async which calls _parse_all_feeds_async)
+    mock_parse = AsyncMock(return_value=mock_articles)
+    with patch.object(pipeline.feed_parser, '_parse_all_feeds_async', mock_parse):
 
         # Mock deduplicate to spy on it
         with patch.object(pipeline, 'deduplicate_by_quick_hash', wraps=pipeline.deduplicate_by_quick_hash) as mock_dedup:
@@ -229,14 +229,13 @@ def test_run_calls_deduplicate_after_parsing(pipeline):
 @pytest.mark.unit
 def test_run_returns_empty_if_all_duplicates(pipeline):
     """Test: run() ritorna lista vuota se tutti gli articoli sono duplicati."""
-    # Mock parse_all_feeds con tutti duplicati
     mock_articles = [
-        {'title': 'Same', 'link': 'https://ex.com/same', 'published': datetime(2025, 11, 29, 10, 0, 0)},
-        {'title': 'Same', 'link': 'https://ex.com/same', 'published': datetime(2025, 11, 29, 10, 0, 0)},
+        {'title': 'Same', 'link': 'https://ex.com/same', 'published': datetime.now()},
+        {'title': 'Same', 'link': 'https://ex.com/same', 'published': datetime.now()},
     ]
 
-    with patch.object(pipeline.feed_parser, 'parse_all_feeds') as mock_parse:
-        mock_parse.return_value = mock_articles
+    mock_parse = AsyncMock(return_value=mock_articles)
+    with patch.object(pipeline.feed_parser, '_parse_all_feeds_async', mock_parse):
 
         result = pipeline.run(
             save_output=False,
@@ -252,17 +251,17 @@ def test_run_returns_empty_if_all_duplicates(pipeline):
 def test_run_dedup_before_content_extraction(pipeline):
     """Test: deduplicazione avviene PRIMA dell'estrazione contenuto (efficienza)."""
     mock_articles = [
-        {'title': 'A', 'link': 'https://ex.com/a', 'published': datetime(2025, 11, 29, 10, 0, 0)},
-        {'title': 'A', 'link': 'https://ex.com/a', 'published': datetime(2025, 11, 29, 10, 0, 0)},  # Duplicate
-        {'title': 'B', 'link': 'https://ex.com/b', 'published': datetime(2025, 11, 29, 10, 0, 0)},
+        {'title': 'A', 'link': 'https://ex.com/a', 'published': datetime.now()},
+        {'title': 'A', 'link': 'https://ex.com/a', 'published': datetime.now()},  # Duplicate
+        {'title': 'B', 'link': 'https://ex.com/b', 'published': datetime.now()},
     ]
 
-    with patch.object(pipeline.feed_parser, 'parse_all_feeds') as mock_parse:
-        mock_parse.return_value = mock_articles
+    mock_parse = AsyncMock(return_value=mock_articles)
+    with patch.object(pipeline.feed_parser, '_parse_all_feeds_async', mock_parse):
 
-        # Mock content extraction
-        with patch.object(pipeline.content_extractor, 'extract_batch') as mock_extract:
-            mock_extract.return_value = []  # Non importa il risultato
+        # Mock async content extraction
+        mock_extract = AsyncMock(return_value=[])
+        with patch.object(pipeline.content_extractor, '_extract_batch_async', mock_extract):
 
             pipeline.run(
                 save_output=False,
@@ -270,6 +269,6 @@ def test_run_dedup_before_content_extraction(pipeline):
                 max_age_days=7
             )
 
-            # Verifica che extract_batch riceva solo 2 articoli (post-dedup)
+            # Verifica che _extract_batch_async riceva solo 2 articoli (post-dedup)
             call_args = mock_extract.call_args[0][0]
             assert len(call_args) == 2  # Dedup dovrebbe aver rimosso 1 duplicato

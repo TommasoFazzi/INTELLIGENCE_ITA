@@ -83,7 +83,8 @@ Sistema completo di intelligence news analysis con pipeline end-to-end:
 | **Vector Search** | pgvector | 0.2.4 | Semantic similarity search |
 | **LLM** | Google Gemini | 2.5 Flash | Report generation |
 | **UI** | Streamlit | 1.51.0 | HITL dashboard |
-| **Orchestration** | Custom Python | - | Pipeline coordination |
+| **Async HTTP** | aiohttp | 3.9+ | Parallel RSS feed fetching |
+| **Orchestration** | Custom Python | - | Pipeline coordination (asyncio) |
 
 ## Key Metrics
 
@@ -97,11 +98,11 @@ Sistema completo di intelligence news analysis con pipeline end-to-end:
 - **Embedding dimension**: 384
 
 ### Performance
-- **Ingestion**: ~2-3 minutes (23 feeds)
+- **Ingestion**: ~1-2 minutes (33 feeds, async aiohttp parallel fetch)
 - **NLP Processing**: ~3-4 minutes (134 articles)
 - **Database Load**: <1 second (batch insert)
 - **Report Generation**: ~10-15 seconds (Gemini API)
-- **Total automation**: ~6-7 minutes
+- **Total automation**: ~5-6 minutes
 
 ### Database (esempio da test run)
 - **Articles stored**: 134
@@ -184,8 +185,11 @@ INTELLIGENCE_ITA/
 ## Features Completate
 
 ### ✅ Phase 1: Data Ingestion
-- Multi-source RSS aggregation (23 feeds)
-- Dual extraction (Trafilatura + Newspaper3k)
+- Multi-source RSS aggregation (33 feeds)
+- **Async parallel fetching** with aiohttp (`TCPConnector(limit=20, limit_per_host=3)`)
+- **Concurrent content extraction** with `asyncio.Semaphore(10)` + `asyncio.to_thread()`
+- Triple extraction (Trafilatura + Newspaper3k + Cloudscraper for anti-bot sites)
+- 2-phase deduplication (hash + content-based)
 - Date filtering (only last 24h articles)
 - Category classification
 - JSON export with full metadata
@@ -505,12 +509,12 @@ results = nlp.batch_process(articles_list, max_workers=4)
 3. **HNSW indexing** - Approximate nearest neighbor (O(log n))
 4. **Parallel processing** - Multi-threaded NLP (4 workers)
 5. **Caching** - Session state in Streamlit
+6. **Async ingestion** - aiohttp parallel feed fetching + concurrent content extraction (asyncio.to_thread + Semaphore)
 
 ### Potential Future
 1. **Redis cache** - Cache embeddings and RAG results
-2. **Async pipeline** - Use asyncio for I/O operations
-3. **Model quantization** - Smaller embedding models
-4. **Incremental updates** - Only process new articles
+2. **Model quantization** - Smaller embedding models
+3. **Incremental updates** - Only process new articles
 
 ## Security Considerations
 
@@ -596,6 +600,6 @@ MIT License
 
 ---
 
-**Last Updated**: 2026-02-03
-**Version**: 1.1.0
+**Last Updated**: 2026-02-15
+**Version**: 1.2.0
 **Status**: Production Ready (Phase 6 complete)

@@ -12,6 +12,7 @@ Extraction Strategy:
 
 import requests
 import random
+import asyncio
 from typing import Optional, Dict, List
 from datetime import datetime
 import trafilatura
@@ -45,15 +46,17 @@ PROTECTED_DOMAINS = [
 class ContentExtractor:
     """Extracts full-text content from article URLs."""
 
-    def __init__(self, timeout: int = 10, user_agent: str = None):
+    def __init__(self, timeout: int = 10, user_agent: str = None, max_concurrent: int = 10):
         """
         Initialize the ContentExtractor.
 
         Args:
             timeout: Request timeout in seconds
             user_agent: Custom user agent string
+            max_concurrent: Max concurrent extractions for async batch
         """
         self.timeout = timeout
+        self.max_concurrent = max_concurrent
         self.user_agent = user_agent or self._get_random_ua()
 
         # Standard requests session
@@ -245,9 +248,92 @@ class ContentExtractor:
         logger.warning(f"Failed to extract content from: {url}")
         return None
 
+    # =========================================================================
+    # ASYNC METHODS — Estrazione parallela con semaforo
+    # =========================================================================
+
+    async def _extract_content_async(
+        self,
+        semaphore: asyncio.Semaphore,
+        article: dict,
+        idx: int,
+        total: int,
+    ) -> dict:
+        """Extract content for a single article asynchronously."""
+        url = article.get('link')
+        if not url:
+            logger.warning(f"Article {idx}/{total} has no URL, skipping")
+            return article
+
+        try:
+            async with semaphore:
+                # Delegate to sync extract_content in a thread
+                full_content = await asyncio.to_thread(self.extract_content, url)
+
+            article['full_content'] = full_content
+            article['extraction_success'] = full_content is not None
+            article['extraction_timestamp'] = datetime.now()
+
+            if full_content:
+                logger.info(f"[{idx}/{total}] Extracted: {article.get('title', 'N/A')[:50]}...")
+            else:
+                logger.warning(f"[{idx}/{total}] Failed: {article.get('title', 'N/A')[:50]}...")
+
+            return article
+
+        except Exception as e:
+            logger.error(f"Error extracting article {idx}/{total}: {e}")
+            article['full_content'] = None
+            article['extraction_success'] = False
+            article['extraction_error'] = str(e)
+            return article
+
+    async def _extract_batch_async(self, articles: list) -> list:
+        """Extract full content for a batch of articles concurrently."""
+        total = len(articles)
+        if total == 0:
+            return []
+
+        logger.info(f"Extracting full content for {total} articles (max_concurrent={self.max_concurrent})...")
+
+        semaphore = asyncio.Semaphore(self.max_concurrent)
+
+        tasks = [
+            self._extract_content_async(semaphore, article, idx, total)
+            for idx, article in enumerate(articles, 1)
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Handle any unhandled exceptions from gather
+        final_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Article extraction raised exception: {result}")
+                article = articles[i].copy()
+                article['full_content'] = None
+                article['extraction_success'] = False
+                article['extraction_error'] = str(result)
+                final_results.append(article)
+            else:
+                final_results.append(result)
+
+        success_count = sum(1 for a in final_results if a.get('extraction_success'))
+        logger.info(f"Extraction complete: {success_count}/{total} successful")
+
+        return final_results
+
+    # =========================================================================
+    # SYNC METHODS — Per uso standalone e retrocompatibilità
+    # =========================================================================
+
     def extract_batch(self, articles: list) -> list:
         """
         Extract full content for a batch of articles.
+
+        Uses async concurrency internally for parallel extraction.
+        For use within an existing async context (e.g. pipeline._run_async),
+        call _extract_batch_async() directly instead.
 
         Args:
             articles: List of article dictionaries with 'link' key
@@ -255,44 +341,9 @@ class ContentExtractor:
         Returns:
             List of articles with 'full_content' field added
         """
-        results = []
-        total = len(articles)
-
-        logger.info(f"Extracting full content for {total} articles...")
-
-        for idx, article in enumerate(articles, 1):
-            url = article.get('link')
-            if not url:
-                logger.warning(f"Article {idx}/{total} has no URL, skipping")
-                results.append(article)
-                continue
-
-            try:
-                full_content = self.extract_content(url)
-
-                # Add full content to article
-                article['full_content'] = full_content
-                article['extraction_success'] = full_content is not None
-                article['extraction_timestamp'] = datetime.now()
-
-                if full_content:
-                    logger.info(f"[{idx}/{total}] ✓ Extracted: {article.get('title', 'N/A')[:50]}...")
-                else:
-                    logger.warning(f"[{idx}/{total}] ✗ Failed: {article.get('title', 'N/A')[:50]}...")
-
-                results.append(article)
-
-            except Exception as e:
-                logger.error(f"Error extracting article {idx}/{total}: {e}")
-                article['full_content'] = None
-                article['extraction_success'] = False
-                article['extraction_error'] = str(e)
-                results.append(article)
-
-        success_count = sum(1 for a in results if a.get('extraction_success'))
-        logger.info(f"Extraction complete: {success_count}/{total} successful")
-
-        return results
+        if not articles:
+            return []
+        return asyncio.run(self._extract_batch_async(articles))
 
 
 if __name__ == "__main__":

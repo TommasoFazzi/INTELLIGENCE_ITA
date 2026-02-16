@@ -8,6 +8,8 @@ Includes fallback scraping for feeds with broken RSS.
 import feedparser
 import requests
 import random
+import asyncio
+import aiohttp
 from datetime import datetime
 from typing import List, Dict, Optional
 from pathlib import Path
@@ -354,9 +356,211 @@ class FeedParser:
             tags = [tag.get('term', '') for tag in entry.tags]
         return [t for t in tags if t]
 
+    # =========================================================================
+    # ASYNC METHODS — Fetch parallelo con aiohttp
+    # =========================================================================
+
+    async def _fetch_and_parse_feed(
+        self,
+        session: aiohttp.ClientSession,
+        feed_url: str,
+        feed_name: str,
+        feed_category: str,
+        feed_subcategory: str,
+    ) -> List[Dict]:
+        """Fetch a single RSS feed with aiohttp and parse with feedparser."""
+        try:
+            headers = {'User-Agent': self._get_random_ua()}
+            timeout = aiohttp.ClientTimeout(total=30)
+
+            async with session.get(feed_url, headers=headers, timeout=timeout) as response:
+                raw_content = await response.text()
+
+            # feedparser.parse on raw XML — offload to thread
+            feed = await asyncio.to_thread(feedparser.parse, raw_content)
+
+            if feed.bozo:
+                logger.warning(f"Feed parse warning for {feed_name}: {feed.bozo_exception}")
+
+            articles = []
+            for entry in feed.entries:
+                article = self._extract_article_data(entry, feed_name)
+                if article:
+                    articles.append(article)
+
+            # Fallback if RSS returned 0 articles
+            if not articles and feed_name in FALLBACK_SCRAPERS:
+                logger.info(f"RSS returned 0 articles, trying fallback scraper for {feed_name}")
+                articles = await self._scrape_fallback_async(feed_name, session)
+
+            # Add category/subcategory
+            for article in articles:
+                article['category'] = feed_category
+                article['subcategory'] = feed_subcategory
+
+            logger.info(f"Extracted {len(articles)} articles from {feed_name or feed_url}")
+            return articles
+
+        except Exception as e:
+            logger.error(f"Error parsing feed {feed_name or feed_url}: {e}")
+
+            if feed_name in FALLBACK_SCRAPERS:
+                logger.info(f"RSS parsing failed, trying fallback scraper for {feed_name}")
+                articles = await self._scrape_fallback_async(feed_name, session)
+                for article in articles:
+                    article['category'] = feed_category
+                    article['subcategory'] = feed_subcategory
+                return articles
+
+            return []
+
+    async def _scrape_fallback_async(
+        self,
+        feed_name: str,
+        session: aiohttp.ClientSession,
+    ) -> List[Dict]:
+        """Async version of scrape_fallback."""
+        if not BS4_AVAILABLE:
+            logger.warning("BeautifulSoup not available for fallback scraping")
+            return []
+
+        config = FALLBACK_SCRAPERS.get(feed_name)
+        if not config:
+            logger.debug(f"No fallback scraper configured for: {feed_name}")
+            return []
+
+        try:
+            logger.info(f"Trying async fallback scraper for: {feed_name}")
+            needs_cs = config.get('needs_cloudscraper', False)
+
+            if needs_cs and self.cloudscraper_session:
+                # cloudscraper must run in thread (TLS fingerprinting)
+                response = await asyncio.to_thread(
+                    self.cloudscraper_session.get,
+                    config['url'],
+                    timeout=20,
+                )
+                if response.status_code != 200:
+                    logger.warning(f"Fallback scraper got status {response.status_code} for {feed_name}")
+                    return []
+                html_text = response.text
+            else:
+                headers = {'User-Agent': self._get_random_ua()}
+                timeout = aiohttp.ClientTimeout(total=15)
+                async with session.get(config['url'], headers=headers, timeout=timeout) as resp:
+                    if resp.status != 200:
+                        logger.warning(f"Fallback scraper got status {resp.status} for {feed_name}")
+                        return []
+                    html_text = await resp.text()
+
+            # BeautifulSoup parsing — offload to thread
+            soup = await asyncio.to_thread(BeautifulSoup, html_text, 'html.parser')
+
+            articles = []
+            seen_links = set()
+            items = soup.select(config['selector'])[:30]
+
+            link_based = config.get('link_based', False)
+
+            for item in items:
+                if link_based:
+                    raw_link = item.get('href')
+                    title = item.get_text(strip=True)
+                else:
+                    title_el = item.select_one(config['title_sel'])
+                    link_el = item.select_one(config['link_sel'])
+                    if not (title_el and link_el):
+                        continue
+                    raw_link = link_el.get('href')
+                    title = title_el.get_text(strip=True)
+
+                if not raw_link:
+                    continue
+
+                full_link = urljoin(config['url'], raw_link)
+
+                if full_link in seen_links or not title:
+                    continue
+                seen_links.add(full_link)
+
+                if len(articles) >= 20:
+                    break
+
+                articles.append({
+                    'title': title,
+                    'link': full_link,
+                    'source': feed_name,
+                    'published': datetime.now(),
+                    'summary': '',
+                    'authors': [],
+                    'tags': [],
+                    'fetched_at': datetime.now(),
+                    'category': config.get('category'),
+                    'subcategory': config.get('subcategory'),
+                    'extraction_method': 'fallback_scraper',
+                })
+
+            logger.info(f"Fallback scraper extracted {len(articles)} articles from {feed_name}")
+            return articles
+
+        except Exception as e:
+            logger.error(f"Async fallback scraping failed for {feed_name}: {e}")
+            return []
+
+    async def _parse_all_feeds_async(self, category: str = None) -> List[Dict]:
+        """Fetch and parse all configured feeds concurrently with aiohttp."""
+        feeds_to_parse = self.feeds_config
+
+        if category:
+            feeds_to_parse = [f for f in self.feeds_config if f.get('category') == category]
+            logger.info(f"Filtering feeds by category: {category}")
+
+        logger.info(f"Parsing {len(feeds_to_parse)} feeds concurrently...")
+
+        connector = aiohttp.TCPConnector(limit=20, limit_per_host=3)
+        timeout = aiohttp.ClientTimeout(total=60)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            tasks = []
+            for feed_config in feeds_to_parse:
+                feed_name = feed_config.get('name')
+                feed_url = feed_config.get('url')
+                feed_category = feed_config.get('category')
+                feed_subcategory = feed_config.get('subcategory')
+
+                if not feed_url:
+                    logger.warning(f"No URL found for feed: {feed_name}")
+                    continue
+
+                tasks.append(
+                    self._fetch_and_parse_feed(
+                        session, feed_url, feed_name, feed_category, feed_subcategory
+                    )
+                )
+
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        all_articles = []
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"Feed task failed with exception: {result}")
+                continue
+            all_articles.extend(result)
+
+        logger.info(f"Total articles extracted: {len(all_articles)}")
+        return all_articles
+
+    # =========================================================================
+    # SYNC WRAPPERS — Per uso standalone e retrocompatibilità
+    # =========================================================================
+
     def parse_all_feeds(self, category: str = None) -> List[Dict]:
         """
         Parse all configured feeds or feeds from a specific category.
+
+        Uses async aiohttp internally for parallel fetching.
+        For use within an existing async context (e.g. pipeline._run_async),
+        call _parse_all_feeds_async() directly instead.
 
         Args:
             category: Optional category filter (e.g., 'intelligence', 'tech_economy')
@@ -364,36 +568,7 @@ class FeedParser:
         Returns:
             List of all articles from all feeds
         """
-        all_articles = []
-        feeds_to_parse = self.feeds_config
-
-        if category:
-            feeds_to_parse = [f for f in self.feeds_config if f.get('category') == category]
-            logger.info(f"Filtering feeds by category: {category}")
-
-        logger.info(f"Parsing {len(feeds_to_parse)} feeds...")
-
-        for feed_config in feeds_to_parse:
-            feed_name = feed_config.get('name')
-            feed_url = feed_config.get('url')
-            feed_category = feed_config.get('category')
-            feed_subcategory = feed_config.get('subcategory')
-
-            if not feed_url:
-                logger.warning(f"No URL found for feed: {feed_name}")
-                continue
-
-            articles = self.parse_feed(feed_url, feed_name)
-
-            # Add category and subcategory to each article
-            for article in articles:
-                article['category'] = feed_category
-                article['subcategory'] = feed_subcategory
-
-            all_articles.extend(articles)
-
-        logger.info(f"Total articles extracted: {len(all_articles)}")
-        return all_articles
+        return asyncio.run(self._parse_all_feeds_async(category))
 
     def get_feeds_by_category(self) -> Dict[str, List[Dict]]:
         """

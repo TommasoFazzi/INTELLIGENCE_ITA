@@ -10,7 +10,7 @@ Questi test verificano:
 
 import pytest
 from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from src.ingestion.feed_parser import FeedParser
 
 
@@ -291,24 +291,41 @@ def test_extract_article_handles_missing_date(feed_parser):
 # ============================================================================
 
 @pytest.mark.unit
-@patch('feedparser.parse')
-def test_parse_all_feeds(mock_parse, feed_parser, mock_feed_response):
+def test_parse_all_feeds(feed_parser):
     """Test: parsing di tutti i feed configurati."""
-    mock_parse.return_value = mock_feed_response
+    # Mock the async internal method — returns articles with category already set
+    async def fake_fetch(session, url, name, category, subcategory):
+        return [
+            {'title': f'Article {i}', 'link': f'https://example.com/{name}/{i}',
+             'source': name, 'published': datetime(2025, 11, 28, 10 + i),
+             'summary': f'Summary {i}', 'authors': [], 'tags': [],
+             'fetched_at': datetime.now(), 'category': category,
+             'subcategory': subcategory}
+            for i in range(1, 4)
+        ]
 
-    all_articles = feed_parser.parse_all_feeds()
+    with patch.object(FeedParser, '_fetch_and_parse_feed', new_callable=AsyncMock, side_effect=fake_fetch):
+        all_articles = feed_parser.parse_all_feeds()
 
     # 2 feed * 3 articoli ciascuno = 6 articoli totali
     assert len(all_articles) == 6
 
 
 @pytest.mark.unit
-@patch('feedparser.parse')
-def test_parse_all_feeds_adds_category(mock_parse, feed_parser, mock_feed_response):
+def test_parse_all_feeds_adds_category(feed_parser):
     """Test: categoria e subcategoria vengono aggiunte agli articoli."""
-    mock_parse.return_value = mock_feed_response
+    async def fake_fetch(session, url, name, category, subcategory):
+        return [
+            {'title': f'Article {i}', 'link': f'https://example.com/{name}/{i}',
+             'source': name, 'published': datetime(2025, 11, 28, 10 + i),
+             'summary': f'Summary {i}', 'authors': [], 'tags': [],
+             'fetched_at': datetime.now(), 'category': category,
+             'subcategory': subcategory}
+            for i in range(1, 4)
+        ]
 
-    all_articles = feed_parser.parse_all_feeds()
+    with patch.object(FeedParser, '_fetch_and_parse_feed', new_callable=AsyncMock, side_effect=fake_fetch):
+        all_articles = feed_parser.parse_all_feeds()
 
     # Primo feed è 'intelligence'
     assert all_articles[0]['category'] == 'intelligence'
@@ -316,13 +333,21 @@ def test_parse_all_feeds_adds_category(mock_parse, feed_parser, mock_feed_respon
 
 
 @pytest.mark.unit
-@patch('feedparser.parse')
-def test_parse_feeds_by_category(mock_parse, feed_parser, mock_feed_response):
+def test_parse_feeds_by_category(feed_parser):
     """Test: filtro per categoria funziona."""
-    mock_parse.return_value = mock_feed_response
+    async def fake_fetch(session, url, name, category, subcategory):
+        return [
+            {'title': f'Article {i}', 'link': f'https://example.com/{name}/{i}',
+             'source': name, 'published': datetime(2025, 11, 28, 10 + i),
+             'summary': f'Summary {i}', 'authors': [], 'tags': [],
+             'fetched_at': datetime.now(), 'category': category,
+             'subcategory': subcategory}
+            for i in range(1, 4)
+        ]
 
-    # Solo feed 'intelligence'
-    articles = feed_parser.parse_all_feeds(category='intelligence')
+    with patch.object(FeedParser, '_fetch_and_parse_feed', new_callable=AsyncMock, side_effect=fake_fetch):
+        # Solo feed 'intelligence'
+        articles = feed_parser.parse_all_feeds(category='intelligence')
 
     # 1 feed * 3 articoli = 3 articoli
     assert len(articles) == 3

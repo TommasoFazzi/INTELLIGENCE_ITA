@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw, Clock } from 'lucide-react';
+import { RefreshCw, Clock, Map } from 'lucide-react';
 import { useDashboardStats, useReports } from '@/hooks/useDashboard';
 import {
   StatsGrid,
@@ -12,6 +12,7 @@ import {
 } from '@/components/dashboard';
 import { Navbar } from '@/components/landing';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import type { ApiError } from '@/types/dashboard';
 
 function formatTimestamp(timestamp: string | undefined): string {
@@ -110,6 +111,14 @@ export default function DashboardPage() {
                   <span>Aggiornato: {formatTimestamp(lastUpdate)}</span>
                 </div>
               )}
+
+              {/* Intelligence Map link */}
+              <Button asChild variant="outline" size="sm" className="border-[#00A8E8]/30 text-[#00A8E8] hover:bg-[#00A8E8]/10 hover:text-[#00A8E8]">
+                <Link href="/map" className="flex items-center gap-2">
+                  <Map className="w-4 h-4" />
+                  Intelligence Map
+                </Link>
+              </Button>
 
               {/* Manual refresh button */}
               <Button

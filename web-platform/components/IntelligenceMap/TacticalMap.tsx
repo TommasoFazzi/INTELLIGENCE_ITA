@@ -31,8 +31,7 @@ export default function TacticalMap() {
     const [selectedEntity, setSelectedEntity] = useState<EntityData | null>(null);
 
     useEffect(() => {
-        if (map.current) return; // Initialize map only once
-
+        if (map.current) return;
         if (!mapContainer.current) return;
 
         const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -299,6 +298,7 @@ export default function TacticalMap() {
 
         return () => {
             map.current?.remove();
+            map.current = null;
         };
     }, []);
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Map } from 'lucide-react';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -76,6 +76,12 @@ export default function Navbar() {
             >
               Contact
             </button>
+            <Button asChild variant="outline" className="border-[#00A8E8]/30 text-[#00A8E8] hover:bg-[#00A8E8]/10 hover:text-[#00A8E8]">
+              <Link href="/map" className="flex items-center gap-2">
+                <Map size={16} />
+                Intelligence Map
+              </Link>
+            </Button>
             <Button asChild>
               <Link href="/dashboard">Access Dashboard</Link>
             </Button>
@@ -113,6 +119,12 @@ export default function Navbar() {
               >
                 Contact
               </button>
+              <Button asChild variant="outline" className="w-full mt-2 border-[#00A8E8]/30 text-[#00A8E8] hover:bg-[#00A8E8]/10 hover:text-[#00A8E8]">
+                <Link href="/map" className="flex items-center justify-center gap-2">
+                  <Map size={16} />
+                  Intelligence Map
+                </Link>
+              </Button>
               <Button asChild className="w-full mt-2">
                 <Link href="/dashboard">Access Dashboard</Link>
               </Button>
