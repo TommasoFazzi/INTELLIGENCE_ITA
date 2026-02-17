@@ -37,6 +37,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       INTELLIGENCE_API_KEY: ${INTELLIGENCE_API_KEY}
       FRED_API_KEY: ${FRED_API_KEY:-}
+      FMP_API_KEY: ${FMP_API_KEY:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       REPORT_OUTPUT_DIR: /app/reports
@@ -50,7 +51,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 4g
     logging:
       driver: json-file
       options:

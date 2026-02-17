@@ -37,7 +37,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
-load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(PROJECT_ROOT / ".env", override=False)  # optional: env vars from Docker take precedence
 
 from src.utils.logger import get_logger
 
@@ -548,12 +548,15 @@ class DailyPipeline:
         """Verifica che l'ambiente sia configurato correttamente."""
         self.logger.info("Validating environment...")
 
-        # Check .env file
+        # Check .env file (optional in Docker — env vars injected by compose)
         env_file = self.project_root / ".env"
-        if not env_file.exists():
-            self.logger.error(f".env file not found: {env_file}")
+        if env_file.exists():
+            self.logger.info("\u2713 .env file found")
+        elif os.getenv("DATABASE_URL"):
+            self.logger.info("\u2713 Environment variables set (Docker mode)")
+        else:
+            self.logger.error(f".env file not found and DATABASE_URL not set")
             return False
-        self.logger.info("\u2713 .env file found")
 
         # Check required directories
         required_dirs = ["src", "scripts", "data"]
