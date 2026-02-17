@@ -1,0 +1,111 @@
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: intelligence_ita
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d intelligence_ita"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/intelligence_ita
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      INTELLIGENCE_API_KEY: ${INTELLIGENCE_API_KEY}
+      FRED_API_KEY: ${FRED_API_KEY:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      REPORT_OUTPUT_DIR: /app/reports
+      DATA_DIR: /app/data
+    volumes:
+      - reports:/app/reports
+      - appdata:/app/data
+      - logs:/app/logs
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  frontend:
+    build:
+      context: ./web-platform
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_MAPBOX_TOKEN: ${NEXT_PUBLIC_MAPBOX_TOKEN}
+    restart: unless-stopped
+    environment:
+      INTELLIGENCE_API_URL: http://backend:8000
+      INTELLIGENCE_API_KEY: ${INTELLIGENCE_API_KEY}
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+volumes:
+  pgdata:
+  reports:
+  appdata:
+  logs:
+
+networks:
+  internal:
+    driver: bridge

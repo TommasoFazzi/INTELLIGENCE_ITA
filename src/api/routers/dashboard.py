@@ -1,5 +1,5 @@
 """Dashboard API router."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime
 
 from ..schemas.common import APIResponse
@@ -9,6 +9,7 @@ from ..schemas.dashboard import (
     EntityMention, DateRange
 )
 from ...storage.database import DatabaseManager
+from ..auth import verify_api_key
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["Dashboard"])
 
@@ -19,7 +20,7 @@ def get_db() -> DatabaseManager:
 
 
 @router.get("/stats", response_model=APIResponse[DashboardStats])
-async def get_dashboard_stats():
+async def get_dashboard_stats(api_key: str = Depends(verify_api_key)):
     """
     Get comprehensive dashboard statistics.
 
@@ -70,7 +71,9 @@ async def get_dashboard_stats():
         return APIResponse(success=True, data=stats)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger(__name__).error("Dashboard stats error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 def _get_entity_stats(db: DatabaseManager) -> dict:

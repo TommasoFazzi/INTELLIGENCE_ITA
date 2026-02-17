@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Intelligence ITA pipeline daily at 08:00 CET
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,5 +1,6 @@
 """Reports API router."""
-from fastapi import APIRouter, HTTPException, Query
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query
 from datetime import datetime, date
 from typing import Optional
 
@@ -10,6 +11,9 @@ from ..schemas.reports import (
     ReportMetadata
 )
 from ...storage.database import DatabaseManager
+from ..auth import verify_api_key
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/reports", tags=["Reports"])
 
@@ -27,6 +31,7 @@ async def list_reports(
     report_type: Optional[str] = Query(None, description="Filter by type (daily, weekly)"),
     date_from: Optional[date] = Query(None, description="Filter reports from this date"),
     date_to: Optional[date] = Query(None, description="Filter reports until this date"),
+    api_key: str = Depends(verify_api_key),
 ):
     """
     List reports with pagination and filters.
@@ -126,11 +131,12 @@ async def list_reports(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("List reports error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/{report_id}")
-async def get_report(report_id: int):
+async def get_report(report_id: int, api_key: str = Depends(verify_api_key)):
     """
     Get detailed report by ID.
 
@@ -231,4 +237,5 @@ async def get_report(report_id: int):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Get report %s error: %s", report_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")

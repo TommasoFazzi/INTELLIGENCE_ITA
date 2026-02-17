@@ -1,6 +1,7 @@
 """Stories & Graph API router."""
 import json
-from fastapi import APIRouter, HTTPException, Query
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query
 from datetime import datetime
 from typing import Optional
 
@@ -10,6 +11,9 @@ from ..schemas.stories import (
     StorylineDetail, RelatedStoryline, LinkedArticle,
 )
 from ...storage.database import DatabaseManager
+from ..auth import verify_api_key
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/stories", tags=["Stories"])
 
@@ -20,7 +24,7 @@ def get_db() -> DatabaseManager:
 
 
 @router.get("/graph")
-async def get_graph_network():
+async def get_graph_network(api_key: str = Depends(verify_api_key)):
     """
     Get the full narrative graph: active storyline nodes + edges.
 
@@ -103,7 +107,8 @@ async def get_graph_network():
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Graph network error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("")
@@ -114,6 +119,7 @@ async def list_storylines(
         None,
         description="Filter by narrative_status (emerging, active, stabilized, archived)",
     ),
+    api_key: str = Depends(verify_api_key),
 ):
     """
     List storylines with pagination, ordered by momentum_score DESC.
@@ -187,11 +193,12 @@ async def list_storylines(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("List storylines error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/{storyline_id}")
-async def get_storyline_detail(storyline_id: int):
+async def get_storyline_detail(storyline_id: int, api_key: str = Depends(verify_api_key)):
     """
     Get detailed storyline with related storylines and recent articles.
     """
@@ -291,4 +298,5 @@ async def get_storyline_detail(storyline_id: int):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Storyline detail %s error: %s", storyline_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")

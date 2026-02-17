@@ -1,0 +1,39 @@
+FROM python:3.12-slim-bookworm
+
+# System deps for psycopg2, lxml, spaCy
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ libpq-dev libxml2-dev libxslt-dev \
+    curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python deps (production only, no streamlit/openbb/dev tools)
+COPY requirements-prod.txt .
+RUN pip install --no-cache-dir -r requirements-prod.txt
+
+# Pre-download spaCy model
+RUN python -m spacy download xx_ent_wiki_sm
+
+# Pre-download sentence-transformers model into image layer
+RUN python -c "from sentence_transformers import SentenceTransformer; \
+    SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')"
+
+# Pre-download cross-encoder model for report generation
+RUN python -c "from sentence_transformers import CrossEncoder; \
+    CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
+
+# Copy application code
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+COPY config/ ./config/
+COPY migrations/ ./migrations/
+
+# Non-root user
+RUN useradd -m -u 1001 appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", \
+     "--workers", "1", "--log-level", "info"]

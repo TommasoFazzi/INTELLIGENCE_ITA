@@ -4,19 +4,12 @@ import useSWR from 'swr';
 import type { GraphNetworkResponse, StorylineDetailResponse } from '@/types/stories';
 import type { ApiError } from '@/types/dashboard';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || '';
-
 const fetcher = async <T>(url: string): Promise<T> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
     const res = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(API_KEY && { 'X-API-Key': API_KEY }),
-      },
       signal: controller.signal,
     });
 
@@ -57,7 +50,7 @@ const fetcher = async <T>(url: string): Promise<T> => {
  */
 export function useGraphNetwork() {
   const { data, error, isLoading, mutate } = useSWR<GraphNetworkResponse, ApiError>(
-    `${API_URL}/api/v1/stories/graph`,
+    '/api/proxy/stories/graph',
     fetcher,
     {
       refreshInterval: 60000,
@@ -82,7 +75,7 @@ export function useGraphNetwork() {
  */
 export function useStorylineDetail(storylineId: number | null) {
   const { data, error, isLoading } = useSWR<StorylineDetailResponse, ApiError>(
-    storylineId ? `${API_URL}/api/v1/stories/${storylineId}` : null,
+    storylineId ? `/api/proxy/stories/${storylineId}` : null,
     fetcher,
     {
       revalidateOnFocus: false,

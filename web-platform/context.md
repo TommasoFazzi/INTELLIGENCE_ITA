@@ -57,9 +57,9 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
 
 ### Configuration
 - `.env.local` - Environment variables:
-  - `NEXT_PUBLIC_MAPBOX_TOKEN` - Mapbox API token
-  - `NEXT_PUBLIC_API_URL` - Backend API URL
-  - `NEXT_PUBLIC_API_KEY` - API authentication key
+  - `NEXT_PUBLIC_MAPBOX_TOKEN` - Mapbox API token (client-side, restrict by domain)
+  - `INTELLIGENCE_API_URL` - Backend API URL (server-side only)
+  - `INTELLIGENCE_API_KEY` - API authentication key (server-side only, via proxy)
 - `next.config.ts` - Next.js configuration
 - `package.json` - Dependencies
 - `tsconfig.json` - TypeScript config

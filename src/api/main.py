@@ -11,16 +11,22 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import os
-from fastapi import FastAPI, HTTPException, Depends, Query, Security
+from fastapi import FastAPI, HTTPException, Depends, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from src.storage.database import DatabaseManager
 from src.utils.logger import get_logger
 from src.api.routers import dashboard, reports, stories
+from src.api.auth import verify_api_key
 
 logger = get_logger(__name__)
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -28,54 +34,27 @@ app = FastAPI(
     description="REST API for Intelligence ITA platform - Dashboard, Reports, and Map visualization",
     version="1.1.0"
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Configure CORS for Next.js frontend (restricted methods and headers)
+# Configure CORS — configurable via env var for production
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://localhost:3001,http://localhost:3002"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002"
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "OPTIONS"],  # Only allow necessary methods
-    allow_headers=["Content-Type", "Authorization", "X-API-Key"],  # Only necessary headers
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
 
 # Include routers
 app.include_router(dashboard.router)
 app.include_router(reports.router)
 app.include_router(stories.router)
-
-# ===================================================================
-# API Key Authentication
-# ===================================================================
-
-API_KEY_NAME = "X-API-Key"
-api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
-
-# Load API key from environment (generate one if not set)
-API_KEY = os.getenv("INTELLIGENCE_API_KEY")
-
-async def verify_api_key(api_key: str = Security(api_key_header)) -> str:
-    """Verify API key for protected endpoints."""
-    if not API_KEY:
-        # If no API key is configured, allow access (development mode)
-        return "dev_mode"
-
-    if not api_key:
-        raise HTTPException(
-            status_code=401,
-            detail="API key required. Provide X-API-Key header."
-        )
-
-    if api_key != API_KEY:
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid API key"
-        )
-
-    return api_key
 
 # Initialize database
 db = DatabaseManager()
@@ -131,9 +110,11 @@ async def root():
 
 
 @app.get("/api/v1/map/entities", response_model=EntityCollection)
+@limiter.limit("30/minute")
 async def get_entities(
+    request: Request,
     limit: int = Query(default=5000, ge=1, le=5000, description="Max entities (1-5000)"),
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(verify_api_key),
 ):
     """
     Get all entities with coordinates in GeoJSON format.
@@ -157,9 +138,11 @@ async def get_entities(
 
 
 @app.get("/api/v1/map/entities/{entity_id}")
+@limiter.limit("60/minute")
 async def get_entity(
+    request: Request,
     entity_id: int,
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(verify_api_key),
 ):
     """
     Get single entity details.

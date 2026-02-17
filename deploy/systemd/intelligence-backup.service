@@ -1,0 +1,9 @@
+[Unit]
+Description=Intelligence ITA Database Backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/intelligence-ita/deploy/backup-db.sh
+User=deploy

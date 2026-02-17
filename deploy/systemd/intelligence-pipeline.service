@@ -1,0 +1,12 @@
+[Unit]
+Description=Intelligence ITA Daily Pipeline
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/intelligence-ita
+EnvironmentFile=/opt/intelligence-ita/.env.production
+ExecStart=/usr/bin/docker compose run --rm backend python scripts/daily_pipeline.py
+TimeoutStartSec=3600
+User=deploy

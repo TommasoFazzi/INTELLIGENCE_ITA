@@ -623,7 +623,7 @@ class DailyPipeline:
             self.logger.error(f"Error: {result.error}")
 
     def _send_notification(self, result: PipelineResult):
-        """Invia notifica macOS."""
+        """Send pipeline notification (cross-platform)."""
         notify_on_success = os.getenv("PIPELINE_NOTIFY_ON_SUCCESS", "true").lower() == "true"
         notify_on_failure = os.getenv("PIPELINE_NOTIFY_ON_FAILURE", "true").lower() == "true"
 
@@ -632,23 +632,28 @@ class DailyPipeline:
         if not result.success and not notify_on_failure:
             return
 
-        title = "Daily Pipeline"
+        status = "SUCCESS" if result.success else "FAILED"
+        title = f"[Intelligence ITA] Pipeline {status}"
         if result.success:
             message = f"Pipeline completed successfully ({result.steps_completed}/{result.steps_total} steps)"
-            sound = "default"
         else:
             message = f"Pipeline FAILED at step {result.steps_completed + 1}"
-            sound = "Basso"
 
+        # Try email notification first (production / Linux)
+        smtp_host = os.getenv("SMTP_HOST")
+        notify_email = os.getenv("NOTIFY_EMAIL")
+        if smtp_host and notify_email:
+            self._send_email_notification(title, message, smtp_host, notify_email)
+            return
+
+        # Fallback to macOS desktop notification (local dev)
         try:
-            # Try terminal-notifier first
             subprocess.run(
-                ["terminal-notifier", "-title", title, "-message", message, "-sound", sound],
+                ["terminal-notifier", "-title", title, "-message", message, "-sound", "default"],
                 capture_output=True,
                 timeout=5
             )
         except FileNotFoundError:
-            # Fallback to osascript
             try:
                 subprocess.run(
                     ["osascript", "-e", f'display notification "{message}" with title "{title}"'],
@@ -656,9 +661,36 @@ class DailyPipeline:
                     timeout=5
                 )
             except Exception:
-                pass  # Notifications are optional
+                pass
         except Exception:
             pass
+
+    def _send_email_notification(self, subject: str, body: str, smtp_host: str, to_email: str):
+        """Send email notification for production deployments."""
+        import smtplib
+        from email.message import EmailMessage
+
+        try:
+            msg = EmailMessage()
+            msg['Subject'] = subject
+            msg['From'] = os.getenv("SMTP_FROM", "pipeline@intelligence-ita.com")
+            msg['To'] = to_email
+            msg.set_content(body)
+
+            smtp_port = int(os.getenv("SMTP_PORT", "587"))
+            smtp_user = os.getenv("SMTP_USER", "")
+            smtp_pass = os.getenv("SMTP_PASS", "")
+
+            with smtplib.SMTP(smtp_host, smtp_port) as s:
+                if smtp_port != 25:
+                    s.starttls()
+                if smtp_user:
+                    s.login(smtp_user, smtp_pass)
+                s.send_message(msg)
+
+            self.logger.info(f"Notification email sent to {to_email}")
+        except Exception as e:
+            self.logger.warning(f"Failed to send email notification: {e}")
 
     def _cleanup_old_logs(self, max_days: int = None):
         """Rimuove log files piu vecchi di max_days."""

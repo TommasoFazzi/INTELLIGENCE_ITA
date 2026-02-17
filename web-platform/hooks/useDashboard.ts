@@ -3,9 +3,6 @@
 import useSWR from 'swr';
 import type { DashboardStatsResponse, ReportsResponse, ReportDetailResponse, ApiError } from '@/types/dashboard';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || '';
-
 /**
  * SWR fetcher with error handling and timeout
  */
@@ -15,10 +12,6 @@ const fetcher = async <T>(url: string): Promise<T> => {
 
   try {
     const res = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(API_KEY && { 'X-API-Key': API_KEY }),
-      },
       signal: controller.signal,
     });
 
@@ -61,7 +54,7 @@ const fetcher = async <T>(url: string): Promise<T> => {
  */
 export function useDashboardStats() {
   const { data, error, isLoading, mutate } = useSWR<DashboardStatsResponse, ApiError>(
-    `${API_URL}/api/v1/dashboard/stats`,
+    '/api/proxy/dashboard/stats',
     fetcher,
     {
       refreshInterval: 30000,           // Poll every 30s
@@ -88,7 +81,7 @@ export function useDashboardStats() {
  */
 export function useReports(page: number = 1, perPage: number = 10) {
   const { data, error, isLoading, mutate } = useSWR<ReportsResponse, ApiError>(
-    `${API_URL}/api/v1/reports?page=${page}&per_page=${perPage}`,
+    `/api/proxy/reports?page=${page}&per_page=${perPage}`,
     fetcher,
     {
       refreshInterval: 60000,           // Poll every 60s
@@ -115,7 +108,7 @@ export function useReports(page: number = 1, perPage: number = 10) {
  */
 export function useReportDetail(reportId: number | null) {
   const { data, error, isLoading } = useSWR<ReportDetailResponse, ApiError>(
-    reportId ? `${API_URL}/api/v1/reports/${reportId}` : null,
+    reportId ? `/api/proxy/reports/${reportId}` : null,
     fetcher,
     {
       revalidateOnFocus: false,

@@ -4,16 +4,22 @@
 FastAPI REST backend providing HTTP endpoints for the Intelligence ITA platform: dashboard stats, report management, entity visualization, and **narrative storyline graph**. Serves data to the Next.js frontend.
 
 ## Architecture Role
-HTTP interface layer between the database and frontend applications. Modular router architecture with Pydantic schema validation and API key authentication. Runs alongside the Streamlit HITL dashboard.
+HTTP interface layer between the database and frontend applications. Modular router architecture with Pydantic schema validation and API key authentication.
 
 ## Key Files
 
 ### Core
 - `main.py` - FastAPI application entry point
-  - `app` - FastAPI instance with CORS middleware (localhost:3000-3002)
-  - API key authentication via `X-API-Key` header
+  - `app` - FastAPI instance with CORS middleware (configurable via `ALLOWED_ORIGINS` env var)
+  - Rate limiting via `slowapi` (30 req/min on map entities, configurable per endpoint)
   - Registers 3 routers: dashboard, reports, stories
   - Direct endpoints for map entities (`/api/v1/map/entities`)
+
+- `auth.py` - Shared authentication module
+  - `verify_api_key()` — dependency for all protected endpoints
+  - Timing-safe comparison via `secrets.compare_digest()`
+  - `INTELLIGENCE_API_KEY` env var required for production (warns in dev mode)
+  - All router endpoints use `Depends(verify_api_key)`
 
 ### Routers (`routers/`)
 - `dashboard.py` - Dashboard statistics
@@ -34,30 +40,21 @@ HTTP interface layer between the database and frontend applications. Modular rou
 - `reports.py` - `ReportListItem`, `ReportDetail`, `ReportFilters`, `ReportContent`, `ReportSource`
 - `stories.py` - `StorylineNode`, `StorylineEdge`, `GraphStats`, `GraphNetwork`, `StorylineDetail`, `RelatedStoryline`, `LinkedArticle`
 
-### OpenBB Integration
-- `openbb_backend.py` - OpenBB Workspace backend (port 7779)
-  - Widget endpoints for OpenBB Pro dashboard
-  - Intelligence scores, trade signals, macro summary
+## Security
+- All endpoints require `X-API-Key` header (via `auth.py:verify_api_key`)
+- Error responses use generic `"Internal server error"` (no `str(e)` leaking)
+- Rate limiting via slowapi on expensive endpoints
+- CORS origins configurable via `ALLOWED_ORIGINS` env var
 
 ## Dependencies
 
-- **Internal**: `src/storage/database`, `src/utils/logger`
-- **External**:
-  - `fastapi` - Web framework
-  - `uvicorn` - ASGI server
-  - `pydantic` - Request/response validation
+- **Internal**: `src/storage/database`, `src/utils/logger`, `src/api/auth`
+- **External**: `fastapi`, `uvicorn`, `pydantic`, `slowapi`
 
 ## Data Flow
 
-- **Input**:
-  - HTTP requests from Next.js frontend
-  - Database queries via `DatabaseManager`
-
-- **Output**:
-  - JSON responses wrapped in `APIResponse[T]`
-  - GeoJSON for map rendering
-  - Graph network (nodes + links) for storyline visualization
-  - Paginated lists with `PaginationMeta`
+- **Input**: HTTP requests from Next.js frontend (via server-side proxy at `/api/proxy/`)
+- **Output**: JSON responses wrapped in `APIResponse[T]`, GeoJSON for map, Graph network for storyline visualization
 
 ## Running
 
@@ -65,6 +62,6 @@ HTTP interface layer between the database and frontend applications. Modular rou
 # Development
 uvicorn src.api.main:app --reload --port 8000
 
-# Production
-uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+# Production (Docker)
+docker compose up backend
 ```
