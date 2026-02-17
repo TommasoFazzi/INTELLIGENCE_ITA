@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
 Process raw articles with NLP: cleaning, entities, embeddings, and chunking.
+Includes LLM-based relevance filtering (Gemini Flash) to discard off-topic articles.
 
 Usage:
     python scripts/process_nlp.py                              # Process latest raw file
     python scripts/process_nlp.py --input data/articles_*.json # Process specific file
     python scripts/process_nlp.py --chunk-size 1000            # Custom chunk size
+    python scripts/process_nlp.py --skip-relevance             # Skip LLM relevance check
 """
 
 import sys
@@ -16,7 +18,11 @@ from datetime import datetime
 from typing import List, Dict
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from dotenv import load_dotenv
+load_dotenv(project_root / '.env')
 
 from src.nlp.processing import NLPProcessor
 from src.utils.logger import get_logger
@@ -68,6 +74,8 @@ def main():
     parser.add_argument('--input', type=str, help='Input JSON file path')
     parser.add_argument('--chunk-size', type=int, default=500, help='Words per chunk')
     parser.add_argument('--chunk-overlap', type=int, default=50, help='Overlap between chunks')
+    parser.add_argument('--skip-relevance', action='store_true',
+                        help='Skip LLM relevance classification (faster, no API costs)')
     args = parser.parse_args()
 
     logger.info("=" * 80)
@@ -94,6 +102,24 @@ def main():
     except Exception as e:
         logger.error(f"Failed to load articles: {e}")
         return 1
+
+    # Step 1.5: LLM relevance filtering (before heavy NLP to save compute)
+    if not args.skip_relevance:
+        logger.info(f"\n[STEP 1.5] LLM relevance classification ({len(articles)} articles)...")
+        try:
+            from src.nlp.relevance_filter import RelevanceFilter
+            relevance_filter = RelevanceFilter()
+            articles, filtered_out = relevance_filter.filter_batch(articles)
+
+            # Save filtered-out articles for audit
+            if filtered_out:
+                filtered_file = Path("data") / f"articles_filtered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                save_processed_articles(filtered_out, filtered_file)
+                logger.info(f"Filtered articles saved to: {filtered_file.name} (for audit)")
+        except Exception as e:
+            logger.warning(f"LLM relevance filter failed: {e}. Proceeding with all articles.")
+    else:
+        logger.info("\n[STEP 1.5] Skipping LLM relevance classification (--skip-relevance)")
 
     # Initialize NLP processor
     logger.info("\n[STEP 1] Initializing NLP processor...")

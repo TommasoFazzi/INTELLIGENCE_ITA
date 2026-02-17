@@ -1,10 +1,10 @@
-# Intelligence Map Context
+# Web Platform Context
 
 ## Purpose
-Modern Next.js/React frontend for interactive intelligence visualization on a tactical map. Displays geocoded entities from the database on a Mapbox-powered map with military-style HUD overlays.
+Modern Next.js/React frontend for interactive intelligence visualization. Provides a tactical intelligence map (Mapbox), a **narrative storyline graph** (force-directed), a dashboard with reports, and a landing page. Consumes data from the FastAPI backend.
 
 ## Architecture Role
-Advanced visualization layer consuming data from `src/api/` REST endpoints. Provides interactive exploration of geopolitical entities with their locations, mention counts, and relationships. Separate from the Streamlit dashboard for specialized map visualization.
+Advanced visualization layer consuming data from `src/api/` REST endpoints. Provides interactive exploration of geopolitical entities (map), **narrative storyline network** (graph), and intelligence reports (dashboard). Separate from the Streamlit HITL dashboard.
 
 ## Key Files
 
@@ -14,6 +14,8 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
 - `app/page.tsx` - Landing page
 - `app/map/page.tsx` - Tactical map route (SSR metadata + dynamic import)
 - `app/dashboard/page.tsx` - Dashboard route (SWR data fetching)
+- `app/dashboard/report/[id]/page.tsx` - Report detail route
+- **`app/stories/page.tsx`** - Storyline graph route (SSR metadata + dynamic import)
 
 ### Components
 
@@ -25,12 +27,30 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
 - `HUDOverlay.tsx` - HUD elements (ZULU clock, coordinates)
 - `EntityDossier.tsx` - Entity detail panel
 
+#### **Storyline Graph Components (`components/StorylineGraph/`)**
+- `StorylineGraph.tsx` - Main force-directed graph (react-force-graph-2d)
+  - Custom `paintNode`: radius by momentum (4-16px), color by status (emerging=#FF6B35, active=#00A8E8, stabilized=#666)
+  - Custom `paintLink`: thickness by weight (0.5-3px), gray with opacity
+  - HUD overlay with stats (total nodes, edges, avg momentum)
+  - Click node → opens StorylineDossier
+- `GraphLoader.tsx` - Client wrapper for dynamic import (ssr: false, same pattern as MapLoader)
+- `GraphSkeleton.tsx` - Loading skeleton with orange accent theme
+- `StorylineDossier.tsx` - Storyline detail side panel (follows EntityDossier pattern)
+  - Momentum analysis (score + bar), summary, key entities (badges)
+  - Connected storylines (clickable, navigates graph)
+  - Recent articles list
+  - `onNavigate(id)` callback for graph navigation
+
 #### Dashboard Components (`components/dashboard/`)
 - `StatsCard.tsx` - Individual KPI card
 - `StatsGrid.tsx` - Grid of stats cards
 - `ReportsTable.tsx` - Paginated reports table
 - `DashboardSkeleton.tsx` - Loading skeletons
 - `ErrorState.tsx` - Error handling states
+
+#### Landing Components (`components/landing/`)
+- `Navbar.tsx` - Navigation with links to Dashboard, **Storylines**, Intelligence Map
+- `Hero.tsx`, `Features.tsx`, `Footer.tsx` - Landing page sections
 
 #### UI Components (`components/ui/`)
 - Shadcn components: Button, Card, Skeleton, Table, Badge
@@ -44,11 +64,15 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
 - `package.json` - Dependencies
 - `tsconfig.json` - TypeScript config
 
-### Types & Utils
+### Types & Hooks
 - `types/entities.ts` - Entity TypeScript interfaces
 - `types/dashboard.ts` - Dashboard TypeScript interfaces
+- **`types/stories.ts`** - Storyline graph TypeScript interfaces (StorylineNode, StorylineEdge, GraphNetwork, StorylineDetail)
 - `utils/api.ts` - API client for backend communication
 - `hooks/useDashboard.ts` - SWR hooks for dashboard data
+- **`hooks/useStories.ts`** - SWR hooks for storyline graph data
+  - `useGraphNetwork()` → `GET /api/v1/stories/graph` (60s polling)
+  - `useStorylineDetail(id)` → `GET /api/v1/stories/{id}` (on-demand)
 
 ## Dependencies
 
@@ -57,24 +81,26 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
   - `next` (16.x) - React framework with App Router
   - `react` (19.x) - UI library
   - `mapbox-gl` (3.x) - Map rendering
+  - **`react-force-graph-2d`** - Force-directed graph visualization (d3-force based)
   - `swr` - Data fetching with polling
   - `framer-motion` - Animations
   - `tailwindcss` (4.x) - Styling
-  - `lucide-react` - Icons
+  - `lucide-react` - Icons (GitBranch for Storylines nav)
 
 ## Data Flow
 
 - **Input**:
   - GeoJSON from `GET /api/v1/map/entities`
-  - Entity details from `GET /api/v1/map/entities/{id}`
   - Dashboard stats from `GET /api/v1/dashboard/stats`
   - Reports from `GET /api/v1/reports`
+  - **Graph network from `GET /api/v1/stories/graph`** (nodes + links)
+  - **Storyline detail from `GET /api/v1/stories/{id}`**
   - Mapbox token from environment
 
 - **Output**:
   - Interactive map with entity clustering
-  - Entity dossier panels on click
-  - Real-time ZULU time display
+  - **Force-directed narrative graph with momentum-scaled nodes**
+  - **Storyline dossier panels on node click**
   - Dashboard with live KPIs and reports table
 
 ## Running
@@ -85,15 +111,7 @@ npm install
 npm run dev
 # Routes:
 #   http://localhost:3000/          - Landing page
-#   http://localhost:3000/map       - Tactical map
-#   http://localhost:3000/dashboard - Dashboard
+#   http://localhost:3000/stories   - Storyline graph
+#   http://localhost:3000/map       - Tactical intelligence map
+#   http://localhost:3000/dashboard - Dashboard with reports
 ```
-
-## Map Controls
-
-- **Drag**: Pan map
-- **Scroll**: Zoom
-- **Ctrl + Drag**: Rotate bearing
-- **Shift + Drag**: Pitch (3D tilt)
-- **Click marker**: Open entity dossier
-- **Click cluster**: Zoom to expand

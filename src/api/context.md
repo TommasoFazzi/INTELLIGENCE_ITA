@@ -1,66 +1,63 @@
 # API Context
 
 ## Purpose
-FastAPI REST backend providing HTTP endpoints for the Intelligence Map visualization and related services. Serves GeoJSON entities to the Next.js frontend.
+FastAPI REST backend providing HTTP endpoints for the Intelligence ITA platform: dashboard stats, report management, entity visualization, and **narrative storyline graph**. Serves data to the Next.js frontend.
 
 ## Architecture Role
-HTTP interface layer between the database and frontend applications. Exposes entity data with coordinates for map visualization. Designed to run alongside the Streamlit HITL dashboard.
+HTTP interface layer between the database and frontend applications. Modular router architecture with Pydantic schema validation and API key authentication. Runs alongside the Streamlit HITL dashboard.
 
 ## Key Files
 
+### Core
 - `main.py` - FastAPI application entry point
-  - `app` - FastAPI instance with CORS middleware
-  - CORS configured for localhost:3000-3002 (Next.js dev servers)
+  - `app` - FastAPI instance with CORS middleware (localhost:3000-3002)
+  - API key authentication via `X-API-Key` header
+  - Registers 3 routers: dashboard, reports, stories
+  - Direct endpoints for map entities (`/api/v1/map/entities`)
 
-  **Endpoints:**
-  - `GET /` - API root with endpoint listing
-  - `GET /api/v1/map/entities` - GeoJSON FeatureCollection of geocoded entities
-    - Query params: `limit` (default: 1000)
-    - Returns entities with lat/lng coordinates for Mapbox
-  - `GET /api/v1/map/entities/{id}` - Single entity detail
+### Routers (`routers/`)
+- `dashboard.py` - Dashboard statistics
+  - `GET /api/v1/dashboard/stats` - KPIs: total articles, entities, reports, coverage
 
-  **Pydantic Models:**
-  - `EntityProperties` - Entity metadata (id, name, type, mention_count)
-  - `EntityFeature` - GeoJSON Feature wrapper
-  - `EntityCollection` - GeoJSON FeatureCollection response
+- `reports.py` - Intelligence reports
+  - `GET /api/v1/reports` - Paginated report list with filters (status, type, date range)
+  - `GET /api/v1/reports/{id}` - Full report detail with sources and feedback
 
+- `stories.py` - **Storyline graph & narrative data**
+  - `GET /api/v1/stories/graph` - Full graph network: nodes (active storylines) + links (edges). Queries `v_active_storylines` and `v_storyline_graph` views. Response structured for react-force-graph.
+  - `GET /api/v1/stories` - Paginated storyline list, ordered by momentum_score DESC. Filters: `status` (emerging/active/stabilized/archived)
+  - `GET /api/v1/stories/{id}` - Storyline detail with related storylines (via edges) and recent articles (via article_storylines join)
+
+### Schemas (`schemas/`)
+- `common.py` - `APIResponse[T]` generic wrapper, `PaginationMeta`
+- `dashboard.py` - `DashboardStats`, `OverviewStats`, `ArticleStats`, `EntityStats`, `QualityStats`
+- `reports.py` - `ReportListItem`, `ReportDetail`, `ReportFilters`, `ReportContent`, `ReportSource`
+- `stories.py` - `StorylineNode`, `StorylineEdge`, `GraphStats`, `GraphNetwork`, `StorylineDetail`, `RelatedStoryline`, `LinkedArticle`
+
+### OpenBB Integration
 - `openbb_backend.py` - OpenBB Workspace backend (port 7779)
-  - CORS configured for `pro.openbb.co`, `localhost:1420`
-  - `widgets.json` - Widget configuration for OpenBB Workspace
-
-  **Endpoints:**
-  - `GET /widgets.json` - Widget configuration for OpenBB Workspace
-  - `GET /get_latest_report` - Markdown: latest intelligence report
-  - `GET /get_macro_summary` - Markdown: macro economic indicators
-  - `GET /get_conviction_board` - Table: active trade signals
-  - `GET /get_metric_articles_24h` - Metric: articles processed
-  - `GET /get_metric_active_signals` - Metric: active signals count
-  - `GET /get_metric_sources_active` - Metric: RSS sources active
-  - `GET /api/v1/openbb/chart_overlay` - Chart OHLCV + signal annotations
-  - `GET /api/v1/openbb/high_conviction_signals` - High-conviction signals (score >= 70)
-  - `GET /api/v1/openbb/intelligence_scores` - **Full scoring breakdown**
-    - Query params: `days` (default: 7), `min_score` (default: 0)
-    - Returns: ticker, company_name, sector, signal, intelligence_score,
-      llm_confidence, price, sma_200, sma_200_deviation_pct, pe_ratio,
-      pe_rel_valuation, valuation_rating, data_quality, rationale
+  - Widget endpoints for OpenBB Pro dashboard
+  - Intelligence scores, trade signals, macro summary
 
 ## Dependencies
 
 - **Internal**: `src/storage/database`, `src/utils/logger`
 - **External**:
   - `fastapi` - Web framework
-  - `uvicorn` - ASGI server (run with `uvicorn src.api.main:app`)
+  - `uvicorn` - ASGI server
   - `pydantic` - Request/response validation
 
 ## Data Flow
 
 - **Input**:
-  - HTTP requests from Next.js frontend (`intelligence-map/`)
-  - Query parameters for filtering
+  - HTTP requests from Next.js frontend
+  - Database queries via `DatabaseManager`
 
 - **Output**:
-  - GeoJSON responses for map rendering
-  - Entity metadata for dossier display
+  - JSON responses wrapped in `APIResponse[T]`
+  - GeoJSON for map rendering
+  - Graph network (nodes + links) for storyline visualization
+  - Paginated lists with `PaginationMeta`
 
 ## Running
 

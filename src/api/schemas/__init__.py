@@ -2,6 +2,7 @@
 from .common import APIResponse, PaginationMeta
 from .dashboard import DashboardStats, OverviewStats, ArticleStats, EntityStats, QualityStats
 from .reports import ReportListItem, ReportDetail, ReportFilters
+from .stories import StorylineNode, StorylineEdge, GraphNetwork, StorylineDetail
 
 __all__ = [
     "APIResponse",
@@ -14,4 +15,8 @@ __all__ = [
     "ReportListItem",
     "ReportDetail",
     "ReportFilters",
+    "StorylineNode",
+    "StorylineEdge",
+    "GraphNetwork",
+    "StorylineDetail",
 ]

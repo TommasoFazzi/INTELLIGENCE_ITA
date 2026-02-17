@@ -58,6 +58,8 @@ app/map/page.tsx (Server Component)
                     └── <MapSkeleton> (while loading)
 ```
 
+**Note**: The sibling directory `components/StorylineGraph/` follows the same dynamic import pattern (GraphLoader → StorylineGraph) for the force-directed narrative graph at `/stories`.
+
 ## Dependencies
 
 - **Internal**: `@/utils/api` for entity fetching, `@/types/entities` for interfaces

@@ -1208,6 +1208,158 @@ Respond with JSON only:"""
 {narrative}{divergence_section}{watch_section}
 """
 
+    # =====================================================================
+    # Narrative Storyline Context
+    # =====================================================================
+
+    def _get_narrative_context(self, days: int = 1, top_n: int = 10) -> Dict[str, Any]:
+        """
+        Fetch top storylines, their graph edges, and recent linked articles.
+
+        Returns:
+            Dict with 'storylines' list, 'edges' list, or empty if unavailable.
+        """
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    # Top N active storylines by momentum
+                    cur.execute("""
+                        SELECT id, title, summary, narrative_status,
+                               momentum_score, article_count, key_entities,
+                               start_date, last_update
+                        FROM v_active_storylines
+                        LIMIT %s
+                    """, [top_n])
+                    storyline_rows = cur.fetchall()
+
+                    if not storyline_rows:
+                        return {'storylines': [], 'edges': []}
+
+                    storyline_ids = [r[0] for r in storyline_rows]
+
+                    # Edges between these storylines
+                    cur.execute("""
+                        SELECT source_story_id, target_story_id,
+                               source_title, target_title,
+                               weight, relation_type
+                        FROM v_storyline_graph
+                        WHERE source_story_id = ANY(%s)
+                          AND target_story_id = ANY(%s)
+                    """, [storyline_ids, storyline_ids])
+                    edge_rows = cur.fetchall()
+
+                    # Recent articles per storyline (last N days)
+                    cur.execute("""
+                        SELECT als.storyline_id, a.title, a.source,
+                               a.published_date
+                        FROM article_storylines als
+                        JOIN articles a ON als.article_id = a.id
+                        WHERE als.storyline_id = ANY(%s)
+                          AND a.published_date >= NOW() - make_interval(days => %s)
+                        ORDER BY a.published_date DESC
+                    """, [storyline_ids, days])
+                    article_rows = cur.fetchall()
+
+            # Group articles by storyline_id
+            articles_by_story: Dict[int, list] = {}
+            for sid, title, source, pub_date in article_rows:
+                articles_by_story.setdefault(sid, []).append({
+                    'title': title,
+                    'source': source,
+                    'date': pub_date.strftime('%Y-%m-%d') if pub_date else '',
+                })
+
+            storylines = []
+            for i, r in enumerate(storyline_rows):
+                entities = r[6] or []
+                if isinstance(entities, str):
+                    import json as _json
+                    try:
+                        entities = _json.loads(entities)
+                    except Exception:
+                        entities = []
+
+                storylines.append({
+                    'rank': i + 1,
+                    'id': r[0],
+                    'title': r[1] or '',
+                    'summary': r[2] or '',
+                    'status': r[3] or 'active',
+                    'momentum': round(r[4] or 0.0, 2),
+                    'article_count': r[5] or 0,
+                    'entities': entities if isinstance(entities, list) else [],
+                    'recent_articles': articles_by_story.get(r[0], [])[:5],
+                })
+
+            edges = [
+                {
+                    'source_id': r[0], 'target_id': r[1],
+                    'source_title': r[2], 'target_title': r[3],
+                    'weight': round(r[4] or 0.0, 2),
+                    'relation_type': r[5] or 'relates_to',
+                }
+                for r in edge_rows
+            ]
+
+            return {'storylines': storylines, 'edges': edges}
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch narrative context (non-blocking): {e}")
+            return {'storylines': [], 'edges': []}
+
+    def _format_narrative_xml(self, narrative_ctx: Dict[str, Any]) -> str:
+        """Format narrative context as structured XML for LLM prompt."""
+        storylines = narrative_ctx.get('storylines', [])
+        edges = narrative_ctx.get('edges', [])
+
+        if not storylines:
+            return ""
+
+        # Build edge lookup: storyline_id -> list of related titles
+        edge_lookup: Dict[int, list] = {}
+        for e in edges:
+            edge_lookup.setdefault(e['source_id'], []).append(
+                f'{e["target_title"]}')
+            edge_lookup.setdefault(e['target_id'], []).append(
+                f'{e["source_title"]}')
+
+        lines = ['<strategic_storylines>']
+        for s in storylines:
+            lines.append(
+                f'  <storyline rank="{s["rank"]}" momentum="{s["momentum"]}" '
+                f'status="{s["status"]}" articles="{s["article_count"]}">'
+            )
+            lines.append(f'    <title>{s["title"]}</title>')
+            if s['summary']:
+                # Truncate long summaries
+                summary = s['summary'][:500]
+                lines.append(f'    <summary>{summary}</summary>')
+            if s['entities']:
+                lines.append(f'    <entities>{", ".join(s["entities"][:10])}</entities>')
+
+            # Recent articles
+            if s['recent_articles']:
+                lines.append('    <recent_articles>')
+                for a in s['recent_articles']:
+                    lines.append(
+                        f'      <article date="{a["date"]}" source="{a["source"]}">'
+                        f'{a["title"]}</article>'
+                    )
+                lines.append('    </recent_articles>')
+
+            # Related storylines
+            related = edge_lookup.get(s['id'], [])
+            if related:
+                lines.append('    <related_storylines>')
+                for rel in related[:5]:
+                    lines.append(f'      {rel}')
+                lines.append('    </related_storylines>')
+
+            lines.append('  </storyline>')
+
+        lines.append('</strategic_storylines>')
+        return '\n'.join(lines)
+
     def generate_report(
         self,
         focus_areas: Optional[List[str]] = None,
@@ -1367,6 +1519,29 @@ Respond with JSON only:"""
 
         logger.info(f"✓ Final RAG context: {len(unique_rag_results)} unique historical chunks")
 
+        # Step 2.5: Fetch narrative storyline context
+        logger.info(f"\n[STEP 2.5] Fetching narrative storyline context...")
+        narrative_ctx = self._get_narrative_context(days=days, top_n=10)
+        narrative_xml = self._format_narrative_xml(narrative_ctx)
+        storyline_count = len(narrative_ctx.get('storylines', []))
+
+        if narrative_xml:
+            narrative_section = f"""---
+
+**STRATEGIC STORYLINE CONTEXT:**
+The following are the top {storyline_count} active intelligence storylines tracked by the narrative engine, ordered by momentum (highest = most active).
+Use them to:
+- Connect today's events to ongoing strategic narratives
+- Identify which storylines are accelerating or decelerating based on today's news
+- In the "Trend Analysis" section, reference storyline momentum shifts
+- Generate section "5. Strategic Storyline Tracker" using this data
+
+{narrative_xml}"""
+            logger.info(f"✓ Narrative context: {storyline_count} storylines, {len(narrative_ctx.get('edges', []))} edges")
+        else:
+            narrative_section = ""
+            logger.info("  No active storylines found, skipping narrative context")
+
         # Step 3: Format context for LLM
         logger.info(f"\n[STEP 3] Preparing prompt for LLM...")
         recent_articles_text = self.format_recent_articles(recent_articles)
@@ -1449,7 +1624,7 @@ Highlight the most critical developments with focus on strategic breaks and shif
 For each development, always identify specific actors (individuals, organizations, governments, groups), explain their motivations and causal relationships. Avoid impersonal language: instead of "tensions are rising," say "Russia and NATO are escalating tensions because..." Provide relationship context: explain how actors relate to each other (allies, adversaries, dependencies).
 
 3. Trend Analysis (250-300 words)
-Connect current events with historical patterns from the context. Identify whether events confirm or break from existing trends.
+Connect current events with historical patterns from the context. Identify whether events confirm or break from existing trends. Reference active storylines and their momentum shifts where relevant.
 
 4. Actionable Insights: Investment Implications
 
@@ -1470,6 +1645,16 @@ Consider impacts on currencies, government bonds, and commodities. If India rais
 
 For each insight, always include: specific tickers, concrete catalysts with exact figures, timing, causal connections with other events, and next catalysts to monitor.
 
+5. Strategic Storyline Tracker (if storyline data is provided below)
+
+For each of the top 5 storylines by momentum from the strategic context:
+- **Status**: Current narrative status (emerging/active) and momentum trend (accelerating if today's articles advance it, stable if no new developments, decelerating if contradicted)
+- **Today's Impact**: How today's news articles specifically affect this storyline
+- **Cross-Domain Links**: Connected storylines and what their intersection means strategically
+- **Watch Indicators**: Key next events, dates, or triggers to monitor
+
+If no storyline data is provided, skip this section entirely.
+
 **ADDITIONAL GUIDELINES:**
 - Cite specific articles with [Article N] references
 - Use professional, analytical tone
@@ -1485,6 +1670,8 @@ For each insight, always include: specific tickers, concrete catalysts with exac
 {rag_context_text}
 
 ---
+
+{narrative_section}
 
 **Now generate the intelligence report:**
 """
@@ -1525,7 +1712,15 @@ For each insight, always include: specific tickers, concrete catalysts with exac
                     'dashboard_items_count': len(macro_analysis_result.get('result', {}).get('dashboard_items', [])) if macro_analysis_result else 0,
                     'temperature_step1': 0.45,
                     'temperature_step2': 0.35
-                } if macro_analysis_result else None
+                } if macro_analysis_result else None,
+                'narrative_context': {
+                    'storylines_count': len(narrative_ctx.get('storylines', [])),
+                    'edges_count': len(narrative_ctx.get('edges', [])),
+                    'top_storylines': [
+                        {'id': s['id'], 'title': s['title'], 'momentum': s['momentum']}
+                        for s in narrative_ctx.get('storylines', [])[:5]
+                    ],
+                } if narrative_ctx.get('storylines') else None
             },
             'sources': {
                 'recent_articles': [

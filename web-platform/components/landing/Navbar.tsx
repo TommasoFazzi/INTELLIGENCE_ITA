@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Map } from 'lucide-react';
+import { Menu, X, Map, GitBranch } from 'lucide-react';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -76,6 +76,12 @@ export default function Navbar() {
             >
               Contact
             </button>
+            <Button asChild variant="outline" className="border-[#FF6B35]/30 text-[#FF6B35] hover:bg-[#FF6B35]/10 hover:text-[#FF6B35]">
+              <Link href="/stories" className="flex items-center gap-2">
+                <GitBranch size={16} />
+                Storylines
+              </Link>
+            </Button>
             <Button asChild variant="outline" className="border-[#00A8E8]/30 text-[#00A8E8] hover:bg-[#00A8E8]/10 hover:text-[#00A8E8]">
               <Link href="/map" className="flex items-center gap-2">
                 <Map size={16} />
@@ -119,6 +125,12 @@ export default function Navbar() {
               >
                 Contact
               </button>
+              <Button asChild variant="outline" className="w-full mt-2 border-[#FF6B35]/30 text-[#FF6B35] hover:bg-[#FF6B35]/10 hover:text-[#FF6B35]">
+                <Link href="/stories" className="flex items-center justify-center gap-2">
+                  <GitBranch size={16} />
+                  Storylines
+                </Link>
+              </Button>
               <Button asChild variant="outline" className="w-full mt-2 border-[#00A8E8]/30 text-[#00A8E8] hover:bg-[#00A8E8]/10 hover:text-[#00A8E8]">
                 <Link href="/map" className="flex items-center justify-center gap-2">
                   <Map size={16} />

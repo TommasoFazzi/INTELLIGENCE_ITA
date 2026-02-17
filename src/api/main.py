@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 from src.storage.database import DatabaseManager
 from src.utils.logger import get_logger
-from src.api.routers import dashboard, reports
+from src.api.routers import dashboard, reports, stories
 
 logger = get_logger(__name__)
 
@@ -45,6 +45,7 @@ app.add_middleware(
 # Include routers
 app.include_router(dashboard.router)
 app.include_router(reports.router)
+app.include_router(stories.router)
 
 # ===================================================================
 # API Key Authentication

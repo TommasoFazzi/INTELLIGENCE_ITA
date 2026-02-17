@@ -45,6 +45,13 @@ Knowledge base for developers and users. Documents system design decisions, impl
   - Entity geocoding
   - Frontend architecture
 
+- `NARRATIVE_ENGINE.md` - Narrative Engine documentation
+  - HDBSCAN clustering pipeline
+  - Storyline matching and LLM evolution
+  - Graph edge generation (Jaccard entity-overlap)
+  - 3-layer content filtering (Filtro 1, 2, 4)
+  - Momentum scoring and decay
+
 - `REFACTORING_SUMMARY.md` - Code refactoring notes (~1k chars)
   - Recent changes
   - Technical debt

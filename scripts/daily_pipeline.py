@@ -7,9 +7,10 @@ Esegue la pipeline giornaliera completa:
 2. Market Data (OpenBB)
 3. NLP Processing
 4. Database Loading
-5. Report Generation
-6. Weekly Report (solo domenica)
-7. Monthly Recap (prima domenica del mese)
+5. Narrative Processing (clustering e storyline evolution)
+6. Report Generation
+7. Weekly Report (solo domenica)
+8. Monthly Recap (prima domenica del mese)
 
 Usage:
     python scripts/daily_pipeline.py              # Run completo
@@ -111,6 +112,13 @@ DEFAULT_STEPS = [
         description="Caricamento articoli nel database",
         timeout_seconds=600,  # 10 min
         continue_on_failure=False
+    ),
+    PipelineStep(
+        name="narrative_processing",
+        command="python scripts/process_narratives.py --days 1",
+        description="Clustering narrativo e evoluzione storyline",
+        timeout_seconds=900,  # 15 min (LLM calls per storyline)
+        continue_on_failure=True  # Report generato anche senza storyline
     ),
     PipelineStep(
         name="generate_report",

@@ -5,6 +5,7 @@ Main ingestion pipeline that orchestrates feed parsing and content extraction.
 import json
 import hashlib
 import asyncio
+import re
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
@@ -14,6 +15,43 @@ from .content_extractor import ContentExtractor
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Off-topic keyword blocklist
+# Articles whose title matches any of these patterns are discarded early
+# to avoid wasting bandwidth and processing on irrelevant content.
+# Patterns are case-insensitive and match whole words (word boundaries).
+# ---------------------------------------------------------------------------
+_BLOCKLIST_PATTERNS: List[re.Pattern] = [
+    re.compile(p, re.IGNORECASE) for p in [
+        # --- Sports ---
+        r'\b(?:NBA|NFL|NHL|MLB|MLS|UFC|ATP|WTA|FIFA|UEFA|ICC)\b',
+        r'\b(?:Premier League|La Liga|Serie A|Bundesliga|Ligue 1|Champions League)\b',
+        r'\b(?:Super Bowl|World Series|Grand Slam|Grand Prix|MotoGP|Formula [12])\b',
+        r'\b(?:Australian Open|Roland Garros|Wimbledon|US Open Tennis)\b',
+        r'\b(?:T20|ODI|Test cricket|IPL|Ashes)\b',
+        r'\b(?:Lakers|Warriors|Celtics|Yankees|Cowboys|Patriots)\b',
+        r'\b(?:Real Madrid|Barcelona|Man(?:chester)? (?:United|City)|Arsenal|Liverpool|Chelsea|Tottenham|Juventus|PSG|Bayern)\b',
+        r'\b(?:Ronaldo|Messi|Guardiola|Mourinho|Klopp)\b',
+        # --- Entertainment ---
+        r'\b(?:Grammy|Oscar|Emmy|Golden Globe|BAFTA|Cannes Film)\b',
+        r'\b(?:Netflix|Spotify|Disney\+|Hulu|HBO Max|streaming wars)\b',
+        r'\b(?:box office|blockbuster|sequel|franchise|Marvel|DC Comics)\b',
+        r'\b(?:K-pop|BTS|Taylor Swift|Beyonc[eé]|Drake)\b',
+        # --- Lifestyle / Tabloid ---
+        r'\b(?:celebrity|gossip|red carpet|fashion week|Met Gala)\b',
+        r'\b(?:Kardashian|reality TV|Love Island)\b',
+        r'\b(?:Fontana di Trevi|tourist ticket|travel guide)\b',
+    ]
+]
+
+
+def _is_off_topic(title: str) -> bool:
+    """Check if an article title matches any off-topic blocklist pattern."""
+    for pattern in _BLOCKLIST_PATTERNS:
+        if pattern.search(title):
+            return True
+    return False
 
 
 class IngestionPipeline:
@@ -116,6 +154,28 @@ class IngestionPipeline:
         if not articles:
             logger.warning("No articles remaining after deduplication")
             return []
+
+        # Step 1.6: Keyword blocklist filter (before content extraction to save bandwidth)
+        logger.info("\n[STEP 1.6] Filtering off-topic articles (keyword blocklist)...")
+        pre_filter_count = len(articles)
+        blocked = []
+        filtered = []
+        for a in articles:
+            title = a.get('title', '')
+            if _is_off_topic(title):
+                blocked.append(a)
+            else:
+                filtered.append(a)
+        if blocked:
+            for b in blocked:
+                logger.debug(f"Blocked (off-topic): {b.get('title', 'N/A')[:60]}... [{b.get('source', '?')}]")
+            logger.info(
+                f"✓ Keyword blocklist: {pre_filter_count} → {len(filtered)} "
+                f"({len(blocked)} off-topic removed)"
+            )
+        else:
+            logger.info(f"✓ Keyword blocklist: No off-topic articles found ({pre_filter_count} kept)")
+        articles = filtered
 
         # Filter articles by age (sync, pure computation)
         if max_age_days > 0:

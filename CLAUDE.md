@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-INTELLIGENCE_ITA is an end-to-end geopolitical intelligence news analysis platform. It ingests 33+ RSS feeds, processes articles with NLP (spaCy + sentence-transformers), stores them in PostgreSQL with pgvector for semantic search, generates intelligence reports via Google Gemini LLM with RAG, and provides a human-in-the-loop review dashboard. A Next.js web platform serves as the public-facing frontend.
+INTELLIGENCE_ITA is an end-to-end geopolitical intelligence news analysis platform. It ingests 33+ RSS feeds, processes articles with NLP (spaCy + sentence-transformers), stores them in PostgreSQL with pgvector for semantic search, generates intelligence reports via Google Gemini LLM with RAG, and provides a human-in-the-loop review dashboard. A **Narrative Engine** tracks storylines across articles using HDBSCAN clustering, LLM-driven summary evolution, and a graph of inter-storyline relationships. A Next.js web platform serves as the public-facing frontend with a force-directed graph visualization of the narrative network.
 
 ## Common Commands
 
@@ -44,7 +44,8 @@ ruff check src/
 python -m src.ingestion.pipeline          # 1. Ingest RSS feeds
 python scripts/process_nlp.py             # 2. NLP processing
 python scripts/load_to_database.py        # 3. Load to database
-python scripts/generate_report.py         # 4. Generate LLM report
+python scripts/process_narratives.py      # 4. Narrative processing (storylines + graph)
+python scripts/generate_report.py         # 5. Generate LLM report
 
 # Full automated pipeline
 python scripts/daily_pipeline.py
@@ -77,33 +78,64 @@ npm run lint      # ESLint
 ### Data Pipeline Flow
 
 ```
-RSS Feeds (33) → Ingestion → NLP Processing → PostgreSQL+pgvector → RAG+LLM → HITL Review
+RSS Feeds (33) → Ingestion → NLP Processing → PostgreSQL+pgvector → Narrative Engine → RAG+LLM → HITL Review
+                                                                          ↓
+                                                                   Storyline Graph → API → Frontend Visualization
 ```
 
-**Six phases:**
-1. **Ingestion** (`src/ingestion/`): Async RSS parsing via aiohttp (parallel feed fetching + concurrent content extraction), full-text extraction (Trafilatura primary, Newspaper3k fallback, Cloudscraper for anti-bot sites), 2-phase deduplication (hash + content)
-2. **NLP** (`src/nlp/`): spaCy multilingual NER (`xx_ent_wiki_sm`), semantic chunking (500-word sliding window), embeddings (`paraphrase-multilingual-MiniLM-L12-v2`, 384-dim)
+**Seven phases:**
+1. **Ingestion** (`src/ingestion/`): Async RSS parsing via aiohttp (parallel feed fetching + concurrent content extraction), full-text extraction (Trafilatura primary, Newspaper3k fallback, Cloudscraper for anti-bot sites), 2-phase deduplication (hash + content), **keyword blocklist filter** (off-topic rejection at ingestion)
+2. **NLP** (`src/nlp/`): spaCy multilingual NER (`xx_ent_wiki_sm`), semantic chunking (500-word sliding window), embeddings (`paraphrase-multilingual-MiniLM-L12-v2`, 384-dim), **LLM relevance classification** (Gemini-based scope filter)
 3. **Storage** (`src/storage/database.py`): PostgreSQL + pgvector with HNSW indexing, connection pooling (psycopg2 SimpleConnectionPool)
-4. **Report Generation** (`src/llm/`): Google Gemini 2.5 Flash, 2-stage RAG (vector search → cross-encoder reranking with ms-marco-MiniLM), trade signal extraction with ticker mapping, Pydantic schema validation
-5. **HITL** (`src/hitl/`, `Home.py`): Streamlit dashboard for review, editing, rating, feedback loop
-6. **Automation** (`scripts/daily_pipeline.py`): launchd (macOS) / systemd (Linux) scheduling
+4. **Narrative Engine** (`src/nlp/narrative_processor.py`): HDBSCAN micro-clustering of orphan events, embedding-based matching to existing storylines, LLM summary evolution (Gemini), Jaccard entity-overlap graph edges, momentum scoring with decay, **post-clustering validation filter** (regex-based off-topic archival)
+5. **Report Generation** (`src/llm/`): Google Gemini 2.5 Flash, 2-stage RAG (vector search → cross-encoder reranking with ms-marco-MiniLM), **narrative storyline context** (top 10 storylines injected as XML), trade signal extraction, "Strategic Storyline Tracker" section
+6. **HITL** (`src/hitl/`, `Home.py`): Streamlit dashboard for review, editing, rating, feedback loop
+7. **Automation** (`scripts/daily_pipeline.py`): 8-step pipeline (ingestion → market_data → nlp → db_load → **narrative_processing** → report → weekly → monthly), launchd scheduling
 
 ### Key Modules by Size/Complexity
 
-- `src/llm/report_generator.py` (~2575 lines) — Core LLM integration, RAG pipeline, trade signals
+- `src/llm/report_generator.py` (~2700 lines) — Core LLM integration, RAG pipeline, trade signals, narrative storyline context
 - `src/storage/database.py` (~1921 lines) — All PostgreSQL/pgvector operations
-- `src/nlp/story_manager.py` (~970 lines) — Cross-article narrative clustering
+- `src/nlp/narrative_processor.py` (~940 lines) — **Narrative Engine**: HDBSCAN clustering, storyline matching, LLM evolution, graph edges, momentum decay, post-clustering validation
+- `src/nlp/story_manager.py` (~970 lines) — Legacy storyline clustering (replaced by narrative_processor)
 - `src/nlp/processing.py` (~610 lines) — NLP pipeline: cleaning, chunking, NER, embeddings
+- `src/nlp/relevance_filter.py` — LLM-based article relevance classification (Gemini)
 - `src/integrations/openbb_service.py` (~1026 lines) — OpenBB financial data integration
 - `src/llm/oracle_engine.py` (~566 lines) — Intelligence scoring engine
 
 ### Web Platform (Next.js)
 
-Located in `web-platform/`. Uses Next.js 16 App Router, React 19, Tailwind CSS 4, Shadcn/ui (Radix), Mapbox GL for intelligence map, SWR for data fetching, Framer Motion for animations.
+Located in `web-platform/`. Uses Next.js 16 App Router, React 19, Tailwind CSS 4, Shadcn/ui (Radix), Mapbox GL for intelligence map, **react-force-graph-2d** for narrative graph visualization, SWR for data fetching, Framer Motion for animations.
 
-**Routes:** `/` (landing), `/dashboard` (reports list), `/dashboard/report/[id]` (detail), `/map` (geospatial intelligence map)
+**Routes:** `/` (landing), `/dashboard` (reports list), `/dashboard/report/[id]` (detail), `/map` (geospatial intelligence map), **`/stories` (narrative storyline graph)**
 
 **API communication:** Frontend → FastAPI backend (`src/api/main.py`) with `X-API-Key` header authentication.
+
+### API Endpoints
+
+| Prefix | Router | Description |
+|--------|--------|-------------|
+| `/api/v1/dashboard/` | `routers/dashboard.py` | Stats, KPIs |
+| `/api/v1/reports/` | `routers/reports.py` | Report list, detail |
+| `/api/v1/stories/` | `routers/stories.py` | Storyline list, detail, **graph network** |
+| `/api/v1/map/` | `main.py` | GeoJSON entities for map |
+
+### Narrative Engine (3-Layer Filtering)
+
+Off-topic content is filtered at 3 pipeline stages:
+1. **Filtro 1** (`src/ingestion/pipeline.py`): Keyword blocklist at ingestion — rejects articles matching sports/entertainment/food keywords
+2. **Filtro 2** (`src/nlp/relevance_filter.py`): LLM relevance classification — Gemini classifies articles as RELEVANT/NOT_RELEVANT to geopolitical scope
+3. **Filtro 4** (`src/nlp/narrative_processor.py`): Post-clustering validation — archives storylines with no scope keywords AND matching off-topic patterns
+
+### Database Schema (Narrative)
+
+| Table | Purpose |
+|-------|---------|
+| `storylines` | Narrative threads: title, summary, embeddings, momentum_score, narrative_status |
+| `storyline_edges` | Graph edges: source/target storyline, Jaccard weight, relation_type |
+| `article_storylines` | Junction: article_id ↔ storyline_id, relevance_score |
+| `v_active_storylines` | View: active storylines ordered by momentum DESC |
+| `v_storyline_graph` | View: edges between active storylines with titles |
 
 ## Configuration
 
@@ -111,7 +143,7 @@ Located in `web-platform/`. Uses Next.js 16 App Router, React 19, Tailwind CSS 4
 - `config/top_50_tickers.yaml` — Geopolitical market movers with aliases for NER matching
 - `config/entity_blocklist.yaml` — Noise filtering for extracted entities
 - `.env` — Database URL, API keys (Gemini, FRED), app settings (see `.env.example`)
-- `migrations/` — 11 incremental SQL migration files (001–011), applied manually via `psql` or through `load_to_database.py --init-only`
+- `migrations/` — 12+ incremental SQL migration files, applied manually via `psql` or through `load_to_database.py --init-only` (includes narrative engine schema: storylines, storyline_edges, views)
 
 ## Key Technical Patterns
 

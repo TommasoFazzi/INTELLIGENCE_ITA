@@ -1,10 +1,10 @@
 # Storage Context
 
 ## Purpose
-PostgreSQL database layer with pgvector extension for the RAG (Retrieval-Augmented Generation) system. Handles connection pooling, schema initialization, article/chunk storage, vector similarity search, and HITL (Human-in-the-Loop) report management.
+PostgreSQL database layer with pgvector extension for the RAG (Retrieval-Augmented Generation) system. Handles connection pooling, schema initialization, article/chunk storage, vector similarity search, HITL report management, and **narrative storyline persistence** (storylines, graph edges, article-storyline links).
 
 ## Architecture Role
-Central persistence layer between the processing pipeline and intelligence generation. All NLP-processed articles flow here for storage, and the LLM modules retrieve context via semantic search. Also stores generated reports and human feedback for the feedback loop.
+Central persistence layer between the processing pipeline and intelligence generation. All NLP-processed articles flow here for storage, and the LLM modules retrieve context via semantic search. Also stores generated reports, human feedback, **narrative storylines with momentum scoring**, and **inter-storyline graph edges**.
 
 ## Key Files
 
@@ -21,6 +21,9 @@ Central persistence layer between the processing pipeline and intelligence gener
   - `reports` table - LLM-generated intelligence reports
   - `report_feedback` table - Human corrections and ratings
   - `entities` table - Named entities with geocoding (for Intelligence Map)
+  - **`storylines` table** - Narrative threads: title, summary, embedding, momentum_score, narrative_status
+  - **`storyline_edges` table** - Graph edges: source/target storyline, Jaccard weight, relation_type
+  - **`article_storylines` table** - Junction: article_id ↔ storyline_id, relevance_score
   - HNSW indexes for fast approximate nearest neighbor search
 
   **Core Operations:**
@@ -36,6 +39,15 @@ Central persistence layer between the processing pipeline and intelligence gener
   - `get_entities_with_coordinates()` - GeoJSON output for map
   - `semantic_search_reports()` - Search reports by embedding (for Oracle)
   - `get_reports_by_date_range()` - For weekly meta-analysis
+
+## Database Views (Narrative Engine)
+
+| View | Purpose |
+|------|---------|
+| `v_active_storylines` | Active storylines ordered by momentum_score DESC, with article_count |
+| `v_storyline_graph` | Edges between active storylines, includes source/target titles |
+
+These views are consumed by both the report generator (top 10 storylines for context) and the API (`/api/v1/stories/graph`).
 
 ## Dependencies
 
@@ -53,12 +65,15 @@ Central persistence layer between the processing pipeline and intelligence gener
   - Query embeddings for semantic search from `src/llm/`
   - Generated reports from `src/llm/report_generator.py`
   - Human feedback from `src/hitl/`
+  - **Storyline data from `src/nlp/narrative_processor.py`** (storylines, edges, article links)
 
 - **Output**:
   - Retrieved chunks for RAG context
   - Article metadata and statistics
   - Reports for review/editing
   - GeoJSON entities for Intelligence Map
+  - **Storyline graph data for API** (nodes, edges, detail)
+  - **Narrative context for report generation** (top storylines by momentum)
   - Feedback data for prompt improvement
 
 ## Key Tables
@@ -70,6 +85,8 @@ Central persistence layer between the processing pipeline and intelligence gener
 | `reports` | Generated intelligence reports (draft/final/status) |
 | `report_feedback` | Human corrections, ratings, comments |
 | `entities` | Named entities with coordinates for map |
-| `storylines` | Narrative threads grouping related articles |
+| **`storylines`** | Narrative threads: title, summary, embedding, momentum_score, narrative_status (emerging/active/stabilized/archived) |
+| **`storyline_edges`** | Graph edges: source_story_id → target_story_id, Jaccard weight, relation_type |
+| **`article_storylines`** | Junction table: article_id ↔ storyline_id, relevance_score |
 | `market_data` | OHLCV time series from Yahoo Finance |
 | `ticker_mappings` | Entity → Stock ticker mappings |
