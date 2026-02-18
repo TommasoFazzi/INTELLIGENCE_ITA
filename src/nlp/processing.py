@@ -90,17 +90,17 @@ class NLPProcessor:
         if not text:
             return ""
 
-        # 1. Remove HTML tags (aggressive cleaning)
-        # Remove common HTML tags and attributes
-        text = re.sub(r'<script[^>]*>.*?</script>', ' ', text, flags=re.IGNORECASE | re.DOTALL)
-        text = re.sub(r'<style[^>]*>.*?</style>', ' ', text, flags=re.IGNORECASE | re.DOTALL)
-        text = re.sub(r'<[^>]+>', ' ', text)  # Remove all remaining HTML tags
+        # 1. Remove HTML tags using bleach-style approach
+        # Use non-greedy matching with explicit character classes to avoid ReDoS
+        text = re.sub(r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>', ' ', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>', ' ', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<[^>]{0,500}>', ' ', text)  # Remove remaining HTML tags (length-bounded)
 
         # 2. Remove HTML attributes that often leak through (href, src, class, etc.)
-        text = re.sub(r'\bhref\s*=\s*["\'][^"\']*["\']', ' ', text, flags=re.IGNORECASE)
-        text = re.sub(r'\bsrc\s*=\s*["\'][^"\']*["\']', ' ', text, flags=re.IGNORECASE)
-        text = re.sub(r'\bclass\s*=\s*["\'][^"\']*["\']', ' ', text, flags=re.IGNORECASE)
-        text = re.sub(r'\bid\s*=\s*["\'][^"\']*["\']', ' ', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bhref\s*=\s*["\'][^"\']{0,2000}["\']', ' ', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bsrc\s*=\s*["\'][^"\']{0,2000}["\']', ' ', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bclass\s*=\s*["\'][^"\']{0,500}["\']', ' ', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bid\s*=\s*["\'][^"\']{0,500}["\']', ' ', text, flags=re.IGNORECASE)
 
         # 3. Remove URLs (http, https, www)
         text = re.sub(r'https?://[^\s]+', ' ', text, flags=re.IGNORECASE)

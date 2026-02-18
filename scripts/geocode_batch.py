@@ -167,7 +167,7 @@ class BatchGeocoder:
 
             # Track stats
             if status == 'FOUND':
-                logger.info(f"   [{idx:3d}/{total}] ✅ {name:40s} → ({lat:7.2f}, {lon:7.2f}) | {mention_count:3d} mentions")
+                logger.info(f"   [{idx:3d}/{total}] ✅ {name:40s} → (geocoded) | {mention_count:3d} mentions")
                 stats['success'] += 1
             elif status == 'NOT_FOUND':
                 logger.info(f"   [{idx:3d}/{total}] ❌ {name:40s} → Not Found | {mention_count:3d} mentions")

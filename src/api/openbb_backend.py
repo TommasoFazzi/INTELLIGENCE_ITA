@@ -116,7 +116,7 @@ def get_latest_report():
 
     except Exception as e:
         logger.error(f"Error fetching latest report: {e}")
-        return f"# Error\n\nCould not fetch report: {str(e)}"
+        return "# Error\n\nCould not fetch report. Check server logs."
 
 
 @app.get("/get_macro_summary", response_class=PlainTextResponse)
@@ -136,7 +136,7 @@ def get_macro_summary():
 
     except Exception as e:
         logger.error(f"Error fetching macro summary: {e}")
-        return f"# Macro Context\n\n*Error fetching data: {str(e)}*"
+        return "# Macro Context\n\n*Error fetching data. Check server logs.*"
 
 
 # ===================================================================
@@ -201,7 +201,7 @@ def get_conviction_board():
 
     except Exception as e:
         logger.error(f"Error fetching conviction board: {e}")
-        return [{"Ticker": "ERROR", "Signal": str(e), "Timeframe": "-",
+        return [{"Ticker": "ERROR", "Signal": "Internal error — check server logs", "Timeframe": "-",
                  "Rationale": "-", "Confidence": "-", "Alignment": "-", "Source": "-", "Category": "-"}]
 
 
@@ -623,7 +623,7 @@ def health_check():
 
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
-        return {"status": "unhealthy", "database": str(e)}
+        return {"status": "unhealthy", "database": "connection failed"}
 
 
 # ===================================================================
