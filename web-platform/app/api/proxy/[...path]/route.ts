@@ -3,12 +3,33 @@ import { NextRequest, NextResponse } from 'next/server';
 const API_URL = process.env.INTELLIGENCE_API_URL || 'http://localhost:8000';
 const API_KEY = process.env.INTELLIGENCE_API_KEY || '';
 
+// Allowed API path prefixes (first segment of the path)
+const ALLOWED_PREFIXES = ['dashboard', 'reports', 'stories', 'map'];
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path } = await params;
   const pathStr = path.join('/');
+
+  // Reject path traversal attempts
+  if (pathStr.includes('..') || pathStr.startsWith('/')) {
+    return NextResponse.json(
+      { success: false, detail: 'Invalid path' },
+      { status: 400 }
+    );
+  }
+
+  // Validate against whitelist
+  const prefix = path[0];
+  if (!prefix || !ALLOWED_PREFIXES.includes(prefix)) {
+    return NextResponse.json(
+      { success: false, detail: 'Not found' },
+      { status: 404 }
+    );
+  }
+
   const searchParams = request.nextUrl.searchParams.toString();
   const upstream = `${API_URL}/api/v1/${pathStr}${searchParams ? `?${searchParams}` : ''}`;
 

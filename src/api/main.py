@@ -88,24 +88,12 @@ class EntityCollection(BaseModel):
 # ===================================================================
 
 @app.get("/")
-async def root():
+@limiter.limit("10/minute")
+async def root(request: Request):
     """API root endpoint"""
     return {
         "name": "Intelligence ITA API",
-        "version": "1.1.0",
-        "endpoints": {
-            "map": {
-                "entities": "/api/v1/map/entities",
-                "entity_detail": "/api/v1/map/entities/{id}"
-            },
-            "dashboard": {
-                "stats": "/api/v1/dashboard/stats"
-            },
-            "reports": {
-                "list": "/api/v1/reports",
-                "detail": "/api/v1/reports/{id}"
-            }
-        }
+        "status": "running",
     }
 
 
@@ -216,7 +204,8 @@ async def get_entity(
 
 
 @app.get("/health")
-async def health_check():
+@limiter.limit("10/minute")
+async def health_check(request: Request):
     """Health check endpoint"""
     return {"status": "healthy"}
 

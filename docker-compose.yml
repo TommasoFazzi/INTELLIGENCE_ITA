@@ -3,6 +3,13 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    shm_size: "256mb"
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
@@ -29,6 +36,13 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 100
+    tmpfs:
+      - /tmp
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,6 +54,7 @@ services:
       FMP_API_KEY: ${FMP_API_KEY:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
       REPORT_OUTPUT_DIR: /app/reports
       DATA_DIR: /app/data
     volumes:
@@ -65,6 +80,10 @@ services:
       args:
         NEXT_PUBLIC_MAPBOX_TOKEN: ${NEXT_PUBLIC_MAPBOX_TOKEN}
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       INTELLIGENCE_API_URL: http://backend:8000
       INTELLIGENCE_API_KEY: ${INTELLIGENCE_API_KEY}
@@ -83,6 +102,17 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
     ports:
       - "80:80"
       - "443:443"
