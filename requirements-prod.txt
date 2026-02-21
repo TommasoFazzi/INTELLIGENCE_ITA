@@ -76,7 +76,6 @@ multidict==6.7.0
 murmurhash==1.0.15
 networkx==3.6
 newspaper3k==0.2.8
-nltk==3.9.2
 numpy==2.3.5
 orderly-set==5.5.0
 packaging==25.0
@@ -118,7 +117,6 @@ sentence-transformers==5.1.2
 setuptools==80.9.0
 sgmllib3k==1.0.0
 six==1.17.0
-slowapi==0.1.9
 smart_open==7.5.0
 smmap==5.0.2
 soupsieve==2.8

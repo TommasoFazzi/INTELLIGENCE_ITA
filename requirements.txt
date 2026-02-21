@@ -80,7 +80,6 @@ murmurhash==1.0.15
 narwhals==2.15.0
 networkx==3.6
 newspaper3k==0.2.8
-nltk==3.9.2
 numpy==2.3.5
 openbb==4.6.0
 openbb-benzinga==1.5.1

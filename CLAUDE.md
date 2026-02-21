@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
+This project uses both Python (backend/pipelines) and TypeScript (web-platform). Key directories contain context.md files describing their purpose. Read relevant context.md files before making changes in a directory.
+
 INTELLIGENCE_ITA is an end-to-end geopolitical intelligence news analysis platform. It ingests 33+ RSS feeds, processes articles with NLP (spaCy + sentence-transformers), stores them in PostgreSQL with pgvector for semantic search, generates intelligence reports via Google Gemini LLM with RAG, and provides a human-in-the-loop review dashboard. A **Narrative Engine** tracks storylines across articles using HDBSCAN clustering, LLM-driven summary evolution, and a graph of inter-storyline relationships. A Next.js web platform serves as the public-facing frontend with a force-directed graph visualization of the narrative network.
 
 ## Common Commands
@@ -61,6 +63,9 @@ uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 
 # System health check
 python scripts/check_setup.py
+
+# Daily status check (also runs via launchd at 9:00 AM)
+python scripts/pipeline_status_check.py
 ```
 
 ### Next.js Frontend (web-platform/)
@@ -90,7 +95,7 @@ RSS Feeds (33) → Ingestion → NLP Processing → PostgreSQL+pgvector → Narr
 4. **Narrative Engine** (`src/nlp/narrative_processor.py`): HDBSCAN micro-clustering of orphan events, embedding-based matching to existing storylines, LLM summary evolution (Gemini), Jaccard entity-overlap graph edges, momentum scoring with decay, **post-clustering validation filter** (regex-based off-topic archival)
 5. **Report Generation** (`src/llm/`): Google Gemini 2.5 Flash, 2-stage RAG (vector search → cross-encoder reranking with ms-marco-MiniLM), **narrative storyline context** (top 10 storylines injected as XML), trade signal extraction, "Strategic Storyline Tracker" section
 6. **HITL** (`src/hitl/`, `Home.py`): Streamlit dashboard for review, editing, rating, feedback loop
-7. **Automation** (`scripts/daily_pipeline.py`): 8-step pipeline (ingestion → market_data → nlp → db_load → **narrative_processing** → report → weekly → monthly), launchd scheduling
+7. **Automation** (`scripts/daily_pipeline.py`): 6 core steps (ingestion → market_data → nlp_processing → load_to_database → **narrative_processing** → generate_report) + 2 conditional steps (weekly_report on Sundays → monthly_recap after 4 weekly reports), launchd scheduling at 8:00 AM; `pipeline_status_check.py` runs at 9:00 AM
 
 ### Key Modules by Size/Complexity
 
@@ -102,6 +107,7 @@ RSS Feeds (33) → Ingestion → NLP Processing → PostgreSQL+pgvector → Narr
 - `src/nlp/relevance_filter.py` — LLM-based article relevance classification (Gemini)
 - `src/integrations/openbb_service.py` (~1026 lines) — OpenBB financial data integration
 - `src/llm/oracle_engine.py` (~566 lines) — Intelligence scoring engine
+- `src/api/main.py` + `src/api/auth.py` + `src/api/routers/` — FastAPI backend: X-API-Key auth (`secrets.compare_digest`), CORS, slowapi rate limiting, routers for dashboard/reports/stories/map
 
 ### Web Platform (Next.js)
 
@@ -165,3 +171,19 @@ Pytest markers defined in `pytest.ini`: `unit`, `integration`, `e2e`, `slow`. Te
 - Node.js 16+ (for web-platform)
 - spaCy model: `python -m spacy download xx_ent_wiki_sm`
 - Required env vars: `DATABASE_URL`, `GEMINI_API_KEY`
+
+## Documentation
+
+When updating documentation, always check for and update context.md files in subdirectories, not just top-level docs. Every module directory contains a context.md — these must stay in sync with code changes.
+
+## Debugging
+
+When debugging issues, distinguish between "script completed successfully" and "script is still running/stuck" by checking process status and recent log timestamps, not just log content. Use `ps aux | grep <script>` and compare log file modification times against wall clock time.
+
+## General Rules
+
+When investigating dates, pipeline runs, or report IDs, always verify the current date and day of week using the `date` command before making claims about timing.
+
+## Domain Concepts
+
+When the user asks about scores, intelligence scores, or scoring — they mean the scored output stored in the database (oracle_engine output, scored articles/reports in DB tables), NOT report files on disk. Check the database tables first, not the filesystem.

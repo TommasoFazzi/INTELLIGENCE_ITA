@@ -6,7 +6,9 @@ Automation and utility scripts for pipeline execution, data management, and main
 ## Architecture Role
 Operational layer that orchestrates the core modules. Scripts tie together ingestion → NLP → database → LLM report generation.
 
-**Primary orchestrator**: `daily_pipeline.py` executes 6 steps sequentially (+ conditional weekly/monthly) with logging, error handling, and configurable fail-fast behavior. Supports manual execution and automated scheduling via launchd (macOS, 8:00 AM daily).
+**Primary orchestrator**: `daily_pipeline.py` executes 6 core steps sequentially (+ conditional weekly/monthly) with logging, error handling, and configurable fail-fast behavior. Supports manual execution and automated scheduling via launchd (macOS, 8:00 AM daily).
+
+**Status checker**: `pipeline_status_check.py` runs at 9:00 AM via a separate launchd job, one hour after the pipeline starts. It checks whether the pipeline completed, inspects log files, queries the DB for the last report timestamp, and sends a macOS notification with the result.
 
 ## Key Files
 
@@ -15,15 +17,27 @@ Operational layer that orchestrates the core modules. Scripts tie together inges
 
 ### Pipeline Execution
 - `daily_pipeline.py` - **Orchestrator**: runs full pipeline in one command
-  - Steps: 1.ingestion → 2.market_data → 3.nlp_processing → 4.load_to_database → **5.narrative_processing** → 6.generate_report → (7.weekly → 8.monthly)
+  - **6 core steps** (always run unless filtered): 1.ingestion → 2.market_data → 3.nlp_processing → 4.load_to_database → **5.narrative_processing** → 6.generate_report
+  - **Conditional steps** (run after core pipeline, if not `--skip-weekly`): weekly_report (Sundays only) → monthly_recap (after 4 weekly reports since last recap)
+  - Default `generate_report` command: `python scripts/generate_report.py --macro-first --skip-article-signals`
   - `--dry-run` - Validate without executing
-  - `--step N` - Run only step N (1-6)
-  - `--from-step N` - Start from step N
+  - `--step N` - Run only step N (1-6, core steps only)
+  - `--from-step N` - Start from step N (1-6)
   - `--verbose` - Enable DEBUG logging
-  - `--skip-weekly` - Skip weekly/monthly reports
-  - **Auto weekly**: Runs on Sundays
-  - **Auto monthly**: Runs after 4 weekly reports
+  - `--skip-weekly` - Skip weekly/monthly conditional steps even on Sunday
+  - **Auto weekly**: Runs on Sundays (after main pipeline succeeds)
+  - **Auto monthly**: Runs after 4 weekly reports since last recap (DB-counted)
+  - **market_data** has `continue_on_failure=True` (optional, non-blocking)
   - **narrative_processing** has `continue_on_failure=True` (report generated even if storylines fail)
+  - Logs written to `logs/daily_pipeline_{run_id}.log`; old logs auto-cleaned after `PIPELINE_MAX_LOG_DAYS` (default 30)
+  - Notifications: macOS `osascript`/`terminal-notifier` locally; SMTP email in production (if `SMTP_HOST` + `NOTIFY_EMAIL` env vars set)
+- `pipeline_status_check.py` - **Daily status checker**: runs at 9:00 AM via launchd (separate plist)
+  - Checks if pipeline processes are still running (`ps aux` scan for pipeline keywords)
+  - Finds today's most recent log file and scans last 30 lines for success/error keywords
+  - Queries `reports` table via psycopg2 for the most recent report timestamp
+  - Sends macOS notification (`osascript`) with status summary (completed/errors/unknown + log time + last report)
+  - Loads `.env` file automatically if present at project root
+  - Sound alert on error or unknown state; silent on success
 - `process_nlp.py` - Run NLP processing on ingested articles (includes Filtro 2: LLM relevance)
 - `process_narratives.py` - **Narrative Engine CLI**: runs storyline clustering, matching, LLM evolution, graph updates
   - `--days N` - Look back N days for unassigned articles
@@ -68,7 +82,8 @@ Operational layer that orchestrates the core modules. Scripts tie together inges
 ### Dashboard & Scheduling
 - `run_dashboard.sh` - Launch Streamlit dashboard
 - `run_weekly_report.sh` - Cron script for weekly reports
-- `com.intelligence-ita.daily-pipeline.plist` - launchd config for 8:00 AM scheduling (macOS)
+- `com.intelligence-ita.daily-pipeline.plist` - launchd config for 8:00 AM daily pipeline (macOS)
+- `com.intelligence-ita.pipeline-status-check.plist` - launchd config for 9:00 AM status check (macOS)
 
 ### Migrations
 - `run_migration_003.py` - Run specific migration

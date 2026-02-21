@@ -35,8 +35,9 @@ Central persistence layer between the processing pipeline and intelligence gener
   - `save_feedback()` / `get_report_feedback()` - HITL feedback storage
 
   **Specialized Methods:**
-  - `get_all_article_embeddings()` - For batch storyline clustering
+  - `get_all_article_embeddings(days, exclude_assigned)` - Returns articles with embeddings for storyline clustering; `exclude_assigned=True` skips articles already in `article_storylines` (used by `NarrativeProcessor.process_daily_batch`)
   - `get_entities_with_coordinates()` - GeoJSON output for map
+  - `update_report_embedding(report_id, embedding)` - Updates `summary_vector` for a report
   - `semantic_search_reports()` - Search reports by embedding (for Oracle)
   - `get_reports_by_date_range()` - For weekly meta-analysis
 
@@ -47,7 +48,9 @@ Central persistence layer between the processing pipeline and intelligence gener
 | `v_active_storylines` | Active storylines ordered by momentum_score DESC, with article_count |
 | `v_storyline_graph` | Edges between active storylines, includes source/target titles |
 
-These views are consumed by both the report generator (top 10 storylines for context) and the API (`/api/v1/stories/graph`).
+These views are consumed by both the report generator (top 10 storylines for narrative context) and the API (`/api/v1/stories/graph`).
+
+**Important:** `DatabaseManager` does NOT have `get_active_storylines()` or `get_storyline_graph()` methods. The API router (`src/api/routers/stories.py`) queries these views directly via raw SQL. The NarrativeProcessor also reads/writes storyline data via raw SQL within its own stage methods, not through DatabaseManager helper methods.
 
 ## Dependencies
 
