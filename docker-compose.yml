@@ -3,6 +3,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
+    user: "999:999"
     security_opt:
       - no-new-privileges:true
     cap_drop:
