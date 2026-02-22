@@ -70,6 +70,8 @@ class DatabaseManager:
         try:
             # Register pgvector type for this connection
             register_vector(conn)
+            # Ensure UTF-8 client encoding (python:slim uses C locale by default)
+            conn.set_client_encoding('UTF8')
             yield conn
             conn.commit()
         except Exception as e:
