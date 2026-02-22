@@ -171,6 +171,7 @@ export default function DashboardPage() {
               <ReportsTable
                 reports={reports}
                 pagination={pagination}
+                currentPage={page}
                 onPageChange={setPage}
               />
             )}

@@ -18,6 +18,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/reports", tags=["Reports"])
 
 
+def _safe_str(value) -> str:
+    """Return a valid UTF-8 string, replacing any invalid byte sequences."""
+    if value is None:
+        return ""
+    try:
+        if isinstance(value, bytes):
+            return value.decode('utf-8', errors='replace')
+        return value.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+    except Exception:
+        return ""
+
+
 def get_db() -> DatabaseManager:
     """Get database connection."""
     return DatabaseManager()
@@ -164,8 +176,8 @@ async def get_report(report_id: int, api_key: str = Depends(verify_api_key)):
                 """, [report_id])
                 feedback_rows = cur.fetchall()
 
-        # Parse content
-        content_text = row[6] or row[5] or ""
+        # Parse content (use _safe_str to handle any invalid UTF-8 sequences in stored data)
+        content_text = _safe_str(row[6]) or _safe_str(row[5])
         metadata = row[7] or {}
         sources_data = row[8] or []
 

@@ -17,6 +17,7 @@ import type { ReportListItem, Pagination } from '@/types/dashboard';
 interface ReportsTableProps {
   reports: ReportListItem[] | undefined;
   pagination: Pagination | undefined;
+  currentPage: number;
   onPageChange: (page: number) => void;
 }
 
@@ -40,7 +41,7 @@ function formatDate(dateString: string | null): string {
   });
 }
 
-export default function ReportsTable({ reports, pagination, onPageChange }: ReportsTableProps) {
+export default function ReportsTable({ reports, pagination, currentPage, onPageChange }: ReportsTableProps) {
   if (!reports || reports.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-gray-400">
@@ -82,6 +83,7 @@ export default function ReportsTable({ reports, pagination, onPageChange }: Repo
                 <TableCell className="font-medium text-white max-w-[300px] truncate">
                   <Link
                     href={`/dashboard/report/${report.id}`}
+                    prefetch={false}
                     className="hover:text-[#FF6B35] transition-colors"
                   >
                     {report.title || 'Senza titolo'}
@@ -114,7 +116,7 @@ export default function ReportsTable({ reports, pagination, onPageChange }: Repo
                     asChild
                     className="text-gray-400 hover:text-white hover:bg-white/5"
                   >
-                    <Link href={`/dashboard/report/${report.id}`}>
+                    <Link href={`/dashboard/report/${report.id}`} prefetch={false}>
                       <Eye className="w-4 h-4" />
                     </Link>
                   </Button>
@@ -129,14 +131,14 @@ export default function ReportsTable({ reports, pagination, onPageChange }: Repo
       {pagination && pagination.pages > 1 && (
         <div className="flex items-center justify-between px-2">
           <p className="text-sm text-gray-400">
-            Pagina {pagination.page} di {pagination.pages} ({pagination.total} report)
+            Pagina {currentPage} di {pagination.pages} ({pagination.total} report)
           </p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onPageChange(pagination.page - 1)}
-              disabled={pagination.page <= 1}
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
               className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
@@ -145,8 +147,8 @@ export default function ReportsTable({ reports, pagination, onPageChange }: Repo
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onPageChange(pagination.page + 1)}
-              disabled={pagination.page >= pagination.pages}
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage >= pagination.pages}
               className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
             >
               Successivo

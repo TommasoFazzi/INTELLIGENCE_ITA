@@ -5,5 +5,5 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/intelligence-ita/deploy/backup-db.sh
-User=deploy
+ExecStart=/opt/intelligence-ita/app/deploy/backup-db.sh
+User=root

@@ -50,19 +50,17 @@ const fetcher = async <T>(url: string): Promise<T> => {
 
 /**
  * Hook for fetching dashboard statistics
- * Polls every 30 seconds for real-time updates
  */
 export function useDashboardStats() {
   const { data, error, isLoading, mutate } = useSWR<DashboardStatsResponse, ApiError>(
     '/api/proxy/dashboard/stats',
     fetcher,
     {
-      refreshInterval: 30000,           // Poll every 30s
-      revalidateOnFocus: true,          // Revalidate when tab regains focus
-      dedupingInterval: 5000,           // Dedupe requests within 5s
-      errorRetryCount: 3,               // Max 3 retries
-      errorRetryInterval: 5000,         // 5s between retries
-      shouldRetryOnError: (err: ApiError) => !err.isOffline, // Don't retry if offline
+      revalidateOnFocus: false,         // Don't re-fetch on tab focus
+      dedupingInterval: 60000,          // Dedupe requests within 60s
+      errorRetryCount: 2,
+      errorRetryInterval: 10000,
+      shouldRetryOnError: (err: ApiError) => !err.isOffline,
     }
   );
 
@@ -77,17 +75,15 @@ export function useDashboardStats() {
 
 /**
  * Hook for fetching reports with pagination
- * Polls every 60 seconds (less frequent than stats)
  */
 export function useReports(page: number = 1, perPage: number = 10) {
   const { data, error, isLoading, mutate } = useSWR<ReportsResponse, ApiError>(
     `/api/proxy/reports?page=${page}&per_page=${perPage}`,
     fetcher,
     {
-      refreshInterval: 60000,           // Poll every 60s
-      revalidateOnFocus: true,
-      dedupingInterval: 5000,
-      errorRetryCount: 3,
+      revalidateOnFocus: false,         // Don't re-fetch on tab focus
+      dedupingInterval: 60000,          // Dedupe requests within 60s
+      errorRetryCount: 2,
       keepPreviousData: true,           // Keep previous data while loading new page
       shouldRetryOnError: (err: ApiError) => !err.isOffline,
     }
@@ -112,7 +108,7 @@ export function useReportDetail(reportId: number | null) {
     fetcher,
     {
       revalidateOnFocus: false,
-      dedupingInterval: 10000,
+      dedupingInterval: 120000,         // Cache report detail for 2 minutes
       errorRetryCount: 2,
       shouldRetryOnError: (err: ApiError) => !err.isOffline,
     }

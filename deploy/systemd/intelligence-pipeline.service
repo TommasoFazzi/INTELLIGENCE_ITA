@@ -5,8 +5,8 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=/opt/intelligence-ita
-EnvironmentFile=/opt/intelligence-ita/.env.production
+WorkingDirectory=/opt/intelligence-ita/app
+EnvironmentFile=/opt/intelligence-ita/app/.env.production
 ExecStart=/usr/bin/docker compose run --rm backend python scripts/daily_pipeline.py
 TimeoutStartSec=3600
-User=deploy
+User=root

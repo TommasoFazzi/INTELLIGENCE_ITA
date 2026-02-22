@@ -14,6 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import ReactMarkdown from 'react-markdown';
 import {
   ArrowLeft,
   Calendar,
@@ -283,15 +284,29 @@ export default function ReportDetailPage({
                     </div>
                   )}
 
-                  {parsed.sections.map((section) => (
-                    <AccordionSection
-                      key={section.id}
-                      section={section}
-                      isOpen={openSections.has(section.id)}
-                      onToggle={() => toggleSection(section.id)}
-                      onHoverArticle={setHighlightedSource}
-                    />
-                  ))}
+                  {parsed.sections.length > 0 ? (
+                    parsed.sections.map((section) => (
+                      <AccordionSection
+                        key={section.id}
+                        section={section}
+                        isOpen={openSections.has(section.id)}
+                        onToggle={() => toggleSection(section.id)}
+                        onHoverArticle={setHighlightedSource}
+                      />
+                    ))
+                  ) : (
+                    <div className="prose prose-invert prose-sm max-w-none
+                      prose-headings:text-white prose-headings:font-semibold
+                      prose-p:text-gray-300 prose-p:leading-relaxed
+                      prose-strong:text-white
+                      prose-ul:text-gray-300 prose-ol:text-gray-300 prose-li:text-gray-300
+                      prose-a:text-[#00A8E8] prose-a:no-underline hover:prose-a:underline
+                      prose-blockquote:border-[#FF6B35]/50 prose-blockquote:text-gray-400
+                      prose-code:text-[#00A8E8] prose-code:bg-[#00A8E8]/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
+                    ">
+                      <ReactMarkdown>{parsed.bodyMarkdown || report.content.full_text}</ReactMarkdown>
+                    </div>
+                  )}
 
                   {/* Metadata footer */}
                   <footer className="flex items-center gap-6 text-xs text-gray-500 mt-4 px-2">
