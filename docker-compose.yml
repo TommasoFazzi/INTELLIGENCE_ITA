@@ -40,7 +40,6 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    pids_limit: 100
     tmpfs:
       - /tmp
     healthcheck:
@@ -73,6 +72,7 @@ services:
       resources:
         limits:
           memory: 4g
+          pids: 100
     logging:
       driver: json-file
       options:
