@@ -4,8 +4,8 @@ set -euo pipefail
 
 BACKUP_DIR="/opt/backups/intelligence-ita"
 DATE=$(date +%Y%m%d_%H%M%S)
-COMPOSE_FILE="/opt/intelligence-ita/docker-compose.yml"
-APP_DIR="/opt/intelligence-ita"
+APP_DIR="/opt/intelligence-ita/app"
+COMPOSE_FILE="${APP_DIR}/docker-compose.yml"
 
 # Load env vars
 if [ -f "${APP_DIR}/.env.production" ]; then
@@ -53,9 +53,9 @@ echo "[$(date)] Reports backup: $(basename "${REPORTS_BACKUP}") (${REPORTS_SIZE}
 # ------------------------------------------------------------------
 # 3. Retention: keep last 14 days
 # ------------------------------------------------------------------
-find "${BACKUP_DIR}/postgres"  -name "*.sql.gz.enc" -mtime +14 -delete
-find "${BACKUP_DIR}/reports"   -name "*.tar.gz"      -mtime +14 -delete
-echo "[$(date)] Cleaned up backups older than 14 days"
+find "${BACKUP_DIR}/postgres"  -name "*.sql.gz.enc" -mtime +30 -delete
+find "${BACKUP_DIR}/reports"   -name "*.tar.gz"      -mtime +30 -delete
+echo "[$(date)] Cleaned up backups older than 30 days"
 
 # ------------------------------------------------------------------
 # 4. Optional: sync to Hetzner Object Storage (uncomment after rclone setup)

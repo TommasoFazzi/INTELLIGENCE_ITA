@@ -75,15 +75,11 @@ async def list_reports(
                 cur.execute(f"""
                     SELECT
                         id, report_date, report_type, status,
-                        COALESCE(
-                            metadata->>'title',
-                            SUBSTRING(COALESCE(final_content, draft_content), 1, 80)
-                        ) as title,
+                        metadata->>'title' as title,
                         COALESCE(
                             metadata->>'category',
                             UPPER(metadata->'focus_areas'->>0)
                         ) as category,
-                        SUBSTRING(COALESCE(final_content, draft_content), 1, 300) as summary,
                         COALESCE(
                             (metadata->>'article_count')::int,
                             (metadata->>'recent_articles_count')::int,
@@ -104,13 +100,13 @@ async def list_reports(
                         report_date=r[1],
                         report_type=r[2] or "daily",
                         status=r[3] or "draft",
-                        title=r[4],
+                        title=r[4] or f"Report {r[1]}",
                         category=r[5],
-                        executive_summary=r[6],
-                        article_count=r[7] or 0,
-                        generated_at=r[8],
-                        reviewed_at=r[9],
-                        reviewer=r[10]
+                        executive_summary="",
+                        article_count=r[6] or 0,
+                        generated_at=r[7],
+                        reviewed_at=r[8],
+                        reviewer=r[9]
                     )
                     for r in cur.fetchall()
                 ]
