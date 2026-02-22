@@ -43,6 +43,12 @@ services:
     pids_limit: 100
     tmpfs:
       - /tmp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,7 +58,7 @@ services:
       INTELLIGENCE_API_KEY: ${INTELLIGENCE_API_KEY}
       FRED_API_KEY: ${FRED_API_KEY:-}
       FMP_API_KEY: ${FMP_API_KEY:-}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://macrointel.net}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       REPORT_OUTPUT_DIR: /app/reports
@@ -84,6 +90,15 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      backend:
+        condition: service_healthy
     environment:
       INTELLIGENCE_API_URL: http://backend:8000
       INTELLIGENCE_API_KEY: ${INTELLIGENCE_API_KEY}
@@ -121,8 +136,10 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot:ro
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     networks:
       - internal
     logging:

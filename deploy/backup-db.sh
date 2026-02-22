@@ -1,35 +1,65 @@
 #!/bin/bash
-# PostgreSQL backup with encryption for off-site storage
+# Backup: PostgreSQL dump (encrypted) + reports volume tarball
 set -euo pipefail
 
-BACKUP_DIR="/opt/backups/postgres"
+BACKUP_DIR="/opt/backups/intelligence-ita"
 DATE=$(date +%Y%m%d_%H%M%S)
 COMPOSE_FILE="/opt/intelligence-ita/docker-compose.yml"
+APP_DIR="/opt/intelligence-ita"
 
 # Load env vars
-if [ -f /opt/intelligence-ita/.env.production ]; then
+if [ -f "${APP_DIR}/.env.production" ]; then
     set -a
-    source /opt/intelligence-ita/.env.production
+    source "${APP_DIR}/.env.production"
     set +a
 fi
 
-mkdir -p "$BACKUP_DIR"
+mkdir -p "${BACKUP_DIR}/postgres" "${BACKUP_DIR}/reports"
 
-echo "[$(date)] Starting database backup..."
+echo "[$(date)] ========================================"
+echo "[$(date)] Starting backup..."
 
-# Dump, compress, and encrypt
-docker compose -f "$COMPOSE_FILE" exec -T postgres \
+# ------------------------------------------------------------------
+# 1. PostgreSQL dump — compressed and encrypted on the host
+# ------------------------------------------------------------------
+DB_BACKUP="${BACKUP_DIR}/postgres/intelligence_ita_${DATE}.sql.gz.enc"
+
+docker compose -f "${COMPOSE_FILE}" exec -T postgres \
     pg_dump -U "${POSTGRES_USER}" intelligence_ita \
     | gzip \
     | openssl enc -aes-256-cbc -salt -pbkdf2 -pass "pass:${BACKUP_PASSWORD}" \
-    > "${BACKUP_DIR}/intelligence_ita_${DATE}.sql.gz.enc"
+    > "${DB_BACKUP}"
 
-FILESIZE=$(du -h "${BACKUP_DIR}/intelligence_ita_${DATE}.sql.gz.enc" | cut -f1)
-echo "[$(date)] Backup completed: intelligence_ita_${DATE}.sql.gz.enc (${FILESIZE})"
+DB_SIZE=$(du -h "${DB_BACKUP}" | cut -f1)
+if [ "$(du -k "${DB_BACKUP}" | cut -f1)" -lt 1 ]; then
+    echo "[$(date)] ERROR: DB backup file is suspiciously small (${DB_SIZE}). Aborting."
+    rm -f "${DB_BACKUP}"
+    exit 1
+fi
+echo "[$(date)] DB backup: $(basename "${DB_BACKUP}") (${DB_SIZE})"
 
-# Keep last 14 daily backups locally
-find "$BACKUP_DIR" -name "*.sql.gz.enc" -mtime +14 -delete
+# ------------------------------------------------------------------
+# 2. Reports volume — tar from the running backend container
+# ------------------------------------------------------------------
+REPORTS_BACKUP="${BACKUP_DIR}/reports/reports_${DATE}.tar.gz"
+
+docker compose -f "${COMPOSE_FILE}" exec -T backend \
+    tar -czf - /app/reports \
+    > "${REPORTS_BACKUP}"
+
+REPORTS_SIZE=$(du -h "${REPORTS_BACKUP}" | cut -f1)
+echo "[$(date)] Reports backup: $(basename "${REPORTS_BACKUP}") (${REPORTS_SIZE})"
+
+# ------------------------------------------------------------------
+# 3. Retention: keep last 14 days
+# ------------------------------------------------------------------
+find "${BACKUP_DIR}/postgres"  -name "*.sql.gz.enc" -mtime +14 -delete
+find "${BACKUP_DIR}/reports"   -name "*.tar.gz"      -mtime +14 -delete
 echo "[$(date)] Cleaned up backups older than 14 days"
 
-# Optional: sync to Hetzner Object Storage (uncomment after rclone setup)
-# rclone sync "$BACKUP_DIR" hetzner:intelligence-backups/postgres/ --max-age 14d
+# ------------------------------------------------------------------
+# 4. Optional: sync to Hetzner Object Storage (uncomment after rclone setup)
+# ------------------------------------------------------------------
+# rclone sync "${BACKUP_DIR}" hetzner:intelligence-backups/ --max-age 14d
+
+echo "[$(date)] Backup complete."

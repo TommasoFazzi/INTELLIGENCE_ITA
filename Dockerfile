@@ -28,12 +28,14 @@ COPY src/ ./src/
 COPY scripts/ ./scripts/
 COPY config/ ./config/
 COPY migrations/ ./migrations/
+COPY deploy/entrypoint.sh ./deploy/entrypoint.sh
 
 # Non-root user
-RUN useradd -m -u 1001 appuser && chown -R appuser:appuser /app
+RUN useradd -m -u 1001 appuser && \
+    chmod +x ./deploy/entrypoint.sh && \
+    chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", \
-     "--workers", "1", "--log-level", "info"]
+ENTRYPOINT ["./deploy/entrypoint.sh"]
