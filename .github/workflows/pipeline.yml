@@ -45,7 +45,7 @@ jobs:
       - name: Setup SSH tunnel to Hetzner DB
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           # Fingerprint del server noto (anti-MITM, vedi README per come ottenere VPS_KNOWN_HOSTS)
           echo "${{ secrets.VPS_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
