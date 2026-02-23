@@ -74,7 +74,7 @@ class QueryAnalyzer:
         if not api_key:
             raise ValueError("GEMINI_API_KEY not found in environment or parameters")
 
-        genai.configure(api_key=api_key)
+        genai.configure(api_key=api_key, transport='rest')
         self.model = genai.GenerativeModel(model_name)
         self.model_name = model_name
 

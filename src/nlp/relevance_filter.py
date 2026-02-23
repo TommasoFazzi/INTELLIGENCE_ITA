@@ -68,7 +68,7 @@ class RelevanceFilter:
         if not api_key:
             raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY must be set")
 
-        genai.configure(api_key=api_key)
+        genai.configure(api_key=api_key, transport='rest')
         self.model = genai.GenerativeModel('gemini-2.0-flash')
         logger.info("RelevanceFilter: Gemini Flash initialized")
 

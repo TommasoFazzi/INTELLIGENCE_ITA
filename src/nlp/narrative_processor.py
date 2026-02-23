@@ -115,7 +115,7 @@ class NarrativeProcessor:
         if not skip_llm and GEMINI_AVAILABLE:
             api_key = gemini_api_key or os.getenv('GEMINI_API_KEY')
             if api_key:
-                genai.configure(api_key=api_key)
+                genai.configure(api_key=api_key, transport='rest')
                 self.model = genai.GenerativeModel('gemini-2.5-flash')
                 self.gemini_available = True
                 logger.info("NarrativeProcessor: Gemini initialized for summary evolution")
