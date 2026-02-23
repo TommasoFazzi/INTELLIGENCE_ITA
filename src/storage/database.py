@@ -27,6 +27,18 @@ class DatabaseManager:
     Manages PostgreSQL database with pgvector extension for RAG system.
     """
 
+    @staticmethod
+    def _sanitize_text(text: Optional[str]) -> Optional[str]:
+        """
+        Remove or replace Unicode surrogate characters and other bytes
+        that PostgreSQL would reject as invalid UTF-8 sequences.
+        Surrogate escapes (U+D800-U+DFFF) can appear when web scrapers
+        read latin-1/binary content and Python stores them internally.
+        """
+        if not text:
+            return text
+        return text.encode('utf-8', errors='surrogatepass').decode('utf-8', errors='replace')
+
     def __init__(self, connection_url: Optional[str] = None):
         """
         Initialize database manager with connection pooling.
@@ -281,14 +293,14 @@ class DatabaseManager:
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id
                     """, (
-                        article.get('title'),
+                        self._sanitize_text(article.get('title')),
                         article.get('link'),
                         pub_date,
                         article.get('source'),
                         article.get('category'),
                         article.get('subcategory'),
-                        article.get('summary'),
-                        nlp_data.get('clean_text', ''),
+                        self._sanitize_text(article.get('summary')),
+                        self._sanitize_text(nlp_data.get('clean_text', '')),
                         Json(nlp_data.get('entities', {})),
                         Json({
                             'original_length': nlp_data.get('original_length', 0),

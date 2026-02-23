@@ -722,29 +722,63 @@ class NarrativeProcessor:
         if not self.gemini_available:
             return
 
-        # Fetch current storyline state
-        with self.db.get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT title, summary, key_entities
-                    FROM storylines WHERE id = %s
-                """, (storyline_id,))
-                row = cur.fetchone()
-                if not row:
-                    return
+        # Fetch current storyline state + recent articles
+        # Two-phase: try with full_text snippet first, fall back to title-only
+        # if any article has invalid UTF-8 bytes (legacy ingestion issue).
+        current_title = current_summary = key_entities = None
+        recent_articles = []
 
-                current_title, current_summary, key_entities = row
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT title, summary, key_entities
+                        FROM storylines WHERE id = %s
+                    """, (storyline_id,))
+                    row = cur.fetchone()
+                    if not row:
+                        return
+                    current_title, current_summary, key_entities = row
 
-                # Fetch recent articles (last 5)
-                cur.execute("""
-                    SELECT a.title, LEFT(a.full_text, 200) AS snippet
-                    FROM articles a
-                    JOIN article_storylines als ON a.id = als.article_id
-                    WHERE als.storyline_id = %s
-                    ORDER BY a.published_date DESC
-                    LIMIT 5
-                """, (storyline_id,))
-                recent_articles = cur.fetchall()
+                    cur.execute("""
+                        SELECT a.title, LEFT(a.full_text, 200) AS snippet
+                        FROM articles a
+                        JOIN article_storylines als ON a.id = als.article_id
+                        WHERE als.storyline_id = %s
+                        ORDER BY a.published_date DESC
+                        LIMIT 5
+                    """, (storyline_id,))
+                    recent_articles = cur.fetchall()
+
+        except Exception as fetch_err:
+            if 'UTF8' not in str(fetch_err) and 'encoding' not in str(fetch_err).lower():
+                raise
+            # Some article for this storyline has corrupt bytes in full_text.
+            # Retry fetching titles only (no snippet) so evolution can proceed.
+            logger.warning(
+                f"UTF-8 encoding error fetching snippets for storyline #{storyline_id}, "
+                f"retrying with titles only: {fetch_err}"
+            )
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT title, summary, key_entities
+                        FROM storylines WHERE id = %s
+                    """, (storyline_id,))
+                    row = cur.fetchone()
+                    if not row:
+                        return
+                    current_title, current_summary, key_entities = row
+
+                    cur.execute("""
+                        SELECT a.title, NULL AS snippet
+                        FROM articles a
+                        JOIN article_storylines als ON a.id = als.article_id
+                        WHERE als.storyline_id = %s
+                        ORDER BY a.published_date DESC
+                        LIMIT 5
+                    """, (storyline_id,))
+                    recent_articles = cur.fetchall()
 
         if not recent_articles:
             return
