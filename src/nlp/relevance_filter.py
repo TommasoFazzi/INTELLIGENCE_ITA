@@ -64,7 +64,7 @@ class RelevanceFilter:
         if not GEMINI_AVAILABLE:
             raise ImportError("google-generativeai is required. pip install google-generativeai")
 
-        api_key = gemini_api_key or os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+        api_key = (gemini_api_key or os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY', '')).strip()
         if not api_key:
             raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY must be set")
 

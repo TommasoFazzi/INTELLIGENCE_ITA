@@ -113,7 +113,7 @@ class NarrativeProcessor:
         # Initialize Gemini
         self.gemini_available = False
         if not skip_llm and GEMINI_AVAILABLE:
-            api_key = gemini_api_key or os.getenv('GEMINI_API_KEY')
+            api_key = (gemini_api_key or os.getenv('GEMINI_API_KEY', '')).strip()
             if api_key:
                 genai.configure(api_key=api_key, transport='rest')
                 self.model = genai.GenerativeModel('gemini-2.5-flash')
