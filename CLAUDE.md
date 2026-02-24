@@ -176,6 +176,17 @@ Pytest markers defined in `pytest.ini`: `unit`, `integration`, `e2e`, `slow`. Te
 
 When updating documentation, always check for and update context.md files in subdirectories, not just top-level docs. Every module directory contains a context.md — these must stay in sync with code changes.
 
+## Critical Pitfalls
+
+- **f-string escaping in report_generator.py:** The LLM prompt uses f-strings. Variables like `{narrative_section}` must NOT be double-braced `{{}}` or they become literal text. Pre-compute variables before the f-string.
+- **spaCy model required:** `xx_ent_wiki_sm` must be installed (`python -m spacy download xx_ent_wiki_sm`). To test report_generator methods in isolation, bypass full constructor with `object.__new__(ReportGenerator)`.
+- **DB views:** `v_active_storylines` and `v_storyline_graph` are the primary data sources for API and report narrative context.
+- **UTF-8 surrogate bytes:** Web scraping can produce invalid UTF-8 bytes (e.g. truncated multibyte sequences) that PostgreSQL rejects. `database.py` has `_sanitize_text()` applied in `save_article()`. `narrative_processor.py` `_evolve_narrative_summary()` has a fallback query without `LEFT(full_text, 200)` snippet on encoding error.
+- **generate_content() hang:** With `transport='rest'`, calling `generate_content()` without `request_options={"timeout": N}` causes ~900s hang on network issues. Always specify timeout (30s for 2.0-flash, 60s for 2.5-flash).
+- **Gemini model split:** NLP layer (`narrative_processor.py`, `relevance_filter.py`) → `gemini-2.0-flash` (speed-critical, structured tasks); LLM layer (`report_generator.py`, `query_analyzer.py`, `oracle_engine.py`) → `gemini-2.5-flash` (deep reasoning).
+- **Migrations are manual:** SQL files in `migrations/` applied via `psql` or `load_to_database.py --init-only`.
+- **CI test config:** GitHub Actions test step needs `GEMINI_API_KEY: "ci-fake-key-for-unit-tests"` env var + `--ignore=tests/test_sprint2_full.py` (e2e test requiring real DB).
+
 ## Debugging
 
 When debugging issues, distinguish between "script completed successfully" and "script is still running/stuck" by checking process status and recent log timestamps, not just log content. Use `ps aux | grep <script>` and compare log file modification times against wall clock time.

@@ -16,6 +16,8 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
 - `app/dashboard/page.tsx` - Dashboard route (SWR data fetching)
 - `app/dashboard/report/[id]/page.tsx` - Report detail route
 - **`app/stories/page.tsx`** - Storyline graph route (SSR metadata + dynamic import)
+- `app/sitemap.ts` - Sitemap XML generata server-side (4 route: /, /dashboard, /stories, /map)
+- `app/robots.ts` - robots.txt con riferimento a sitemap.xml
 
 ### Components
 
@@ -68,6 +70,7 @@ See `components/StorylineGraph/context.md` for full detail.
 - Shadcn components: Button, Card, Skeleton, Table, Badge
 
 ### Configuration
+- `app/layout.tsx` - Root layout con Google Analytics (`G-MBHW2XG1Q3`) e meta tag Google Search Console (`verification.google`)
 - `.env.local` - Environment variables:
   - `NEXT_PUBLIC_MAPBOX_TOKEN` - Mapbox API token (client-side, restrict by domain)
   - `INTELLIGENCE_API_URL` - Backend API URL (server-side only)
