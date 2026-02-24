@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  verification: {
+    google: "yYcTCxeGtyPr8lqge6DnoCV5kKSs-p7BGCAibulzoaw",
+  },
   title: "INTEL ITA - Intelligence Platform",
   description:
     "Analisi geopolitica, cybersecurity e trend economici powered by AI. Trasforma migliaia di fonti in intelligence azionabile.",
