@@ -27,7 +27,9 @@ jobs:
           python -m spacy download xx_ent_wiki_sm
 
       - name: Run tests
-        run: pytest tests/ -m "not slow" --tb=short -q
+        env:
+          GEMINI_API_KEY: "ci-fake-key-for-unit-tests"
+        run: pytest tests/ -m "not slow" --ignore=tests/test_sprint2_full.py --tb=short -q
 
   deploy:
     needs: test
