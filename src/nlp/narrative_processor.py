@@ -96,7 +96,7 @@ class NarrativeProcessor:
     DRIFT_WEIGHT_OLD = 0.85          # Weight for existing storyline embedding
     DRIFT_WEIGHT_NEW = 0.15          # Weight for new event embedding
     MOMENTUM_DECAY_FACTOR = 0.7      # Weekly decay multiplier
-    LLM_RATE_LIMIT_SECONDS = 0.5     # Pause between Gemini calls
+    LLM_RATE_LIMIT_SECONDS = 0.1     # gemini-2.0-flash: high quota, 0.1s sufficient
 
     def __init__(
         self,
@@ -116,7 +116,7 @@ class NarrativeProcessor:
             api_key = (gemini_api_key or os.getenv('GEMINI_API_KEY', '')).strip()
             if api_key:
                 genai.configure(api_key=api_key, transport='rest')
-                self.model = genai.GenerativeModel('gemini-2.5-flash')
+                self.model = genai.GenerativeModel('gemini-2.0-flash')
                 self.gemini_available = True
                 logger.info("NarrativeProcessor: Gemini initialized for summary evolution")
             else:
@@ -820,7 +820,11 @@ RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]"""
         try:
             response = self.model.generate_content(
                 prompt,
-                request_options={"timeout": 60}
+                generation_config={
+                    "max_output_tokens": 400,  # titolo(~15t) + riassunto(~200t IT) + margine
+                    "temperature": 0.3,        # format-following: bassa varianza, output coerente
+                },
+                request_options={"timeout": 30}  # 2.0-flash: <4s normale, 30s = 7× safety margin
             )
             text = response.text.strip()
 

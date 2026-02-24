@@ -117,7 +117,7 @@ DEFAULT_STEPS = [
         name="narrative_processing",
         command="python scripts/process_narratives.py --days 1",
         description="Clustering narrativo e evoluzione storyline",
-        timeout_seconds=1200,  # 20 min (LLM calls per storyline)
+        timeout_seconds=1800,  # 30 min safety net (gemini-2.0-flash ~3-5s/call)
         continue_on_failure=True  # Report generato anche senza storyline
     ),
     PipelineStep(
