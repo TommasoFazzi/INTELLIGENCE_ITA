@@ -1,0 +1,69 @@
+{
+  "_last_updated": "2026-02-25",
+  "_update_frequency": "Annual — review each January against IISS Military Balance and SIPRI Yearbook",
+  "_sources": "IISS Military Balance 2025, SIPRI Yearbook 2025",
+  "_note": "Nuclear data intentionally excluded — changes each IAEA quarterly report. Use RAG/articles.",
+
+  "military_baseline": {
+    "active_personnel": 610000,
+    "qualitative_note": "Includes Artesh (regular army ~350k) + IRGC (~190k) + smaller services. Conscript-heavy. Dual chain of command creates friction in joint operations.",
+
+    "irgc_personnel": 190000,
+    "irgc_qualitative_note": "Elite parallel force reporting directly to Supreme Leader, bypassing Artesh chain. Higher readiness, ideologically vetted. Controls ballistic missile program, Quds Force, and domestic suppression capability.",
+
+    "irgc_aerospace_force": {
+      "ballistic_missiles_estimated": 3000,
+      "qualitative_note": "Largest ballistic missile arsenal in the Middle East. Includes Shahab-3 (1300km), Emad (1700km, maneuverable RV), Kheibar Shekan (2000km, solid-fuel, mobile). Operationally proven in April 2024 direct strikes on Israel (300+ missiles/drones launched). Considered primary strategic deterrent."
+    },
+
+    "irgc_navy": {
+      "primary_assets": "Fast attack craft (FIAC), mine warfare vessels, Fateh-class SSK (midget submarine), Ghadir-class SSM",
+      "qualitative_note": "Asymmetric anti-access doctrine, NOT blue-water capable. Designed for Hormuz Strait denial via swarm tactics, anti-ship missiles (Noor/Qader), and sea mining. Can credibly threaten tanker traffic but cannot contest US Navy in open water."
+    },
+
+    "quds_force": {
+      "estimated_personnel": 8000,
+      "qualitative_note": "IRGC extraterritorial operations arm. Commands proxy network (Hezbollah, PMF, Houthis, PIJ). Since Soleimani's death (Jan 2020), led by Esmail Qaani. Operational tempo reduced but network remains intact. Funds and trains proxies across 5 countries."
+    },
+
+    "artesh_air_force": {
+      "fighters": 186,
+      "qualitative_note": "CRITICAL CONTEXT: Mostly F-14 Tomcat, F-4 Phantom, F-5 Tiger — all US-origin pre-1979 aircraft with 45+ year maintenance gaps. Severe spare parts shortage due to sanctions. Estimated operational readiness <40%. NOT a credible conventional air power against modern air forces. Iran compensates with air defense systems (Bavar-373, S-300PMU2) and UAV/missile programs."
+    },
+
+    "basij": {
+      "estimated_personnel": 300000,
+      "qualitative_note": "Paramilitary volunteer force under IRGC. Primary role: domestic crowd control and suppression (deployed during 2019, 2022-2023 protests). Limited conventional military value but critical for regime stability operations."
+    }
+  },
+
+  "proxy_network": {
+    "hezbollah_lebanon": {
+      "fighters_estimated": 45000,
+      "rocket_missile_inventory_est": 130000,
+      "qualitative_note": "Iran's most capable proxy. Significantly degraded after 2024 war with Israel (Nasrallah killed Sept 2024, leadership decimated, rocket inventory reduced). Rebuilding but not at pre-war capability. Still controls southern Lebanon and Lebanese political system."
+    },
+    "ansar_allah_houthis_yemen": {
+      "fighters_estimated": 200000,
+      "qualitative_note": "Controls most of western Yemen. Demonstrated anti-ship missile and drone capability (Red Sea attacks 2023-2025). Iran provides missiles, drones, training. Economically costly for global shipping but Houthis are semi-autonomous actors — not fully controllable by Tehran."
+    },
+    "pmf_iraq": {
+      "fighters_estimated": 150000,
+      "qualitative_note": "Popular Mobilization Forces: coalition of ~67 groups, ~20 directly Iranian-controlled. Integrated into Iraqi state security structure since 2016 (complicates US pressure). Iran-aligned factions (Kata'ib Hezbollah, Asa'ib) conduct occasional rocket attacks on US forces."
+    }
+  },
+
+  "geopolitical_constants": {
+    "hormuz_strait_transit_daily_mbpd": 21,
+    "hormuz_note": "~21% of global petroleum liquids transit daily. Closure or sustained disruption would spike Brent crude +50-80% (2023 IMF/EIA models). Iran mines and fast-attack craft can credibly threaten but full closure would trigger direct US military response — mutual deterrence keeps strait open.",
+    "iran_proven_oil_reserves_bn_barrels": 208,
+    "oil_reserves_note": "4th largest globally. Primarily in Khuzestan province (Ahvaz, Marun fields). Most fields aging, require Western investment/technology Iran cannot access under sanctions.",
+    "iran_natural_gas_reserves_tcm": 32,
+    "gas_reserves_note": "2nd largest globally after Russia. South Pars field (shared with Qatar) is world's largest single gas field. Domestic consumption absorbs most production — limited export capacity.",
+    "iran_gdp_usd_bn_official": 367,
+    "gdp_note": "Official 2023 figure. Highly distorted by multiple exchange rates. PPP-adjusted estimate ~$1.7 trillion (Worldbank 2023). Sanctions reduce effective revenue by estimated $50-100bn/year.",
+    "population": 87000000,
+    "youth_unemployment_pct_est": 28,
+    "youth_note": "High youth unemployment (est. 25-30%) is the primary driver of recurring protest cycles (2009, 2019, 2022-2023). Structural, not cyclical — sanctions, brain drain, and mismanagement compound demographic pressure."
+  }
+}

@@ -71,7 +71,14 @@ feeds:
     category: "intelligence"
     subcategory: "space_technology"
 
-  # MIDDLE EAST & NORTH AFRICA
+  # MIDDLE EAST & NORTH AFRICA - IRAN SPECIALIZED
+  - name: "FDD - Foundation for Defense of Democracies"
+    url: "https://fdd.org/feed/"
+    category: "intelligence"
+    subcategory: "iran_specialized"
+    region: "middle_east"
+    notes: "Think-tank analysis: Iran sanctions, nuclear, IRGC, regional threats. Tested working 25/02/2026."
+
   - name: "Al Jazeera English"
     url: "https://www.aljazeera.com/xml/rss/all.xml"
     category: "intelligence"
