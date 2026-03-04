@@ -18,3 +18,6 @@
 --     ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES oracle_users(id);
 --
 -- CREATE INDEX idx_oracle_query_log_user ON oracle_query_log (user_id);
+
+-- Stub marker (no-op query so migration runner doesn't fail on comment-only file)
+SELECT 1;
