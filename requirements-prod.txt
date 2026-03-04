@@ -157,3 +157,4 @@ yarl==1.22.0
 yfinance==0.2.66
 zipp==3.23.0
 slowapi==0.1.9
+sqlparse>=0.4.4
