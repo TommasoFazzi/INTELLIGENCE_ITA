@@ -1,0 +1,45 @@
+"""Pydantic schemas for Oracle 2.0 API endpoints."""
+
+from datetime import date
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field
+
+
+class OracleChatRequest(BaseModel):
+    query: str = Field(..., min_length=3, max_length=2000)
+    session_id: str = Field(default="default", max_length=64)
+    mode: Literal["both", "factual", "strategic"] = "both"
+    search_type: Literal["vector", "keyword", "hybrid"] = "hybrid"
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    categories: Optional[List[Literal[
+        "GEOPOLITICS", "DEFENSE", "ECONOMY", "CYBER", "ENERGY"
+    ]]] = None
+    gpe_filter: Optional[List[str]] = None
+    gemini_api_key: Optional[str] = Field(
+        default=None,
+        min_length=39,
+        max_length=45,
+        description="BYOK: user's Gemini API key. Never logged server-side.",
+    )
+
+
+class OracleSource(BaseModel):
+    type: Literal["REPORT", "ARTICOLO"]
+    id: Optional[int] = None
+    title: str
+    date_str: Optional[str] = None
+    similarity: float = 0.0
+    status: Optional[str] = None
+    preview: Optional[str] = None
+    link: Optional[str] = None
+    source: Optional[str] = None
+
+
+class OracleChatResponse(BaseModel):
+    answer: str
+    sources: List[OracleSource] = []
+    query_plan: Optional[Dict[str, Any]] = None
+    mode: str = "both"
+    metadata: Dict[str, Any] = {}
