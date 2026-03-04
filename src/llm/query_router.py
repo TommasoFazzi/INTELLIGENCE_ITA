@@ -128,10 +128,21 @@ Respond ONLY with valid JSON:
                 genai.types.GenerationConfig(
                     response_mime_type="application/json",
                     temperature=0.1,
-                    max_output_tokens=100,
+                    max_output_tokens=150,
                 ),
             )
-            parsed = json.loads(result.text)
+            raw = (result.text or "").strip()
+            if not raw:
+                raise ValueError("Empty LLM response")
+            # Try direct parse; fall back to regex JSON extraction
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                m = re.search(r'\{[^{}]*"intent"[^{}]*\}', raw, re.DOTALL)
+                if m:
+                    parsed = json.loads(m.group())
+                else:
+                    raise
             intent_str = parsed.get("intent", "factual").lower()
             # Validate enum
             intent = QueryIntent(intent_str) if intent_str in QueryIntent._value2member_map_ else QueryIntent.FACTUAL

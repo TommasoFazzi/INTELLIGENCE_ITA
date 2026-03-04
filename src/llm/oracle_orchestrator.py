@@ -32,6 +32,7 @@ from tenacity import (
 )
 
 from .conversation_memory import ConversationContext
+from .query_analyzer import get_query_analyzer, merge_filters
 from .query_router import QueryRouter
 from .schemas import QueryIntent, QueryPlan
 from .tools import ToolRegistry
@@ -195,6 +196,34 @@ class OracleOrchestrator:
 
         filters = ui_filters or {}
 
+        # ── Step 0: Extract structured filters from natural language ───────
+        # QueryAnalyzer resolves "fine febbraio", "ultimi 7 giorni", GPE, categories.
+        # UI filters (explicit date picker) always take precedence via merge_filters().
+        semantic_query = None
+        try:
+            analyzer = get_query_analyzer()
+            analysis = analyzer.analyze(query)
+            if analysis["success"]:
+                extracted = analysis["filters"]
+                merged = merge_filters(
+                    extracted,
+                    ui_start_date=filters.get("start_date"),
+                    ui_end_date=filters.get("end_date"),
+                    ui_categories=filters.get("categories"),
+                    ui_gpe_filter=filters.get("gpe_filter"),
+                )
+                for k in ("start_date", "end_date", "categories", "gpe_filter"):
+                    if merged.get(k) is not None:
+                        filters[k] = merged[k]
+                if merged.get("query_for_embedding"):
+                    semantic_query = merged["query_for_embedding"]
+                logger.info(
+                    f"QueryAnalyzer: start={merged.get('start_date')}, "
+                    f"end={merged.get('end_date')}, gpe={merged.get('gpe_filter')}"
+                )
+        except Exception as e:
+            logger.warning(f"QueryAnalyzer failed ({e}), proceeding without extracted filters")
+
         # Use a router scoped to the given llm (supports BYOK key for routing too)
         router = QueryRouter(llm) if llm is not self.llm else self.router
 
@@ -218,6 +247,12 @@ class OracleOrchestrator:
             )
 
         # ── Step 2: Execute tools ──────────────────────────────────────────
+        # Apply semantic_query (stripped of temporal noise) to RAG steps
+        if semantic_query:
+            for step in query_plan.execution_steps:
+                if step.tool_name == "rag_search" and "query" in step.parameters:
+                    step.parameters["query"] = semantic_query
+
         tool_results: List[Tuple[str, ToolResult]] = []
         for step in query_plan.execution_steps:
             tool_name = step.tool_name
@@ -410,7 +445,7 @@ RISPOSTA DETTAGLIATA:"""
         return model.generate_content(
             prompt,
             generation_config=genai.types.GenerationConfig(
-                max_output_tokens=4096,
+                max_output_tokens=8192,
                 temperature=0.4,
                 top_p=0.95,
             ),
