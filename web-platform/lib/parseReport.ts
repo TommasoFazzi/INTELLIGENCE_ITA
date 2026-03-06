@@ -79,7 +79,8 @@ function detectSentiment(emoji: string, label: string): 'positive' | 'negative' 
  */
 function parseMacroDashboard(markdown: string): { macro: MacroDashboard | null; restMarkdown: string } {
   // Look for the MACRO DASHBOARD section
-  const macroRegex = /\*?\*?MACRO DASHBOARD\*?\*?\s*\(?[^)]*\)?\s*\n([\s\S]*?)(?=\n---|\n##\s)/i;
+  // Match anything on the same line after "MACRO DASHBOARD" (handles date/regime variants)
+  const macroRegex = /\*?\*?MACRO DASHBOARD\*?\*?[^\n]*\n([\s\S]*?)(?=\n---|\n##\s)/i;
   const macroMatch = markdown.match(macroRegex);
 
   if (!macroMatch) {
