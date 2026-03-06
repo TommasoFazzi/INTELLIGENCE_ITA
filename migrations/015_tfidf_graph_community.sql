@@ -21,6 +21,7 @@ SELECT
 FROM storylines,
      jsonb_array_elements_text(key_entities) AS entity
 WHERE key_entities IS NOT NULL
+  AND jsonb_typeof(key_entities) = 'array'
   AND narrative_status IN ('emerging', 'active', 'stabilized')
 GROUP BY entity;
 
