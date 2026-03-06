@@ -119,7 +119,17 @@ async def get_graph_network(
             for r in edge_rows
         ]
 
-        avg_momentum = round(momentum_sum / len(nodes), 3) if nodes else 0.0
+        # Keep only nodes that appear in at least one edge — isolated nodes
+        # (no edge meeting min_edge_weight) just add visual clutter.
+        connected_ids = set()
+        for link in links:
+            connected_ids.add(link.source)
+            connected_ids.add(link.target)
+        nodes = [n for n in nodes if n.id in connected_ids]
+
+        avg_momentum = round(
+            sum(n.momentum_score for n in nodes) / len(nodes), 3
+        ) if nodes else 0.0
 
         graph = GraphNetwork(
             nodes=nodes,
