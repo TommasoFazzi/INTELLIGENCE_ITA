@@ -1612,21 +1612,23 @@ Events scoring 8-10 points require priority analysis. Events scoring 4-7 go in s
 
 **REPORT STRUCTURE:**
 
-1. Executive Summary (200-300 words)
+CRITICAL FORMATTING RULE: Each section title MUST use `##` markdown heading (H2 level). Subsection titles MUST use `###` (H3 level). NEVER use bold text (`**Title**`) for section titles. NEVER use `####` or deeper for top-level sections.
+
+## 1. Executive Summary (200-300 words)
 Highlight the most critical developments with focus on strategic breaks and shifts in great power dynamics.
 
-2. Key Developments by Category (150-200 words each):
-   - Cybersecurity 
-   - Technology
-   - Geopolitical Events 
-   - Economic events
+## 2. Key Developments by Category (150-200 words each):
+### Cybersecurity
+### Technology
+### Geopolitical Events
+### Economic Events
 
 For each development, always identify specific actors (individuals, organizations, governments, groups), explain their motivations and causal relationships. Avoid impersonal language: instead of "tensions are rising," say "Russia and NATO are escalating tensions because..." Provide relationship context: explain how actors relate to each other (allies, adversaries, dependencies).
 
-3. Trend Analysis (250-300 words)
+## 3. Trend Analysis (250-300 words)
 Connect current events with historical patterns from the context. Identify whether events confirm or break from existing trends. Reference active storylines and their momentum shifts where relevant.
 
-4. Actionable Insights: Investment Implications
+## 4. Actionable Insights: Investment Implications
 
 For each significant development, provide a three-level structured analysis that portfolio managers can use immediately:
 
@@ -1645,7 +1647,7 @@ Consider impacts on currencies, government bonds, and commodities. If India rais
 
 For each insight, always include: specific tickers, concrete catalysts with exact figures, timing, causal connections with other events, and next catalysts to monitor.
 
-5. Strategic Storyline Tracker (if storyline data is provided below)
+## 5. Strategic Storyline Tracker (if storyline data is provided below)
 
 For each of the top 5 storylines by momentum from the strategic context:
 - **Status**: Current narrative status (emerging/active) and momentum trend (accelerating if today's articles advance it, stable if no new developments, decelerating if contradicted)
@@ -1661,6 +1663,7 @@ If no storyline data is provided, skip this section entirely.
 - Prioritize events that are strategic break points, not just high-volume news
 - When information is unverified or conflicting, use confidence indicators (High/Medium/Low) and cite multiple sources
 - Never use generic language like "the sector could benefit" - always specify which companies, why, with what catalyst, and in what timeframe
+- REMINDER: All section titles use `##` (H2), all subsection titles use `###` (H3). No bold-only titles.
 
 ---
 {recent_articles_text}
