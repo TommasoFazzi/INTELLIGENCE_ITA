@@ -979,7 +979,7 @@ RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]"""
                     AND id != %s
                     AND key_entities IS NOT NULL
                     AND EXISTS (
-                        SELECT 1 FROM unnest(key_entities) AS e
+                        SELECT 1 FROM jsonb_array_elements_text(key_entities) AS e
                         WHERE LOWER(e) = ANY(%s)
                     )
                 """, (storyline_id, source_entities_list))
