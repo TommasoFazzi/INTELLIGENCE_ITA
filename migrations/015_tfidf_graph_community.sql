@@ -33,7 +33,9 @@ CREATE INDEX IF NOT EXISTS idx_storylines_community ON storylines(community_id)
     WHERE community_id IS NOT NULL;
 
 -- 5. Update v_active_storylines to include community_id
-CREATE OR REPLACE VIEW v_active_storylines AS
+--    Must DROP first: CREATE OR REPLACE VIEW cannot insert columns in the middle of an existing view.
+DROP VIEW IF EXISTS v_active_storylines;
+CREATE VIEW v_active_storylines AS
 SELECT
     s.id,
     s.title,
@@ -47,10 +49,10 @@ SELECT
     s.last_update,
     s.key_entities,
     s.last_graph_update,
-    s.community_id,
     (s.summary_vector IS NOT NULL) AS has_summary_vector,
     EXTRACT(DAY FROM NOW() - s.start_date)::INTEGER AS days_active,
-    EXTRACT(DAY FROM NOW() - s.last_update)::INTEGER AS days_since_update
+    EXTRACT(DAY FROM NOW() - s.last_update)::INTEGER AS days_since_update,
+    s.community_id
 FROM storylines s
 WHERE s.narrative_status IN ('emerging', 'active')
 ORDER BY s.momentum_score DESC, s.last_update DESC;
