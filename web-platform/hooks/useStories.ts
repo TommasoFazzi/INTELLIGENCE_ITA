@@ -1,7 +1,7 @@
 'use client';
 
 import useSWR from 'swr';
-import type { GraphNetworkResponse, StorylineDetailResponse } from '@/types/stories';
+import type { GraphNetworkResponse, StorylineDetailResponse, EgoNetworkResponse } from '@/types/stories';
 import type { ApiError } from '@/types/dashboard';
 
 const fetcher = async <T>(url: string): Promise<T> => {
@@ -67,6 +67,29 @@ export function useGraphNetwork() {
     isLoading,
     error,
     refresh: mutate,
+  };
+}
+
+/**
+ * Hook for fetching ego network for a single storyline (on-demand, no polling).
+ * Returns center node + all neighbors + weak/strong edges for that node.
+ */
+export function useEgoNetwork(storylineId: number | null, minWeight: number = 0.05) {
+  const { data, error, isLoading } = useSWR<EgoNetworkResponse, ApiError>(
+    storylineId ? `/api/proxy/stories/${storylineId}/network?min_weight=${minWeight}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 5000,
+      errorRetryCount: 2,
+      shouldRetryOnError: (err: ApiError) => !err.isOffline,
+    }
+  );
+
+  return {
+    egoNetwork: data?.data ?? null,
+    isLoading,
+    error,
   };
 }
 

@@ -88,6 +88,16 @@ def main():
         print(f"ERROR: Failed to initialize: {e}")
         sys.exit(1)
 
+    # Refresh entity IDF weights before processing
+    # (materialized view must exist — run migration 015 first)
+    if not args.dry_run:
+        print("--- REFRESHING ENTITY IDF ---")
+        try:
+            db.refresh_entity_idf()
+            print("  entity_idf refreshed OK")
+        except Exception as e:
+            print(f"  WARNING: entity_idf refresh failed ({e}) — falling back to uniform IDF weights")
+
     # Run processing
     print("--- PROCESSING ---")
     result = processor.process_daily_batch(

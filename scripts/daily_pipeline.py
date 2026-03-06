@@ -121,6 +121,13 @@ DEFAULT_STEPS = [
         continue_on_failure=True  # Report generato anche senza storyline
     ),
     PipelineStep(
+        name="community_detection",
+        command="python scripts/compute_communities.py",
+        description="Community detection (Louvain) sul grafo narrativo",
+        timeout_seconds=120,  # 2 min
+        continue_on_failure=True  # Non blocca il report se fallisce
+    ),
+    PipelineStep(
         name="generate_report",
         command="python scripts/generate_report.py --macro-first --skip-article-signals",
         description="Generazione report giornaliero",

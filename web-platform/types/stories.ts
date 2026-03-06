@@ -14,6 +14,7 @@ export interface StorylineNode {
   start_date: string | null;
   last_update: string | null;
   days_active: number | null;
+  community_id?: number | null;
 }
 
 export interface StorylineEdge {
@@ -68,5 +69,18 @@ export interface StorylineDetailResponse {
   success: boolean;
   data: StorylineDetailData;
   error: string | null;
+  generated_at: string;
+}
+
+// Ego network (returned by /stories/{id}/network)
+export interface EgoNetworkData {
+  center_node: StorylineNode;
+  neighbors: StorylineNode[];
+  edges: StorylineEdge[];
+}
+
+export interface EgoNetworkResponse {
+  success: boolean;
+  data: EgoNetworkData;
   generated_at: string;
 }

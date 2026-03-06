@@ -1,6 +1,7 @@
 """Stories & Graph API router."""
 import json
 import logging
+import time
 from fastapi import APIRouter, Depends, HTTPException, Query
 from datetime import datetime
 from typing import Optional
@@ -17,6 +18,23 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/stories", tags=["Stories"])
 
+# ---------------------------------------------------------------------------
+# In-memory cache for the global graph endpoint (invalidated by TTL).
+# The graph changes at most once per day (after the narrative pipeline).
+# ---------------------------------------------------------------------------
+_graph_cache: dict = {}
+
+
+def _get_cached_graph(min_weight: float) -> Optional[dict]:
+    entry = _graph_cache.get(min_weight)
+    if entry and time.time() < entry["expires_at"]:
+        return entry["data"]
+    return None
+
+
+def _set_cached_graph(data: dict, min_weight: float, ttl: int = 3600) -> None:
+    _graph_cache[min_weight] = {"data": data, "expires_at": time.time() + ttl}
+
 
 def get_db() -> DatabaseManager:
     """Get database connection."""
@@ -24,32 +42,44 @@ def get_db() -> DatabaseManager:
 
 
 @router.get("/graph")
-async def get_graph_network(api_key: str = Depends(verify_api_key)):
+async def get_graph_network(
+    min_edge_weight: float = Query(0.35, description="Min TF-IDF weighted Jaccard for global view (default: 0.35)"),
+    api_key: str = Depends(verify_api_key),
+):
     """
     Get the full narrative graph: active storyline nodes + edges.
 
     Returns data structured for react-force-graph (nodes + links).
+    The min_edge_weight parameter filters weak edges — use a lower value (e.g. 0.10)
+    for denser graphs, higher (e.g. 0.50) for cleaner but sparser views.
+    Response is cached for 1 hour per min_edge_weight value.
     """
+    cached = _get_cached_graph(min_edge_weight)
+    if cached:
+        return cached
+
     db = get_db()
     try:
         with db.get_connection() as conn:
             with conn.cursor() as cur:
                 # Nodes: active storylines from the view
+                # community_id is included after migration 015 (NULL before)
                 cur.execute("""
                     SELECT id, title, summary, narrative_status,
                            category, article_count, momentum_score,
                            key_entities, start_date, last_update,
-                           days_active
+                           days_active, community_id
                     FROM v_active_storylines
                 """)
                 node_rows = cur.fetchall()
 
-                # Edges: from the graph view
+                # Edges: filtered by weight threshold
                 cur.execute("""
                     SELECT source_story_id, target_story_id,
                            weight, relation_type
                     FROM v_storyline_graph
-                """)
+                    WHERE weight >= %s
+                """, (min_edge_weight,))
                 edge_rows = cur.fetchall()
 
         nodes = []
@@ -74,6 +104,7 @@ async def get_graph_network(api_key: str = Depends(verify_api_key)):
                 start_date=r[8].isoformat() if r[8] else None,
                 last_update=r[9].isoformat() if r[9] else None,
                 days_active=r[10],
+                community_id=r[11] if len(r) > 11 else None,
             )
             nodes.append(node)
             momentum_sum += node.momentum_score
@@ -100,14 +131,113 @@ async def get_graph_network(api_key: str = Depends(verify_api_key)):
             ),
         )
 
-        return {
+        response = {
             "success": True,
             "data": graph.model_dump(),
             "generated_at": datetime.utcnow().isoformat(),
         }
+        _set_cached_graph(response, min_edge_weight)
+        return response
 
     except Exception as e:
         logger.error("Graph network error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{storyline_id}/network")
+async def get_ego_network(
+    storyline_id: int,
+    min_weight: float = Query(0.05, description="Min edge weight for ego network (includes weak signals)"),
+    api_key: str = Depends(verify_api_key),
+):
+    """
+    Ego network for a single storyline: returns the center node, all its
+    neighbors (both edge directions), and the edges connecting them.
+
+    Use min_weight=0.05 to surface weak signals hidden in the global view.
+    """
+    db = get_db()
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                # Center node
+                cur.execute("""
+                    SELECT id, title, summary, narrative_status,
+                           category, article_count, momentum_score,
+                           key_entities, start_date, last_update,
+                           EXTRACT(DAY FROM NOW() - start_date)::INTEGER AS days_active
+                    FROM storylines
+                    WHERE id = %s
+                """, (storyline_id,))
+                center_row = cur.fetchone()
+                if not center_row:
+                    raise HTTPException(status_code=404, detail="Storyline not found")
+
+                # Neighbors + edge data (both directions)
+                cur.execute("""
+                    SELECT s.id, s.title, s.summary, s.narrative_status,
+                           s.category, s.article_count, s.momentum_score,
+                           s.key_entities, s.start_date, s.last_update,
+                           EXTRACT(DAY FROM NOW() - s.start_date)::INTEGER AS days_active,
+                           e.weight, e.relation_type,
+                           e.source_story_id, e.target_story_id
+                    FROM storyline_edges e
+                    JOIN storylines s ON (
+                        CASE WHEN e.source_story_id = %s
+                             THEN e.target_story_id
+                             ELSE e.source_story_id
+                        END = s.id
+                    )
+                    WHERE (e.source_story_id = %s OR e.target_story_id = %s)
+                      AND s.narrative_status IN ('emerging', 'active', 'stabilized')
+                      AND e.weight >= %s
+                    ORDER BY e.weight DESC
+                """, (storyline_id, storyline_id, storyline_id, min_weight))
+                neighbor_rows = cur.fetchall()
+
+        def _make_node(r):
+            entities = r[7] or []
+            if isinstance(entities, str):
+                try:
+                    entities = json.loads(entities)
+                except (json.JSONDecodeError, TypeError):
+                    entities = []
+            return StorylineNode(
+                id=r[0], title=r[1], summary=r[2],
+                narrative_status=r[3] or "active",
+                category=r[4], article_count=r[5] or 0,
+                momentum_score=round(r[6] or 0.0, 3),
+                key_entities=entities if isinstance(entities, list) else [],
+                start_date=r[8].isoformat() if r[8] else None,
+                last_update=r[9].isoformat() if r[9] else None,
+                days_active=r[10],
+            )
+
+        center_node = _make_node(center_row)
+        neighbors = [_make_node(r) for r in neighbor_rows]
+        edges = [
+            StorylineEdge(
+                source=r[13], target=r[14],
+                weight=round(r[11] or 0.0, 3),
+                relation_type=r[12] or "relates_to",
+            )
+            for r in neighbor_rows
+        ]
+
+        return {
+            "success": True,
+            "data": {
+                "center_node": center_node.model_dump(),
+                "neighbors": [n.model_dump() for n in neighbors],
+                "edges": [e.model_dump() for e in edges],
+            },
+            "generated_at": datetime.utcnow().isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Ego network %s error: %s", storyline_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

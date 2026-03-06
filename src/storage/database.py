@@ -226,6 +226,24 @@ class DatabaseManager:
             logger.error(f"Failed to initialize database schema: {e}")
             raise
 
+    def refresh_entity_idf(self) -> None:
+        """
+        Refresh the entity_idf materialized view used by the TF-IDF weighted Jaccard
+        graph algorithm. Uses CONCURRENTLY to avoid blocking API reads during refresh.
+        Falls back to non-concurrent refresh if the unique index is missing.
+        """
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY entity_idf")
+                    logger.info("entity_idf materialized view refreshed (concurrent)")
+                except Exception as e:
+                    # Fallback: non-concurrent refresh (blocks reads briefly)
+                    logger.warning(f"Concurrent refresh failed ({e}), falling back to blocking refresh")
+                    conn.rollback()
+                    cur.execute("REFRESH MATERIALIZED VIEW entity_idf")
+                    logger.info("entity_idf materialized view refreshed (blocking)")
+
     def save_article(self, article: Dict[str, Any]) -> Optional[int]:
         """
         Save a single processed article with its chunks and embeddings.

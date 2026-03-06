@@ -66,6 +66,8 @@ htmlcov/
 *.sql
 *.sql.gz
 *.sql.gz.enc
+# Allow SQL migration files (tracked schema changes)
+!migrations/*.sql
 
 # Dev artifacts
 COMMIT_MESSAGE.md

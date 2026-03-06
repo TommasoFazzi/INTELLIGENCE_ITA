@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState, useMemo } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { useGraphNetwork } from '@/hooks/useStories';
+import { useGraphNetwork, useEgoNetwork } from '@/hooks/useStories';
 import StorylineDossier from './StorylineDossier';
 import type { NarrativeStatus } from '@/types/stories';
 
@@ -19,6 +19,7 @@ interface GraphNode {
   momentum_score: number;
   article_count: number;
   category: string | null;
+  community_id?: number | null;
   x?: number;
   y?: number;
 }
@@ -30,12 +31,25 @@ interface GraphLink {
   relation_type: string;
 }
 
+// Palette for community coloring (community 0 = largest = most prominent color)
+const COMMUNITY_COLORS = [
+  '#FF6B35', '#00A8E8', '#39D353', '#FFD700',
+  '#FF4081', '#7B61FF', '#00E5CC', '#FF7043',
+];
+
 export default function StorylineGraph() {
   const graphRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { graph, isLoading, error, refresh } = useGraphNetwork();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
+
+  // Ego-network state: loaded on node click, overlay on top of frozen global graph
+  const { egoNetwork } = useEgoNetwork(selectedId, 0.05);
+  const egoNeighborIds = useMemo<Set<number>>(() => {
+    if (!egoNetwork || !selectedId) return new Set();
+    return new Set([selectedId, ...egoNetwork.neighbors.map((n) => n.id)]);
+  }, [egoNetwork, selectedId]);
 
   // Transform API data for react-force-graph
   const graphData = useMemo(() => {
@@ -48,6 +62,7 @@ export default function StorylineGraph() {
       momentum_score: n.momentum_score,
       article_count: n.article_count,
       category: n.category,
+      community_id: n.community_id ?? null,
     }));
 
     const nodeIds = new Set(nodes.map((n) => n.id));
@@ -71,7 +86,18 @@ export default function StorylineGraph() {
 
       const isSelected = node.id === selectedId;
       const isHovered = hoveredNode?.id === node.id;
-      const color = STATUS_COLORS[narrative_status] || STATUS_COLORS.active;
+      const isEgoActive = egoNeighborIds.size > 0;
+      const isNeighbor = egoNeighborIds.has(node.id);
+
+      // Use community color if available, fallback to status color
+      const communityId = (node as GraphNode).community_id;
+      const color = communityId != null
+        ? COMMUNITY_COLORS[communityId % COMMUNITY_COLORS.length]
+        : (STATUS_COLORS[narrative_status] || STATUS_COLORS.active);
+
+      // Dim non-neighbor nodes when ego mode is active
+      const alpha = isEgoActive && !isNeighbor ? 0.08 : 1.0;
+      ctx.globalAlpha = alpha;
 
       // Node radius based on momentum (min 4, max 16)
       const radius = 4 + momentum_score * 12;
@@ -117,8 +143,11 @@ export default function StorylineGraph() {
         ctx.fillStyle = isSelected ? '#FFFFFF' : '#CCCCCC';
         ctx.fillText(label, x, y + radius + 4);
       }
+
+      // Reset alpha so subsequent canvas draws are unaffected
+      ctx.globalAlpha = 1.0;
     },
-    [selectedId, hoveredNode]
+    [selectedId, hoveredNode, egoNeighborIds]
   );
 
   // Link rendering
@@ -127,18 +156,30 @@ export default function StorylineGraph() {
       const { source, target, weight } = link;
       if (!source.x || !target.x) return;
 
+      const isEgoActive = egoNeighborIds.size > 0;
+      const srcId = typeof source === 'object' ? source.id : source;
+      const tgtId = typeof target === 'object' ? target.id : target;
+      const isEgoEdge = egoNeighborIds.has(srcId) && egoNeighborIds.has(tgtId);
+
+      // Dim non-ego links; brighten ego links
+      const alpha = isEgoActive ? (isEgoEdge ? 0.9 : 0.03) : (0.2 + weight * 0.6);
+      const lineWidth = isEgoActive && isEgoEdge ? 1.0 + weight * 3.0 : 0.5 + weight * 2.5;
+
       ctx.beginPath();
       ctx.moveTo(source.x, source.y);
       ctx.lineTo(target.x, target.y);
-      ctx.strokeStyle = `rgba(100, 100, 100, ${0.2 + weight * 0.6})`;
-      ctx.lineWidth = 0.5 + weight * 2.5;
+      ctx.strokeStyle = isEgoEdge
+        ? `rgba(255, 107, 53, ${alpha})`
+        : `rgba(100, 100, 100, ${alpha})`;
+      ctx.lineWidth = lineWidth;
       ctx.stroke();
     },
-    []
+    [egoNeighborIds]
   );
 
   const handleNodeClick = useCallback((node: any) => {
     setSelectedId((prev) => (prev === node.id ? null : node.id));
+    // egoNetwork is loaded automatically by useEgoNetwork when selectedId changes
   }, []);
 
   const handleNavigate = useCallback((id: number) => {
@@ -172,9 +213,10 @@ export default function StorylineGraph() {
         onNodeClick={handleNodeClick}
         onNodeHover={(node: any) => setHoveredNode(node || null)}
         backgroundColor="#0A1628"
-        cooldownTicks={100}
-        d3AlphaDecay={0.02}
-        d3VelocityDecay={0.3}
+        warmupTicks={300}
+        cooldownTicks={0}
+        d3AlphaDecay={0.05}
+        d3VelocityDecay={0.4}
         linkDirectionalParticles={0}
         enableNodeDrag={true}
         enableZoomInteraction={true}
@@ -257,6 +299,7 @@ export default function StorylineGraph() {
               Unable to load narrative graph data. Make sure the API server is running.
             </div>
             <button
+              type="button"
               onClick={() => refresh()}
               className="px-4 py-2 bg-[#FF6B35]/20 border border-[#FF6B35]/40 text-[#FF6B35] font-mono text-sm rounded hover:bg-[#FF6B35]/30 transition-colors"
             >

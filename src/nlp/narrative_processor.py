@@ -90,7 +90,7 @@ class NarrativeProcessor:
     MATCH_THRESHOLD = 0.75           # Min hybrid score to match a storyline
     TIME_DECAY_FACTOR = 0.05         # Score penalty per day of storyline inactivity
     ENTITY_BOOST = 0.10              # Bonus when entity Jaccard > 0.3
-    ENTITY_JACCARD_THRESHOLD = 0.30  # Min Jaccard for entity boost / graph edges
+    ENTITY_JACCARD_THRESHOLD = 0.10  # Min TF-IDF weighted Jaccard for graph edges (lower than plain Jaccard because IDF weights reduce scores for common entities)
     HDBSCAN_MIN_CLUSTER_SIZE = 2     # Min events to form a new storyline
     HDBSCAN_MIN_SAMPLES = 2
     DRIFT_WEIGHT_OLD = 0.85          # Weight for existing storyline embedding
@@ -257,9 +257,26 @@ class NarrativeProcessor:
             updated_storyline_ids = still_active
 
         # 8. Update graph connections for all updated storylines
+        # Load IDF weights once for the entire batch (entity_idf materialized view).
+        # If the view does not exist yet (migration 015 not applied), idf_weights
+        # stays None and _update_graph_connections falls back to plain Jaccard at
+        # the original 0.30 threshold to avoid edge explosion with low TF-IDF threshold.
+        idf_weights: Optional[Dict[str, float]] = None
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    loaded = self._load_entity_idf(cur)
+            if loaded:
+                idf_weights = loaded
+                logger.info(f"Loaded IDF weights for {len(idf_weights)} entities")
+            else:
+                logger.warning("entity_idf view empty/missing — falling back to plain Jaccard (threshold 0.30)")
+        except Exception as e:
+            logger.warning(f"Could not load entity IDF weights (falling back to plain Jaccard): {e}")
+
         for sid in updated_storyline_ids:
             try:
-                edges = self._update_graph_connections(sid)
+                edges = self._update_graph_connections(sid, idf_weights)
                 stats['graph_edges_updated'] += edges
             except Exception as e:
                 logger.error(f"Failed to update graph for storyline #{sid}: {e}")
@@ -947,13 +964,34 @@ RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]"""
     # STAGE 5: GRAPH BUILDER
     # =========================================================================
 
-    def _update_graph_connections(self, storyline_id: int) -> int:
+    def _load_entity_idf(self, cur) -> Dict[str, float]:
+        """
+        Load TF-IDF weights from entity_idf materialized view.
+        Returns {entity_lowercase: idf_score}.
+        Falls back gracefully if the view does not exist yet.
+        """
+        try:
+            cur.execute("SELECT entity, idf FROM entity_idf")
+            return {row[0].lower(): float(row[1]) for row in cur.fetchall()}
+        except Exception:
+            return {}
+
+    def _update_graph_connections(self, storyline_id: int, idf_weights: Optional[Dict[str, float]] = None) -> int:
         """
         Create/update edges between storyline_id and other active storylines
-        based on entity Jaccard overlap.
+        using TF-IDF weighted Jaccard similarity.
+
+        Rare entities (high IDF) contribute more to edge weight than common
+        entities (low IDF, e.g. "USA", "Trump"). This eliminates hairball
+        connections formed by high-frequency generic entities.
+
+        When idf_weights is None (entity_idf view not yet available), falls back
+        to plain Jaccard with the safe legacy threshold of 0.30.
 
         Returns number of edges created/updated.
         """
+        use_tfidf = idf_weights is not None
+        threshold = self.ENTITY_JACCARD_THRESHOLD if use_tfidf else 0.30
         edges_modified = 0
 
         with self.db.get_connection() as conn:
@@ -969,8 +1007,8 @@ RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]"""
                 source_entities = set(e.lower() for e in row[0])
 
                 # Pre-filter at DB level: only fetch storylines that share at least
-                # one entity with this storyline. EXISTS+unnest short-circuits at
-                # the first match, reducing candidates from ~3000+ to ~10-50.
+                # one entity with this storyline. EXISTS short-circuits at first match,
+                # reducing candidates from ~3000+ to ~10-50.
                 source_entities_list = list(source_entities)
                 cur.execute("""
                     SELECT id, key_entities
@@ -985,17 +1023,24 @@ RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]"""
                 """, (storyline_id, source_entities_list))
                 candidates = cur.fetchall()
 
-                # Compute Jaccard for each candidate and collect valid edges
+                # Compute similarity for each candidate.
+                # TF-IDF weighted Jaccard when IDF weights available (post-migration 015),
+                # plain Jaccard with legacy threshold 0.30 as safe fallback.
                 new_edges = []
                 for other_id, other_entities_raw in candidates:
                     if not other_entities_raw:
                         continue
                     target_entities = set(e.lower() for e in other_entities_raw)
-                    intersection = len(source_entities & target_entities)
-                    union = len(source_entities | target_entities)
-                    jaccard = intersection / union if union > 0 else 0
-                    if jaccard >= self.ENTITY_JACCARD_THRESHOLD:
-                        new_edges.append((storyline_id, other_id, jaccard))
+                    shared = source_entities & target_entities
+                    union = source_entities | target_entities
+                    if use_tfidf:
+                        intersection_w = sum(idf_weights.get(e, 1.0) for e in shared)  # type: ignore[union-attr]
+                        union_w = sum(idf_weights.get(e, 1.0) for e in union)          # type: ignore[union-attr]
+                        score = intersection_w / union_w if union_w > 0 else 0
+                    else:
+                        score = len(shared) / len(union) if union else 0
+                    if score >= threshold:
+                        new_edges.append((storyline_id, other_id, score))
 
                 # Replace all outgoing edges in one DELETE, then bulk-insert valid ones
                 cur.execute("""

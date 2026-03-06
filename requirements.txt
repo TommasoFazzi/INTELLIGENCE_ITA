@@ -79,6 +79,7 @@ multitasking==0.0.12
 murmurhash==1.0.15
 narwhals==2.15.0
 networkx==3.6
+python-louvain==0.16
 newspaper3k==0.2.8
 numpy==2.3.5
 openbb==4.6.0
