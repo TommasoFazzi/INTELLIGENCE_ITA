@@ -1,0 +1,41 @@
+name: Run Migrations & Community Detection
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_communities:
+        description: 'Run Louvain community detection after migrations'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Run migrations and community detection via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/intelligence-ita/repo
+
+            echo "=== Running database migrations ==="
+            sudo docker compose -p app --env-file .env.production exec -T backend \
+              python scripts/run_migrations.py
+            echo "Migrations OK"
+
+            if [ "${{ github.event.inputs.run_communities }}" = "true" ]; then
+              echo "=== Running community detection ==="
+              sudo docker compose -p app --env-file .env.production exec -T backend \
+                python scripts/compute_communities.py
+              echo "Community detection OK"
+            fi
+
+            echo "=== Done at $(date) ==="

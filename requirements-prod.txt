@@ -158,3 +158,4 @@ yfinance==0.2.66
 zipp==3.23.0
 slowapi==0.1.9
 sqlparse>=0.4.4
+python-louvain==0.16
