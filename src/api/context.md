@@ -28,7 +28,7 @@ Key database objects consumed:
 | `auth.py` | Shared authentication module. Implements `verify_api_key` as a FastAPI dependency using `APIKeyHeader`. Uses `secrets.compare_digest` for timing-safe comparison. Supports a dev-mode bypass when `INTELLIGENCE_API_KEY` is unset and `ENVIRONMENT != "production"`. |
 | `routers/dashboard.py` | Dashboard statistics router. Aggregates article counts, entity counts, geocoding coverage, top sources, top mentioned entities, and report quality metrics into a single `DashboardStats` response. Uses multiple private helper functions (`_get_entity_stats`, `_get_quality_stats`, `_get_date_range`, `_count_reports`, `_calc_coverage`), each opening its own DB connection. |
 | `routers/reports.py` | Reports router. Supports paginated listing with filters (status, type, date range) and detailed retrieval by ID including sources and per-section feedback. Handles two source JSON shapes (flat list vs. dict with `recent_articles`/`historical_context` keys). Derives the report title from metadata, the first content line, or a fallback. |
-| `routers/stories.py` | Storyline and graph router. Exposes the force-graph network (nodes from `v_active_storylines`, edges from `v_storyline_graph`), a paginated storyline list (default: `emerging` + `active` only), and a storyline detail endpoint with related storylines (via `storyline_edges`, traversed in both directions) and the 10 most recent linked articles. Handles `key_entities` JSON parsing defensively. |
+| `routers/stories.py` | Storyline and graph router (~525 lines). Exposes the force-graph network (nodes from `v_active_storylines`, edges from `v_storyline_graph`, cached 1h), **community listing** (Louvain communities with key entities), **ego network** (per-node subgraph with min_weight=0.05), a paginated storyline list (default: `emerging` + `active` only), and a storyline detail endpoint with related storylines (via `storyline_edges`, traversed in both directions) and the 10 most recent linked articles. Filters isolated nodes (0 edges) from the graph endpoint. Handles `key_entities` JSON parsing defensively. |
 | `schemas/common.py` | Generic `APIResponse[T]` wrapper (success, data, error, generated_at) and `PaginationMeta` with a `calculate()` class method. |
 | `schemas/dashboard.py` | Pydantic models for the dashboard endpoint: `OverviewStats`, `DateRange`, `SourceCount`, `ArticleStats`, `EntityMention`, `EntityStats`, `QualityStats`, `DashboardStats`. |
 | `schemas/reports.py` | Pydantic models for reports: `ReportSource`, `ReportFeedback`, `ReportListItem`, `ReportSection`, `ReportContent`, `ReportMetadata`, `ReportDetail`, `ReportFilters`. Also defines `Literal` type aliases `ReportStatus`, `ReportType`, `Category`. |
@@ -45,7 +45,9 @@ Key database objects consumed:
 | GET | `/api/v1/dashboard/stats` | routers/dashboard.py | Aggregated dashboard statistics (overview, articles, entities, quality) | Yes |
 | GET | `/api/v1/reports` | routers/reports.py | Paginated report list; query params: `page`, `per_page`, `status`, `report_type`, `date_from`, `date_to` | Yes |
 | GET | `/api/v1/reports/{report_id}` | routers/reports.py | Full report detail: content, sources, feedback, metadata | Yes |
-| GET | `/api/v1/stories/graph` | routers/stories.py | Full narrative graph (nodes + links + aggregate stats) for react-force-graph | Yes |
+| GET | `/api/v1/stories/graph` | routers/stories.py | Full narrative graph (nodes + links + aggregate stats) for react-force-graph; query params: `min_edge_weight` (default 0.10), `min_momentum` (optional); cached 1h; filters isolated nodes (0 edges). Views (`v_active_storylines`, `v_storyline_graph`) include `emerging`, `active`, **and `stabilized`** storylines (migration 017). | Yes |
+| GET | `/api/v1/stories/communities` | routers/stories.py | Louvain community listing: community_id, size, label (from LLM summary of member titleset), top storylines, key entities, avg momentum | Yes |
+| GET | `/api/v1/stories/{storyline_id}/network` | routers/stories.py | Ego network: returns the specified node plus all direct neighbors and connecting edges; min_weight=0.05 (lower than graph default to show weaker connections) | Yes |
 | GET | `/api/v1/stories` | routers/stories.py | Paginated storyline list; query params: `page`, `per_page`, `status`; default filter: emerging + active | Yes |
 | GET | `/api/v1/stories/{storyline_id}` | routers/stories.py | Storyline detail with related storylines (up to 10) and recent articles (up to 10) | Yes |
 
@@ -103,13 +105,15 @@ Key database objects consumed:
 
 ### schemas/stories.py
 
-**`StorylineNode`**: `id: int`, `title: str`, `summary: Optional[str]`, `category: Optional[str]`, `narrative_status: str` (`emerging`/`active`/`stabilized`), `momentum_score: float`, `article_count: int`, `key_entities: list[str]`, `start_date: Optional[str]`, `last_update: Optional[str]`, `days_active: Optional[int]`.
+**`StorylineNode`**: `id: int`, `title: str`, `summary: Optional[str]`, `category: Optional[str]`, `narrative_status: str` (`emerging`/`active`/`stabilized`), `momentum_score: float`, `article_count: int`, `key_entities: list[str]`, `start_date: Optional[str]`, `last_update: Optional[str]`, `days_active: Optional[int]`, **`community_id: Optional[int]`** (Louvain community assignment).
 
 **`StorylineEdge`**: `source: int`, `target: int`, `weight: float`, `relation_type: str` (default `"relates_to"`).
 
-**`GraphStats`**: `total_nodes: int`, `total_edges: int`, `avg_momentum: float`.
+**`GraphStats`**: `total_nodes: int`, `total_edges: int`, `avg_momentum: float`, **`communities_count: int`** (number of distinct communities), **`avg_edges_per_node: float`** (graph density metric).
 
 **`GraphNetwork`**: `nodes: list[StorylineNode]`, `links: list[StorylineEdge]`, `stats: GraphStats`.
+
+**`CommunityInfo`** *(new)*: `community_id: int`, `size: int`, `label: Optional[str]`, `top_storylines: list[dict]`, `key_entities: list[str]`, `avg_momentum: float`.
 
 **`RelatedStoryline`**: `id: int`, `title: str`, `weight: float`, `relation_type: str`.
 
@@ -197,7 +201,7 @@ Client request
 
 **Title derivation for reports:** Both list and detail endpoints derive `title` with this priority: `metadata->>'title'` (JSONB field) → first non-empty line of content (stripped of Markdown `#` characters, truncated to 120 chars) → `"Report {report_date}"`. This handles both newer reports (which store a title in metadata) and legacy reports (which do not).
 
-**`v_active_storylines` and `v_storyline_graph` as primary graph sources:** The graph endpoint queries these two DB views directly. Filtering logic for what constitutes an "active" storyline and a valid edge is encapsulated in the view definitions (SQL migrations). Changes to that logic must be made in the migrations, not in the router.
+**`v_active_storylines` and `v_storyline_graph` as primary graph sources:** The graph endpoint queries these two DB views directly. The views include storylines with `narrative_status IN ('emerging', 'active', 'stabilized')` (migration 017 added `stabilized`). Changes to that logic must be made in the migrations, not in the router.
 
 **Related storylines in detail endpoint traverse edges in both directions:** The SQL query in `get_storyline_detail` uses `WHERE (e.source_story_id = %s OR e.target_story_id = %s)` with a `CASE` to resolve the peer ID. This ensures bidirectional graph traversal without requiring edge duplication in the `storyline_edges` table.
 

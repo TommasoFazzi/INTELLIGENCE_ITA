@@ -92,7 +92,7 @@ RSS Feeds (33) → Ingestion → NLP Processing → PostgreSQL+pgvector → Narr
 1. **Ingestion** (`src/ingestion/`): Async RSS parsing via aiohttp (parallel feed fetching + concurrent content extraction), full-text extraction (Trafilatura primary, Newspaper3k fallback, Cloudscraper for anti-bot sites), 2-phase deduplication (hash + content), **keyword blocklist filter** (off-topic rejection at ingestion)
 2. **NLP** (`src/nlp/`): spaCy multilingual NER (`xx_ent_wiki_sm`), semantic chunking (500-word sliding window), embeddings (`paraphrase-multilingual-MiniLM-L12-v2`, 384-dim), **LLM relevance classification** (Gemini-based scope filter)
 3. **Storage** (`src/storage/database.py`): PostgreSQL + pgvector with HNSW indexing, connection pooling (psycopg2 SimpleConnectionPool)
-4. **Narrative Engine** (`src/nlp/narrative_processor.py`): HDBSCAN micro-clustering of orphan events, embedding-based matching to existing storylines, LLM summary evolution (Gemini), Jaccard entity-overlap graph edges, momentum scoring with decay, **post-clustering validation filter** (regex-based off-topic archival)
+4. **Narrative Engine** (`src/nlp/narrative_processor.py`): HDBSCAN micro-clustering of orphan events, embedding-based matching to existing storylines, LLM summary evolution (Gemini 2.0 Flash), TF-IDF weighted Jaccard entity-overlap graph edges (uses `entity_idf` materialized view), momentum scoring with decay, **post-clustering validation filter** (regex-based off-topic archival). Community detection via `scripts/compute_communities.py` (Louvain algorithm).
 5. **Report Generation** (`src/llm/`): Google Gemini 2.5 Flash, 2-stage RAG (vector search → cross-encoder reranking with ms-marco-MiniLM), **narrative storyline context** (top 10 storylines injected as XML), trade signal extraction, "Strategic Storyline Tracker" section
 6. **HITL** (`src/hitl/`, `Home.py`): Streamlit dashboard for review, editing, rating, feedback loop
 7. **Automation** (`scripts/daily_pipeline.py`): 6 core steps (ingestion → market_data → nlp_processing → load_to_database → **narrative_processing** → generate_report) + 2 conditional steps (weekly_report on Sundays → monthly_recap after 4 weekly reports), launchd scheduling at 8:00 AM; `pipeline_status_check.py` runs at 9:00 AM
@@ -100,11 +100,12 @@ RSS Feeds (33) → Ingestion → NLP Processing → PostgreSQL+pgvector → Narr
 ### Key Modules by Size/Complexity
 
 - `src/llm/report_generator.py` (~2700 lines) — Core LLM integration, RAG pipeline, trade signals, narrative storyline context
-- `src/storage/database.py` (~1921 lines) — All PostgreSQL/pgvector operations
-- `src/nlp/narrative_processor.py` (~940 lines) — **Narrative Engine**: HDBSCAN clustering, storyline matching, LLM evolution, graph edges, momentum decay, post-clustering validation
-- `src/nlp/story_manager.py` (~970 lines) — Legacy storyline clustering (replaced by narrative_processor)
+- `src/storage/database.py` (~1995 lines) — All PostgreSQL/pgvector operations
+- `src/nlp/narrative_processor.py` (~1320 lines) — **Narrative Engine**: HDBSCAN clustering, storyline matching, LLM evolution, TF-IDF weighted Jaccard graph edges (threshold 0.05), entity sanitization (`_is_garbage_entity`, `_clean_entity`), momentum decay, post-clustering validation. Graph candidate query includes `stabilized` storylines.
+- `src/nlp/story_manager.py` — **DELETED** (legacy storyline clustering, fully replaced by narrative_processor)
 - `src/nlp/processing.py` (~610 lines) — NLP pipeline: cleaning, chunking, NER, embeddings
-- `src/nlp/relevance_filter.py` — LLM-based article relevance classification (Gemini)
+- `src/nlp/relevance_filter.py` — LLM-based article relevance classification (Gemini 2.0 Flash)
+- `scripts/compute_communities.py` (~198 lines) — Louvain community detection for storyline graph (python-louvain + networkx); saves community_id to storylines table. Defaults: `min_weight=0.05`, `resolution=0.2`.
 - `src/integrations/openbb_service.py` (~1026 lines) — OpenBB financial data integration
 - `src/llm/oracle_engine.py` (~566 lines) — Oracle 1.0 RAG chat engine (backward-compat, used by Streamlit HITL)
 - `src/llm/oracle_orchestrator.py` — **Oracle 2.0 main coordinator**: ToolRegistry + QueryRouter + ConversationMemory + caching + LLM synthesis + anti-hallucination; `get_oracle_orchestrator_singleton()` for FastAPI
@@ -126,7 +127,7 @@ Located in `web-platform/`. Uses Next.js 16 App Router, React 19, Tailwind CSS 4
 |--------|--------|-------------|
 | `/api/v1/dashboard/` | `routers/dashboard.py` | Stats, KPIs |
 | `/api/v1/reports/` | `routers/reports.py` | Report list, detail |
-| `/api/v1/stories/` | `routers/stories.py` | Storyline list, detail, **graph network** |
+| `/api/v1/stories/` | `routers/stories.py` | Storyline list, detail, **graph network**, **community listing**, **ego network** |
 | `/api/v1/map/` | `main.py` | GeoJSON entities for map |
 
 ### Narrative Engine (3-Layer Filtering)
@@ -140,11 +141,12 @@ Off-topic content is filtered at 3 pipeline stages:
 
 | Table | Purpose |
 |-------|---------|
-| `storylines` | Narrative threads: title, summary, embeddings, momentum_score, narrative_status |
-| `storyline_edges` | Graph edges: source/target storyline, Jaccard weight, relation_type |
+| `storylines` | Narrative threads: title, summary, embeddings, momentum_score, narrative_status, **community_id** |
+| `storyline_edges` | Graph edges: source/target storyline, TF-IDF weighted Jaccard weight, relation_type |
 | `article_storylines` | Junction: article_id ↔ storyline_id, relevance_score |
-| `v_active_storylines` | View: active storylines ordered by momentum DESC |
-| `v_storyline_graph` | View: edges between active storylines with titles |
+| `v_active_storylines` | View: `emerging`, `active`, **`stabilized`** storylines ordered by momentum DESC, includes community_id (migration 017) |
+| `v_storyline_graph` | View: edges between `emerging`, `active`, **`stabilized`** storylines with titles (migration 017) |
+| `entity_idf` | Materialized view: TF-IDF inverse document frequency for entity graph weighting |
 
 ## Configuration
 
@@ -152,7 +154,7 @@ Off-topic content is filtered at 3 pipeline stages:
 - `config/top_50_tickers.yaml` — Geopolitical market movers with aliases for NER matching
 - `config/entity_blocklist.yaml` — Noise filtering for extracted entities
 - `.env` — Database URL, API keys (Gemini, FRED), app settings (see `.env.example`)
-- `migrations/` — 12+ incremental SQL migration files, applied manually via `psql` or through `load_to_database.py --init-only` (includes narrative engine schema: storylines, storyline_edges, views)
+- `migrations/` — 17+ incremental SQL migration files, applied manually via `psql` or through `load_to_database.py --init-only` (includes narrative engine schema: storylines, storyline_edges, views, entity_idf materialized view, community_id column, graph cleanup, migration 017 adds `stabilized` to views)
 
 ## Key Technical Patterns
 

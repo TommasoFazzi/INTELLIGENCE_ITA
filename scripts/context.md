@@ -70,6 +70,9 @@ Operational layer that orchestrates the core modules. Scripts tie together inges
 
 ### Storylines / Narrative Engine
 - `process_narratives.py` - **Primary**: Run NarrativeProcessor daily batch (HDBSCAN + LLM evolution + graph)
+- `rebuild_graph_edges.py` - **Graph rebuild utility**: Drops all existing `storyline_edges`, then recomputes TF-IDF weighted Jaccard edges for all active storylines. **Critical**: loads IDF weights via `processor._load_entity_idf(cur)` and passes them to `_update_graph_connections(sid, idf_weights)` — without this, the fallback threshold is 0.30 instead of 0.05, resulting in ~90% fewer edges. Also includes Step 0: cleanup of stale edges involving storylines archived >30 days.
+- `compute_communities.py` - **Community detection**: Louvain algorithm (python-louvain + networkx) on the storyline graph. Defaults: `min_weight=0.05`, `resolution=0.2`. Writes `community_id` to `storylines` table. CLI flags: `--min-weight`, `--resolution`, `--dry-run`.
+- `reclean_storyline_entities.py` - **Batch entity cleanup**: Iterates all non-archived storylines, applies `_is_garbage_entity()` + `_clean_entity()` sanitization to `key_entities`, updates DB in-place. Used for one-time retroactive cleanup of pre-existing garbage entities.
 - `batch_storyline_clustering.py` - Legacy: Run DBSCAN clustering for storylines
 - `test_storyline_clustering.py` - Legacy: Test storyline clustering
 

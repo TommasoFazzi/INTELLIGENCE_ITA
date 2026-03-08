@@ -32,15 +32,19 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
 #### **Storyline Graph Components (`components/StorylineGraph/`)**
 See `components/StorylineGraph/context.md` for full detail.
 
-- `StorylineGraph.tsx` - Main force-directed graph (react-force-graph-2d), `'use client'`
-  - Custom `paintNode` (Canvas 2D): radius = `4 + momentum_score * 12` (range 4–16 px); color by status (emerging=#FF6B35, active=#00A8E8, stabilized=#666); glow ring on selected/hovered; label drawn with dark background pill, visible only when `globalScale > 1.5`, `momentum_score > 0.7`, or node is selected/hovered; selected node fills white with color border
+- `StorylineGraph.tsx` - Main force-directed graph (react-force-graph-2d), `'use client'` (~479 lines)
+  - **Top-N community coloring strategy**: 15-color `COMMUNITY_PALETTE` assigned by community size rank. Top 15 communities by node count get unique perceptually-distinct colors. All other communities rendered in `OTHER_COLOR = '#2A3A4A'` (neutral dark gray). Color assignment computed in `useMemo` via `communityColorMap` (Map<community_id, hex>).
+  - **Momentum-as-brightness**: Node opacity = `Math.max(0.5, Math.min(1.0, 0.5 + momentum_score * 0.5))` — range [0.5, 1.0]. High-momentum storylines appear brighter; low-momentum ones are dimmer but always visible.
+  - **Ghost highlight in ego mode**: When ego network is active, neighbor nodes that are normally gray (`OTHER_COLOR`) highlight to `EGO_HIGHLIGHT = '#FFFFFF'` (white) to stand out against the dimmed background.
+  - Custom `paintNode` (Canvas 2D): radius = `4 + momentum_score * 12` (range 4–16 px); color by community via `communityColorMap`; glow ring on selected/hovered; label drawn with dark background pill, visible only when `globalScale > 1.5`, `momentum_score > 0.7`, or node is selected/hovered; selected node fills white with color border
   - `nodePointerAreaPaint`: extends hit area by +4 px beyond rendered radius so small nodes remain clickable
   - Custom `paintLink` (Canvas 2D): `strokeStyle = rgba(100,100,100, 0.2 + weight*0.6)`, `lineWidth = 0.5 + weight*2.5`
-  - d3-force config: `cooldownTicks=100`, `d3AlphaDecay=0.02`, `d3VelocityDecay=0.3`; drag, zoom, pan all enabled; `linkDirectionalParticles=0`
+  - d3-force config: `warmupTicks=300`, `cooldownTicks=0`, `d3AlphaDecay=0.05`, `d3VelocityDecay=0.4`; drag, zoom, pan all enabled; `linkDirectionalParticles=0`
   - Node click toggles `selectedId` (click same node again deselects); hover sets `hoveredNode`
   - `handleNavigate(id)`: sets `selectedId`, calls `graphRef.current.centerAt(x, y, 500)` + `.zoom(3, 500)` for animated graph camera navigation
-  - HUD overlay (top-left): NARRATIVE GRAPH label + total_nodes, total_edges, avg_momentum from `graph.stats`
-  - Status legend (top-right): hidden when a node is selected
+  - HUD overlay (top-left): NARRATIVE GRAPH label + NODES, EDGES, **COMMUNITIES**, AVG MOMENTUM, **EDGES/NODE** stats
+  - **Community legend (top-right)**: Dynamic list of top 15 communities by size with colored dots and entity-based labels. Includes "Others (N)" row at bottom aggregating all minor communities and their total node count. Hidden when a node is selected.
+  - Momentum slider (top-right): Interactive range slider (0–1, step 0.1) for filtering nodes by minimum momentum score
   - Tooltip (bottom-left): shows hovered node title, momentum, article_count, category
   - Inline loading/error/empty states rendered over canvas
   - Corner bracket decorations (CSS, `pointer-events-none`)
