@@ -32,11 +32,17 @@ interface GraphLink {
   relation_type: string;
 }
 
-// Palette for community coloring (community 0 = largest = most prominent color)
-const COMMUNITY_COLORS = [
+// Top-N palette: 15 perceptually distinct colors for the largest communities.
+// All other communities render in OTHER_COLOR (neutral dark gray).
+const COMMUNITY_PALETTE = [
   '#FF6B35', '#00A8E8', '#39D353', '#FFD700',
   '#FF4081', '#7B61FF', '#00E5CC', '#FF7043',
+  '#E040FB', '#00BFA5', '#FFAB40', '#448AFF',
+  '#FF5252', '#69F0AE', '#40C4FF',
 ];
+const OTHER_COLOR = '#2A3A4A';
+const EGO_HIGHLIGHT = '#FFFFFF'; // bright highlight for ghost nodes during ego drill-down
+const TOP_N = COMMUNITY_PALETTE.length; // 15
 
 export default function StorylineGraph() {
   const graphRef = useRef<any>(null);
@@ -85,8 +91,9 @@ export default function StorylineGraph() {
     return { nodes: filteredNodes, links };
   }, [graph, minMomentum]);
 
-  // Compute community labels from visible node data (top 10 by size)
-  const communityLabels = useMemo(() => {
+  // Compute community sizes + labels, sorted by size descending.
+  // Top N get distinct colors from COMMUNITY_PALETTE; the rest = OTHER_COLOR.
+  const { communityLabels, communityColorMap, othersCount, othersNodes } = useMemo(() => {
     const communityMap = new Map<number, { count: number; entities: Map<string, number> }>();
 
     for (const node of graphData.nodes) {
@@ -102,14 +109,26 @@ export default function StorylineGraph() {
       }
     }
 
-    return Array.from(communityMap.entries())
+    const allSorted = Array.from(communityMap.entries())
       .map(([cid, { count, entities }]) => {
         const topEntity = [...entities.entries()]
           .sort((a, b) => b[1] - a[1])[0]?.[0] || `Community ${cid}`;
         return { cid, label: topEntity, count };
       })
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .sort((a, b) => b.count - a.count);
+
+    // Build color map: top N communities → palette index, rest → null
+    const colorMap = new Map<number, string>();
+    allSorted.forEach(({ cid }, idx) => {
+      colorMap.set(cid, idx < TOP_N ? COMMUNITY_PALETTE[idx] : OTHER_COLOR);
+    });
+
+    return {
+      communityLabels: allSorted.slice(0, TOP_N),
+      communityColorMap: colorMap,
+      othersCount: Math.max(0, allSorted.length - TOP_N),
+      othersNodes: allSorted.slice(TOP_N).reduce((sum, c) => sum + c.count, 0),
+    };
   }, [graphData.nodes]);
 
   // Compute community centroids for canvas labels (only communities with 3+ nodes)
@@ -144,11 +163,14 @@ export default function StorylineGraph() {
       const isEgoActive = egoNeighborIds.size > 0;
       const isNeighbor = egoNeighborIds.has(node.id);
 
-      // Use community color if available, fallback to status color
+      // Use ranked community color (top N = distinct, rest = gray), fallback to status.
+      // In ego mode, ghost nodes that are neighbors get a bright highlight.
       const communityId = (node as GraphNode).community_id;
-      const color = communityId != null
-        ? COMMUNITY_COLORS[communityId % COMMUNITY_COLORS.length]
+      const baseColor = communityId != null
+        ? (communityColorMap.get(communityId) || OTHER_COLOR)
         : (STATUS_COLORS[narrative_status] || STATUS_COLORS.active);
+      const isGhost = baseColor === OTHER_COLOR;
+      const color = (isEgoActive && isNeighbor && isGhost) ? EGO_HIGHLIGHT : baseColor;
 
       // Dim non-neighbor nodes when ego mode is active
       const alpha = isEgoActive && !isNeighbor ? 0.08 : 1.0;
@@ -202,7 +224,7 @@ export default function StorylineGraph() {
       // Reset alpha so subsequent canvas draws are unaffected
       ctx.globalAlpha = 1.0;
     },
-    [selectedId, hoveredNode, egoNeighborIds]
+    [selectedId, hoveredNode, egoNeighborIds, communityColorMap]
   );
 
   // Community label overlay drawn after all nodes
@@ -215,7 +237,7 @@ export default function StorylineGraph() {
 
       for (const [cid, { x, y, label }] of communityCentroids) {
         if (!label) continue;
-        const color = COMMUNITY_COLORS[cid % COMMUNITY_COLORS.length];
+        const color = communityColorMap.get(cid) || OTHER_COLOR;
         ctx.font = 'bold 18px monospace';
         ctx.globalAlpha = 0.22;
         ctx.fillStyle = color;
@@ -223,7 +245,7 @@ export default function StorylineGraph() {
       }
       ctx.restore();
     },
-    [communityCentroids]
+    [communityCentroids, communityColorMap]
   );
 
   // Link rendering
@@ -350,7 +372,7 @@ export default function StorylineGraph() {
                     <div key={cid} className="flex items-center gap-2">
                       <div
                         className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: COMMUNITY_COLORS[cid % COMMUNITY_COLORS.length] }}
+                        style={{ backgroundColor: communityColorMap.get(cid) || OTHER_COLOR }}
                       />
                       <span className="text-xs font-mono text-gray-300 truncate max-w-[120px]">
                         {label}
@@ -358,6 +380,19 @@ export default function StorylineGraph() {
                       <span className="text-xs font-mono text-gray-600 ml-auto">{count}</span>
                     </div>
                   ))}
+                  {/* "Others" row — aggregates all ghost communities */}
+                  {othersCount > 0 && (
+                    <div className="flex items-center gap-2 mt-1 pt-1 border-t border-white/5">
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: OTHER_COLOR }}
+                      />
+                      <span className="text-xs font-mono text-gray-500 truncate max-w-[120px]">
+                        Others ({othersCount})
+                      </span>
+                      <span className="text-xs font-mono text-gray-600 ml-auto">{othersNodes}</span>
+                    </div>
+                  )}
                 </div>
               </>
             )}
