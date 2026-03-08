@@ -106,7 +106,7 @@ def main():
     print(f"  Storylines processed: {len(ids)}")
     print(f"  Edges inserted:       {total_edges}")
     print()
-    print("Next step: python scripts/compute_communities.py --min-weight 0.25")
+    print("Next step: python scripts/compute_communities.py")
 
 
 if __name__ == "__main__":

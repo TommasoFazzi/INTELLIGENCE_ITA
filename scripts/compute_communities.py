@@ -39,8 +39,8 @@ logger = get_logger(__name__)
 
 
 def compute_and_save_communities(
-    min_weight: float = 0.25,
-    resolution: float = 0.8,
+    min_weight: float = 0.08,
+    resolution: float = 0.5,
     dry_run: bool = False,
 ) -> dict:
     """
@@ -153,12 +153,12 @@ def compute_and_save_communities(
 def main():
     parser = argparse.ArgumentParser(description="Compute Louvain communities on narrative graph")
     parser.add_argument(
-        "--min-weight", type=float, default=0.25,
-        help="Min edge weight to include in community graph (default: 0.25)"
+        "--min-weight", type=float, default=0.08,
+        help="Min edge weight to include in community graph (default: 0.08)"
     )
     parser.add_argument(
-        "--resolution", type=float, default=0.8,
-        help="Louvain resolution: lower = larger communities (default: 0.8)"
+        "--resolution", type=float, default=0.5,
+        help="Louvain resolution: lower = larger communities (default: 0.5)"
     )
     parser.add_argument(
         "--dry-run", action="store_true",
