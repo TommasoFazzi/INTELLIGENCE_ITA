@@ -547,8 +547,21 @@ class NarrativeProcessor:
                 if norm > 0:
                     drifted = drifted / norm
 
-                # 4. Merge entities (cap at 20, by frequency)
-                merged_entities = list(current_entities | set(event['entities']))[:20]
+                # 4. Merge entities (cap at 20, sanitized)
+                new_event_entities = [
+                    self._clean_entity(e) for e in event['entities']
+                    if not self._is_garbage_entity(self._clean_entity(e))
+                ]
+                all_entities = list(current_entities | set(new_event_entities))
+                # Deduplicate case-insensitive, keep first occurrence
+                seen_lower = set()
+                merged_entities = []
+                for e in all_entities:
+                    key = e.lower()
+                    if key not in seen_lower:
+                        seen_lower.add(key)
+                        merged_entities.append(e)
+                merged_entities = merged_entities[:20]
 
                 # 5. Update counts and status
                 new_count = current_count + len(event['article_ids'])
@@ -821,18 +834,20 @@ NUOVI ARTICOLI:
 
 Rispondi in questo formato esatto:
 TITOLO: [titolo aggiornato, max 8 parole, in italiano]
-RIASSUNTO: [riassunto aggiornato, 3-5 frasi, integra i nuovi fatti mantenendo il contesto storico]"""
+RIASSUNTO: [riassunto aggiornato, 3-5 frasi, integra i nuovi fatti mantenendo il contesto storico]
+ENTITÀ: [lista di 5-10 entità chiave separate da virgola — solo nomi propri: paesi, leader, organizzazioni, città, trattati. NO titoli di articoli, NO frammenti HTML, NO parole generiche, NO numeri isolati, NO acronimi di 2 lettere]"""
         else:
             prompt = f"""Sei un analista geopolitico esperto. Genera un titolo e un riassunto per questa nuova storyline.
 
 ARTICOLI:
 {articles_text}
 
-ENTITÀ CHIAVE: {entities_text}
+ENTITÀ CHIAVE ATTUALI (da spaCy, possono contenere errori): {entities_text}
 
 Rispondi in questo formato esatto:
 TITOLO: [titolo descrittivo, max 8 parole, in italiano, specifico e informativo]
-RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]"""
+RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]
+ENTITÀ: [lista di 5-10 entità chiave separate da virgola — solo nomi propri: paesi, leader, organizzazioni, città, trattati. NO titoli di articoli, NO frammenti HTML, NO parole generiche, NO numeri isolati, NO acronimi di 2 lettere]"""
 
         try:
             response = self.model.generate_content(
@@ -858,9 +873,28 @@ RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]"""
 
             # If summary continues on next lines after RIASSUNTO:
             if 'RIASSUNTO:' in text:
-                parts = text.split('RIASSUNTO:', 1)
-                if len(parts) == 2:
-                    new_summary = parts[1].strip()
+                riassunto_parts = text.split('RIASSUNTO:', 1)
+                if len(riassunto_parts) == 2:
+                    summary_block = riassunto_parts[1]
+                    # Stop at ENTITÀ: if present
+                    if 'ENTIT' in summary_block.upper():
+                        summary_block = re.split(r'ENTIT[ÀA]:', summary_block, flags=re.IGNORECASE)[0]
+                    new_summary = summary_block.strip()
+
+            # Parse ENTITÀ: line from Gemini response
+            new_entities = None
+            for line in text.split('\n'):
+                line_stripped = line.strip()
+                if re.match(r'^ENTIT[ÀA]:', line_stripped, re.IGNORECASE):
+                    entities_raw = re.sub(r'^ENTIT[ÀA]:', '', line_stripped, flags=re.IGNORECASE).strip()
+                    # Split by comma, clean each entity
+                    parsed = [e.strip().strip('"\'-[]') for e in entities_raw.split(',')]
+                    parsed = [e for e in parsed if e and len(e) >= 2]
+                    # Apply sanitization
+                    parsed = [e for e in parsed if not self._is_garbage_entity(e)]
+                    if parsed:
+                        new_entities = parsed[:15]
+                    break
 
             # Encode summary → summary_vector
             summary_vector = self.embedding_model.encode(new_summary).tolist()
@@ -868,16 +902,27 @@ RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]"""
             # Update DB
             with self.db.get_connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE storylines SET
-                            title = %s,
-                            summary = %s,
-                            summary_vector = %s::vector
-                        WHERE id = %s
-                    """, (new_title, new_summary, summary_vector, storyline_id))
+                    if new_entities:
+                        cur.execute("""
+                            UPDATE storylines SET
+                                title = %s,
+                                summary = %s,
+                                summary_vector = %s::vector,
+                                key_entities = %s
+                            WHERE id = %s
+                        """, (new_title, new_summary, summary_vector, Json(new_entities), storyline_id))
+                    else:
+                        cur.execute("""
+                            UPDATE storylines SET
+                                title = %s,
+                                summary = %s,
+                                summary_vector = %s::vector
+                            WHERE id = %s
+                        """, (new_title, new_summary, summary_vector, storyline_id))
                 conn.commit()
 
-            logger.debug(f"Evolved storyline #{storyline_id}: '{new_title[:60]}'")
+            entities_log = f", entities={len(new_entities)}" if new_entities else ""
+            logger.debug(f"Evolved storyline #{storyline_id}: '{new_title[:60]}'{entities_log}")
             time.sleep(self.LLM_RATE_LIMIT_SECONDS)
 
         except Exception as e:
@@ -1165,6 +1210,73 @@ RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]"""
     # HELPERS
     # =========================================================================
 
+    # Regex patterns for garbage entity detection (compiled once)
+    _GARBAGE_PATTERNS = re.compile(
+        r'^\d+[a-zA-Z]'           # numeric prefix: "4Trump", "3Hamas"
+        r'|^\d+$'                 # pure number: "2024", "100"
+        r'|\b(?:http|www\.|\.[a-z]{2,4})\b'  # URLs
+        r'|(?:Features|Podcasts|Pictures|Investigations|Interactives|Newsletter|Subscribe)'
+        r'|(?:Science & Technology|Human Rights|Climate Crisis)'
+        r'|^[A-Z]{1,2}$'         # 1-2 letter acronyms: "EU", "PM", "DC"
+        r'|[\|\[\]{}()]'        # brackets, pipes (HTML artifacts)
+        r'|^\W+$'                # only punctuation/symbols
+        r'|\s{3,}',              # excessive whitespace (navigation fragments)
+        re.IGNORECASE
+    )
+    # Known valid short acronyms that bypass the 1-2 char filter
+    _VALID_SHORT = {'EU', 'UN', 'US', 'UK', 'G7', 'G20', 'AI', 'ONU', 'UE'}
+    # Common false positives from spaCy NER
+    _FALSE_POSITIVES = {
+        'not', 'feb', 'jan', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+        'est', 'gmt', 'cet', 'bst', 'pst', 'edt', 'cdt', 'utc',
+        'et', 'pm', 'am', 'dc', 'vs', 'op', 'no', 'ok', 'ad',
+        'the', 'this', 'that', 'its', 'his', 'her',
+    }
+
+    @staticmethod
+    def _is_garbage_entity(entity: str) -> bool:
+        """
+        Check if an entity is garbage that should be filtered out.
+
+        Catches: numeric prefixes (4Trump), HTML fragments, article titles,
+        too-short/too-long strings, trailing punctuation, navigation text.
+        """
+        if not entity or not isinstance(entity, str):
+            return True
+        e = entity.strip()
+        if len(e) < 2 or len(e) > 60:
+            return True
+        # Reject entities with too many words (likely article titles)
+        if len(e.split()) > 6:
+            return True
+        # Known false positives
+        if e.lower() in NarrativeProcessor._FALSE_POSITIVES:
+            return True
+        # Valid short acronyms bypass pattern check
+        if e.upper() in NarrativeProcessor._VALID_SHORT:
+            return False
+        if NarrativeProcessor._GARBAGE_PATTERNS.search(e):
+            return True
+        # Trailing/leading punctuation ("US-", "West Bank -")
+        stripped = e.strip(' -–—.,;:!?/')
+        if len(stripped) < 2:
+            return True
+        return False
+
+    @staticmethod
+    def _clean_entity(entity: str) -> str:
+        """Normalize an entity string: strip numeric prefixes, punctuation edges, leading articles."""
+        e = entity.strip()
+        # Strip leading digit prefix ("4Trump" → "Trump", "3Hamas" → "Hamas")
+        e = re.sub(r'^\d+', '', e).strip()
+        # Strip trailing punctuation
+        e = e.strip(' -–—.,;:!?/')
+        # Strip leading "The " / "Il " / "La " etc.
+        e = re.sub(r'^(?:The|Il|La|Lo|Le|Gli|L[\u2019\'])\s+', '', e, flags=re.IGNORECASE).strip()
+        # Collapse whitespace
+        e = re.sub(r'\s+', ' ', e).strip()
+        return e
+
     @staticmethod
     def _extract_entity_list(entities_json: Any) -> List[str]:
         """
@@ -1173,18 +1285,35 @@ RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]"""
         Handles both formats:
         - New: {'clean': {'all': [...]}}
         - Old: {'by_type': {'GPE': [...], 'ORG': [...], 'PERSON': [...]}}
+
+        Applies rule-based sanitization to filter garbage entities.
         """
         if not entities_json or not isinstance(entities_json, dict):
             return []
 
+        raw = []
         # New format (clean entities)
         clean = entities_json.get('clean', {})
         if clean and clean.get('all'):
-            return clean['all'][:15]
+            raw = clean['all'][:20]
+        else:
+            # Old format (by_type)
+            by_type = entities_json.get('by_type', {})
+            for etype in ['GPE', 'ORG', 'PERSON']:
+                raw.extend(by_type.get(etype, []))
+            raw = raw[:20]
 
-        # Old format (by_type)
-        by_type = entities_json.get('by_type', {})
+        # Sanitize: clean + filter garbage + deduplicate
+        seen = set()
         result = []
-        for etype in ['GPE', 'ORG', 'PERSON']:
-            result.extend(by_type.get(etype, []))
+        for entity in raw:
+            cleaned = NarrativeProcessor._clean_entity(entity)
+            if NarrativeProcessor._is_garbage_entity(cleaned):
+                continue
+            key = cleaned.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(cleaned)
+
         return result[:15]
