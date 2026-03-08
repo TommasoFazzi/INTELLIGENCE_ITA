@@ -17,28 +17,28 @@ export default function StatsGrid({ stats }: StatsGridProps) {
     {
       icon: <FileText className="w-6 h-6" />,
       value: overview.total_articles,
-      label: 'Articoli Totali',
+      label: 'Total Articles',
       trend: articles.recent_7d > 0 ? { value: articles.recent_7d, isPositive: true } : undefined,
     },
     {
       icon: <Users className="w-6 h-6" />,
       value: overview.total_entities,
-      label: 'Entità Rilevate',
+      label: 'Entities Detected',
     },
     {
       icon: <FileCheck className="w-6 h-6" />,
       value: overview.total_reports,
-      label: 'Report Generati',
+      label: 'Reports Generated',
     },
     {
       icon: <MapPin className="w-6 h-6" />,
       value: overview.geocoded_entities,
-      label: 'Entità Geolocalizzate',
+      label: 'Geocoded Entities',
     },
     {
       icon: <Percent className="w-6 h-6" />,
       value: `${overview.coverage_percentage.toFixed(1)}%`,
-      label: 'Copertura Geocoding',
+      label: 'Geocoding Coverage',
     },
   ];
 

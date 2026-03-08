@@ -7,39 +7,39 @@ import { Clock, PieChart, Layers, MapPin, MessageSquare, Download } from 'lucide
 const features = [
   {
     icon: <Clock className="w-8 h-8" />,
-    title: 'Report in Tempo Reale',
+    title: 'Real-Time Reports',
     description:
-      'Generazione automatica di report giornalieri e settimanali con le ultime news geopolitiche e di cybersecurity.',
+      'Automated daily and weekly intelligence reports covering geopolitical developments and cybersecurity threats.',
   },
   {
     icon: <PieChart className="w-8 h-8" />,
-    title: 'Filtri Intelligenti',
+    title: 'Smart Filtering',
     description:
-      'Sistema di filtering avanzato per categoria, rilevanza, fonte e sentiment analysis.',
+      'Advanced 3-layer filtering by category, relevance, source, and sentiment analysis.',
   },
   {
     icon: <Layers className="w-8 h-8" />,
     title: 'RAG Architecture',
     description:
-      'Retrieval-Augmented Generation per risposte contestuali basate su knowledge base proprietario.',
+      'Retrieval-Augmented Generation for contextual answers grounded in a proprietary knowledge base.',
   },
   {
     icon: <MapPin className="w-8 h-8" />,
-    title: 'Mappa Interattiva',
+    title: 'Interactive Map',
     description:
-      'Visualizzazione geografica delle entita estratte con clustering e timeline degli eventi.',
+      'Geographic visualization of extracted entities with clustering and event timelines.',
   },
   {
     icon: <MessageSquare className="w-8 h-8" />,
     title: 'AI Assistant',
     description:
-      'Chatbot LLM per interrogare la knowledge base con linguaggio naturale e ottenere insight.',
+      'Oracle 2.0 — query the knowledge base in natural language and get grounded intelligence insights.',
   },
   {
     icon: <Download className="w-8 h-8" />,
     title: 'Export & API',
     description:
-      'Esportazione report in PDF, CSV, JSON e API REST per integrazione con sistemi esterni.',
+      'Export reports in multiple formats and integrate via REST API with external systems.',
   },
 ];
 
@@ -74,10 +74,10 @@ export default function Features() {
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="text-4xl font-extrabold mb-4 text-white">
-            Funzionalita Avanzate
+            Advanced Capabilities
           </h2>
           <p className="text-lg text-gray-400">
-            Una piattaforma completa per l&apos;intelligence moderna
+            A complete platform for modern intelligence operations
           </p>
         </div>
 

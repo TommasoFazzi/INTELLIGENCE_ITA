@@ -17,7 +17,7 @@ import type { ApiError } from '@/types/dashboard';
 
 function formatTimestamp(timestamp: string | undefined): string {
   if (!timestamp) return '-';
-  return new Date(timestamp).toLocaleTimeString('it-IT', {
+  return new Date(timestamp).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -99,7 +99,7 @@ export default function DashboardPage() {
                 <span className="text-[#FF6B35]">INTEL</span> Dashboard
               </h1>
               <p className="text-gray-400 mt-1">
-                Overview dell&apos;intelligence platform
+                Intelligence platform overview
               </p>
             </div>
 
@@ -108,7 +108,7 @@ export default function DashboardPage() {
               {lastUpdate && (
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <Clock className="w-4 h-4" />
-                  <span>Aggiornato: {formatTimestamp(lastUpdate)}</span>
+                  <span>Updated: {formatTimestamp(lastUpdate)}</span>
                 </div>
               )}
 
@@ -133,7 +133,7 @@ export default function DashboardPage() {
                     statsLoading || reportsLoading ? 'animate-spin' : ''
                   }`}
                 />
-                Aggiorna
+                Refresh
               </Button>
             </div>
           </header>
@@ -145,7 +145,7 @@ export default function DashboardPage() {
             ) : statsError ? (
               <ErrorState
                 type="partial"
-                message="Impossibile caricare le statistiche"
+                message="Failed to load statistics"
                 onRetry={() => refreshStats()}
               />
             ) : (
@@ -156,7 +156,7 @@ export default function DashboardPage() {
           {/* Reports Section */}
           <section className="mt-10">
             <h2 className="text-xl font-semibold text-white mb-4">
-              Reports Recenti
+              Recent Reports
             </h2>
 
             {reportsLoading && !reports ? (
@@ -164,7 +164,7 @@ export default function DashboardPage() {
             ) : reportsError ? (
               <ErrorState
                 type="partial"
-                message="Impossibile caricare i report"
+                message="Failed to load reports"
                 onRetry={() => refreshReports()}
               />
             ) : (

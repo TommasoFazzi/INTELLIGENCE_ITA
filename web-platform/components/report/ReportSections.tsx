@@ -18,7 +18,7 @@ export function TableOfContents({ entries, activeId, onNavigate }: TOCProps) {
   return (
     <nav className="sticky top-28 space-y-1">
       <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
-        Indice
+        Contents
       </h3>
       {entries.map((entry) => (
         <div key={entry.id}>
@@ -223,7 +223,7 @@ export function SourcesSidebar({ sources, highlightedIdx }: SourcesSidebarProps)
   return (
     <div className="sticky top-28 rounded-xl border border-white/5 bg-white/[0.02] p-4 max-h-[calc(100vh-8rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
       <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
-        Fonti ({sources.length})
+        Sources ({sources.length})
       </h3>
       <ul className="space-y-2">
         {sources.map((source, idx) => {
@@ -250,7 +250,7 @@ export function SourcesSidebar({ sources, highlightedIdx }: SourcesSidebarProps)
                     rel="noopener noreferrer"
                     className="text-[#00A8E8] hover:underline"
                   >
-                    Apri fonte &rarr;
+                    Open source &rarr;
                   </a>
                 ) : (
                   <span />

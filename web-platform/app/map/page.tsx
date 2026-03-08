@@ -3,11 +3,11 @@ import MapLoader from '@/components/IntelligenceMap/MapLoader';
 
 // Server-side metadata for SEO
 export const metadata: Metadata = {
-  title: 'Tactical Map | Intelligence ITA',
-  description: 'Interactive intelligence map with entity clustering and real-time data visualization',
+  title: 'Intelligence Map',
+  description: 'Tactical geospatial map with entity clustering, real-time data visualization, and interactive intelligence overlays.',
   openGraph: {
-    title: 'Tactical Map | Intelligence ITA',
-    description: 'Interactive intelligence map with entity clustering',
+    title: 'Intelligence Map | INTEL ITA',
+    description: 'Interactive tactical intelligence map with entity clustering and real-time data.',
     type: 'website',
   },
 };

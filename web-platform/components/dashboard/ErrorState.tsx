@@ -16,9 +16,9 @@ export default function ErrorState({ type = 'server', message, onRetry }: ErrorS
   const Icon = isOffline ? WifiOff : isPartial ? AlertTriangle : ServerCrash;
 
   const defaultMessages = {
-    offline: 'Connessione assente. Verifica la tua connessione internet.',
-    server: 'Impossibile connettersi all\'API. Il server potrebbe essere offline.',
-    partial: 'Si è verificato un errore nel caricamento dei dati.',
+    offline: 'No connection. Please check your internet.',
+    server: 'Cannot connect to the API. The server may be offline.',
+    partial: 'An error occurred while loading data.',
   };
 
   const displayMessage = message || defaultMessages[type];
@@ -37,7 +37,7 @@ export default function ErrorState({ type = 'server', message, onRetry }: ErrorS
             className="ml-auto text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10"
           >
             <RefreshCw className="w-4 h-4 mr-1" />
-            Riprova
+            Retry
           </Button>
         )}
       </div>
@@ -52,7 +52,7 @@ export default function ErrorState({ type = 'server', message, onRetry }: ErrorS
       </div>
 
       <h2 className="text-xl font-bold text-white mb-2">
-        {isOffline ? 'Sei offline' : 'Errore di connessione'}
+        {isOffline ? 'You are offline' : 'Connection error'}
       </h2>
 
       <p className="text-gray-400 max-w-md mb-6">
@@ -65,12 +65,12 @@ export default function ErrorState({ type = 'server', message, onRetry }: ErrorS
           className="bg-[#FF6B35] hover:bg-[#FF6B35]/90 text-white"
         >
           <RefreshCw className="w-4 h-4 mr-2" />
-          Riprova connessione
+          Retry connection
         </Button>
       )}
 
       <p className="text-sm text-gray-500 mt-8">
-        Se il problema persiste, verifica che il backend sia in esecuzione su{' '}
+        If the problem persists, verify the backend is running on{' '}
         <code className="text-[#00A8E8]">localhost:8000</code>
       </p>
     </div>

@@ -43,7 +43,7 @@ const typeColors: Record<string, string> = {
 
 function formatDate(dateString: string | null): string {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('it-IT', {
+  return new Date(dateString).toLocaleDateString('en-US', {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -168,12 +168,12 @@ export default function ReportDetailPage({
             <div className="flex flex-col items-center justify-center py-16 text-gray-400">
               <AlertTriangle className="w-12 h-12 mb-4 text-[#FF6B35]/60" />
               <p className="text-lg font-medium text-white mb-2">
-                Impossibile caricare il report
+                Unable to load report
               </p>
               <p className="text-sm">
                 {apiError.status === 404
-                  ? 'Report non trovato.'
-                  : 'Errore di connessione al server.'}
+                  ? 'Report not found.'
+                  : 'Server connection error.'}
               </p>
               <Button
                 variant="outline"
@@ -181,7 +181,7 @@ export default function ReportDetailPage({
                 asChild
                 className="mt-4 border-white/10 text-gray-400 hover:text-white"
               >
-                <Link href="/dashboard">Torna alla Dashboard</Link>
+                <Link href="/dashboard">Back to Dashboard</Link>
               </Button>
             </div>
           )}
@@ -244,7 +244,7 @@ export default function ReportDetailPage({
                   className={mobileTab === 'sources' ? '' : 'border-white/10 text-gray-400'}
                 >
                   <Link2 className="w-4 h-4 mr-2" />
-                  Fonti ({report.sources.length})
+                  Sources ({report.sources.length})
                 </Button>
               </div>
 
@@ -336,7 +336,7 @@ export default function ReportDetailPage({
                     <div className="rounded-xl border border-white/5 bg-white/[0.02] p-8 text-center">
                       <FileText className="w-10 h-10 text-gray-600 mx-auto mb-3" />
                       <p className="text-sm text-gray-500">
-                        Nessuna fonte disponibile
+                        No sources available
                       </p>
                     </div>
                   )}

@@ -19,27 +19,44 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://macrointel.net'),
   verification: {
     google: "yYcTCxeGtyPr8lqge6DnoCV5kKSs-p7BGCAibulzoaw",
   },
-  title: "INTEL ITA - Intelligence Platform",
+  title: {
+    default: "INTEL ITA — AI-Powered Geopolitical Intelligence",
+    template: "%s | INTEL ITA",
+  },
   description:
-    "Analisi geopolitica, cybersecurity e trend economici powered by AI. Trasforma migliaia di fonti in intelligence azionabile.",
+    "Real-time geopolitical intelligence, cybersecurity monitoring, and macro-economic analysis powered by AI. Thousands of sources distilled into actionable intelligence.",
   keywords: [
-    "intelligence",
-    "geopolitica",
+    "geopolitical intelligence",
     "cybersecurity",
-    "AI",
-    "analisi",
-    "trend economici",
+    "AI analysis",
+    "macro economics",
+    "OSINT",
+    "threat intelligence",
+    "narrative tracking",
+    "RAG",
   ],
   authors: [{ name: "INTEL ITA" }],
   openGraph: {
-    title: "INTEL ITA - Intelligence Platform",
+    title: "INTEL ITA — AI-Powered Geopolitical Intelligence",
     description:
-      "Analisi geopolitica, cybersecurity e trend economici powered by AI.",
+      "Real-time geopolitical, cybersecurity, and macro-economic intelligence powered by AI.",
     type: "website",
-    locale: "it_IT",
+    locale: "en_US",
+    siteName: "INTEL ITA",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "INTEL ITA — AI-Powered Geopolitical Intelligence",
+    description:
+      "Real-time geopolitical, cybersecurity, and macro-economic intelligence powered by AI.",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
@@ -49,7 +66,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it">
+    <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#FF6B35" />
+      </head>
       <body
         className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
       >

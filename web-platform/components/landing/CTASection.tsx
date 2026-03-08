@@ -14,15 +14,15 @@ export default function CTASection() {
           {/* Content */}
           <div className="relative z-10 text-center">
             <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-white">
-              Pronto a Trasformare la Tua Intelligence?
+              Ready to Transform Your Intelligence?
             </h2>
             <p className="text-lg text-gray-400 mb-8 max-w-2xl mx-auto">
-              Inizia oggi a monitorare le fonti che contano. Accedi alla dashboard e scopri
-              il potere dell&apos;intelligence automation.
+              Start monitoring the sources that matter today. Access the dashboard and discover
+              the power of intelligence automation.
             </p>
             <Button size="lg" asChild className="group">
               <Link href="/dashboard">
-                Accedi Ora
+                Get Started
                 <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
             </Button>

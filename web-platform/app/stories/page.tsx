@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import GraphLoader from '@/components/StorylineGraph/GraphLoader';
 
 export const metadata: Metadata = {
-  title: 'Storyline Graph | Intelligence ITA',
-  description: 'Interactive narrative graph visualization showing intelligence storylines and their connections',
+  title: 'Narrative Graph',
+  description: 'Interactive force-directed graph visualization of intelligence storylines, their connections, and narrative evolution over time.',
   openGraph: {
-    title: 'Storyline Graph | Intelligence ITA',
-    description: 'Interactive narrative graph visualization',
+    title: 'Narrative Graph | INTEL ITA',
+    description: 'Interactive narrative graph visualization showing intelligence storylines and their connections.',
     type: 'website',
   },
 };

@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 
 export default function Footer() {
@@ -26,15 +28,31 @@ export default function Footer() {
               </span>
             </Link>
             <p className="text-gray-400 max-w-sm">
-              Piattaforma di intelligence globale per l&apos;analisi geopolitica,
-              cybersecurity e trend economici. Powered by AI.
+              AI-powered global intelligence platform for geopolitical analysis,
+              cybersecurity monitoring, and macro-economic trend tracking.
             </p>
           </div>
 
-          {/* Product Links */}
+          {/* Platform Links */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Product</h4>
+            <h4 className="text-white font-semibold mb-4">Platform</h4>
             <ul className="space-y-3">
+              <li>
+                <Link
+                  href="/dashboard"
+                  className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
+                >
+                  Dashboard
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/stories"
+                  className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
+                >
+                  Narrative Graph
+                </Link>
+              </li>
               <li>
                 <Link
                   href="/map"
@@ -45,54 +63,44 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="#features"
+                  href="/oracle"
                   className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
                 >
-                  Features
+                  Oracle AI
                 </Link>
-              </li>
-              <li>
-                <span className="text-gray-500 text-sm cursor-not-allowed">
-                  API Docs (Coming Soon)
-                </span>
-              </li>
-              <li>
-                <span className="text-gray-500 text-sm cursor-not-allowed">
-                  Changelog (Coming Soon)
-                </span>
               </li>
             </ul>
           </div>
 
-          {/* Company Links */}
+          {/* Resources Links */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Company</h4>
+            <h4 className="text-white font-semibold mb-4">Resources</h4>
             <ul className="space-y-3">
               <li>
-                <Link
-                  href="#about"
+                <button
+                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
+                >
+                  Features
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}
                   className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
                 >
                   About
-                </Link>
+                </button>
               </li>
               <li>
-                <span className="text-gray-500 text-sm cursor-not-allowed">
-                  Blog (Coming Soon)
-                </span>
-              </li>
-              <li>
-                <span className="text-gray-500 text-sm cursor-not-allowed">
-                  Careers (Coming Soon)
-                </span>
-              </li>
-              <li>
-                <Link
-                  href="#contact"
+                <a
+                  href="https://github.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
                 >
-                  Contact
-                </Link>
+                  GitHub
+                </a>
               </li>
             </ul>
           </div>
@@ -103,14 +111,9 @@ export default function Footer() {
           <p className="text-gray-500 text-sm">
             &copy; {new Date().getFullYear()} INTEL ITA. All rights reserved.
           </p>
-          <div className="flex items-center gap-6">
-            <span className="text-gray-500 text-sm cursor-not-allowed">
-              Privacy Policy
-            </span>
-            <span className="text-gray-500 text-sm cursor-not-allowed">
-              Terms of Service
-            </span>
-          </div>
+          <p className="text-gray-600 text-xs">
+            Powered by Next.js, Gemini AI, and pgvector
+          </p>
         </div>
       </div>
     </footer>

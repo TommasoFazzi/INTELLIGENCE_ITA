@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Play } from 'lucide-react';
+import { ArrowRight, GitBranch } from 'lucide-react';
 
 // Dynamic imports to prevent SSR hydration issues with canvas
 const ParticleCanvas = dynamic(() => import('./ParticleCanvas'), { ssr: false });
@@ -65,37 +65,39 @@ export default function Hero() {
 
           {/* Title */}
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight mb-6 tracking-tight animate-fadeInUp animation-delay-100">
-            Intelligence Globale
+            Global Intelligence
             <span className="block gradient-text">
-              In Tempo Reale
+              In Real Time
             </span>
           </h1>
 
           {/* Description */}
           <p className="text-xl text-gray-400 mb-8 leading-relaxed animate-fadeInUp animation-delay-200">
-            Analisi geopolitica, cybersecurity e trend economici powered by AI.
-            Trasforma migliaia di fonti in intelligence azionabile.
+            Geopolitical analysis, cybersecurity monitoring, and macro-economic trends
+            powered by AI. Thousands of sources distilled into actionable intelligence.
           </p>
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fadeInUp animation-delay-300">
             <Button size="lg" asChild className="group">
               <Link href="/dashboard">
-                Esplora Dashboard
+                Explore Dashboard
                 <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
             </Button>
-            <Button variant="outline" size="lg" className="border-white/20 hover:bg-white/5">
-              <Play className="mr-2 h-5 w-5" />
-              View Demo
+            <Button variant="outline" size="lg" asChild className="border-white/20 hover:bg-white/5 group">
+              <Link href="/stories">
+                <GitBranch className="mr-2 h-5 w-5" />
+                Narrative Graph
+              </Link>
             </Button>
           </div>
 
           {/* Stats */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-8 p-8 glass-light rounded-xl animate-fadeInUp animation-delay-400">
-            <StatItem value="33+" label="Fonti RSS" />
+            <StatItem value="33+" label="RSS Sources" />
             <div className="hidden sm:block w-px h-10 bg-white/10" />
-            <StatItem value="24/7" label="Monitoraggio" />
+            <StatItem value="24/7" label="Monitoring" />
             <div className="hidden sm:block w-px h-10 bg-white/10" />
             <StatItem value="AI" label="Powered" />
           </div>

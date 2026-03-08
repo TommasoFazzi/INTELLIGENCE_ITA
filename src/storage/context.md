@@ -8,7 +8,7 @@ Central persistence layer between the processing pipeline and intelligence gener
 
 ## Key Files
 
-- `database.py` - `DatabaseManager` class (1900+ lines)
+- `database.py` - `DatabaseManager` class (~1995 lines)
 
   **Connection Management:**
   - `SimpleConnectionPool` (min=1, max=10 connections)
@@ -45,8 +45,9 @@ Central persistence layer between the processing pipeline and intelligence gener
 
 | View | Purpose |
 |------|---------|
-| `v_active_storylines` | Active storylines ordered by momentum_score DESC, with article_count |
+| `v_active_storylines` | Active storylines ordered by momentum_score DESC, with article_count, community_id |
 | `v_storyline_graph` | Edges between active storylines, includes source/target titles |
+| `entity_idf` (materialized) | TF-IDF inverse document frequency weights for entities; used by graph builder for weighted Jaccard. Refreshed by migration 016 cleanup and `REFRESH MATERIALIZED VIEW entity_idf`. |
 
 These views are consumed by both the report generator (top 10 storylines for narrative context) and the API (`/api/v1/stories/graph`).
 
@@ -88,8 +89,8 @@ These views are consumed by both the report generator (top 10 storylines for nar
 | `reports` | Generated intelligence reports (draft/final/status) |
 | `report_feedback` | Human corrections, ratings, comments |
 | `entities` | Named entities with coordinates for map |
-| **`storylines`** | Narrative threads: title, summary, embedding, momentum_score, narrative_status (emerging/active/stabilized/archived) |
-| **`storyline_edges`** | Graph edges: source_story_id → target_story_id, Jaccard weight, relation_type |
+| **`storylines`** | Narrative threads: title, summary, embedding, momentum_score, narrative_status (emerging/active/stabilized/archived), **community_id** (Louvain community assignment from `scripts/compute_communities.py`) |
+| **`storyline_edges`** | Graph edges: source_story_id → target_story_id, TF-IDF weighted Jaccard weight, relation_type |
 | **`article_storylines`** | Junction table: article_id ↔ storyline_id, relevance_score |
 | `market_data` | OHLCV time series from Yahoo Finance |
 | `ticker_mappings` | Entity → Stock ticker mappings |

@@ -34,7 +34,7 @@ const typeColors: Record<string, string> = {
 
 function formatDate(dateString: string | null): string {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('it-IT', {
+  return new Date(dateString).toLocaleDateString('en-US', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -46,7 +46,7 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
     return (
       <div className="flex flex-col items-center justify-center py-12 text-gray-400">
         <FileText className="w-12 h-12 mb-4 opacity-50" />
-        <p>Nessun report disponibile</p>
+        <p>No reports available</p>
       </div>
     );
   }
@@ -58,11 +58,11 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
           <TableHeader>
             <TableRow className="border-white/5 hover:bg-transparent">
               <TableHead className="text-gray-400 font-medium">Status</TableHead>
-              <TableHead className="text-gray-400 font-medium">Titolo</TableHead>
-              <TableHead className="text-gray-400 font-medium">Tipo</TableHead>
-              <TableHead className="text-gray-400 font-medium">Categoria</TableHead>
-              <TableHead className="text-gray-400 font-medium">Data</TableHead>
-              <TableHead className="text-gray-400 font-medium text-right">Articoli</TableHead>
+              <TableHead className="text-gray-400 font-medium">Title</TableHead>
+              <TableHead className="text-gray-400 font-medium">Type</TableHead>
+              <TableHead className="text-gray-400 font-medium">Category</TableHead>
+              <TableHead className="text-gray-400 font-medium">Date</TableHead>
+              <TableHead className="text-gray-400 font-medium text-right">Articles</TableHead>
               <TableHead className="text-gray-400 font-medium w-[80px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -86,7 +86,7 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
                     prefetch={false}
                     className="hover:text-[#FF6B35] transition-colors"
                   >
-                    {report.title || 'Senza titolo'}
+                    {report.title || 'Untitled'}
                   </Link>
                 </TableCell>
                 <TableCell>
@@ -131,7 +131,7 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
       {pagination && pagination.pages > 1 && (
         <div className="flex items-center justify-between px-2">
           <p className="text-sm text-gray-400">
-            Pagina {currentPage} di {pagination.pages} ({pagination.total} report)
+            Page {currentPage} of {pagination.pages} ({pagination.total} reports)
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -142,7 +142,7 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
               className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
-              Precedente
+              Previous
             </Button>
             <Button
               variant="outline"
@@ -151,7 +151,7 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
               disabled={currentPage >= pagination.pages}
               className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
             >
-              Successivo
+              Next
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
