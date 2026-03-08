@@ -44,7 +44,7 @@ def get_db() -> DatabaseManager:
 
 @router.get("/graph")
 async def get_graph_network(
-    min_edge_weight: float = Query(0.40, description="Min TF-IDF weighted Jaccard for global view (default: 0.40)"),
+    min_edge_weight: float = Query(0.10, description="Min TF-IDF weighted Jaccard for global view (default: 0.10)"),
     min_momentum: float = Query(0.0, description="Exclude nodes below this momentum score (default: 0.0)"),
     api_key: str = Depends(verify_api_key),
 ):
@@ -52,9 +52,11 @@ async def get_graph_network(
     Get the full narrative graph: active storyline nodes + edges.
 
     Returns data structured for react-force-graph (nodes + links).
-    The min_edge_weight parameter filters weak edges — use a lower value (e.g. 0.10)
-    for denser graphs, higher (e.g. 0.50) for cleaner but sparser views.
-    Response is cached for 1 hour per min_edge_weight value.
+    The min_edge_weight parameter filters weak edges — use a lower value (e.g. 0.05)
+    for denser graphs, higher (e.g. 0.30) for cleaner but sparser views.
+    Default 0.10 is calibrated for TF-IDF weighted Jaccard (which compresses scores
+    compared to plain Jaccard: common entities like 'USA' contribute very little).
+    Response is cached for 1 hour per (min_edge_weight, min_momentum) combination.
     """
     cached = _get_cached_graph(min_edge_weight, min_momentum)
     if cached:
@@ -121,13 +123,20 @@ async def get_graph_network(
             for r in edge_rows
         ]
 
-        # Keep only nodes that appear in at least one edge — isolated nodes
-        # (no edge meeting min_edge_weight) just add visual clutter.
+        # Keep nodes that are either connected OR have high momentum.
+        # TF-IDF weighted Jaccard compresses edge scores, so many important
+        # storylines (e.g. "Terremoto in Turchia" with 50 articles, momentum 0.9)
+        # may have no edges above the threshold but must remain visible as
+        # bright "lone stars" on the graph for the analyst.
         connected_ids = set()
         for link in links:
             connected_ids.add(link.source)
             connected_ids.add(link.target)
-        nodes = [n for n in nodes if n.id in connected_ids]
+        HIGH_MOMENTUM_THRESHOLD = 0.4  # keep isolated nodes if momentum >= this
+        nodes = [
+            n for n in nodes
+            if n.id in connected_ids or n.momentum_score >= HIGH_MOMENTUM_THRESHOLD
+        ]
 
         # Optional momentum filter
         if min_momentum > 0:
