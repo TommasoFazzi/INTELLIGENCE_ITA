@@ -16,7 +16,7 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import ORJSONResponse
+from fastapi.responses import JSONResponse
 
 from ..auth import verify_api_key
 from ..limiter import limiter
@@ -114,7 +114,7 @@ async def get_entities(
     ck = _cache_key(limit, entity_type, days, min_mentions, min_score, search)
     cached = _get_cached(ck)
     if cached:
-        return ORJSONResponse(
+        return JSONResponse(
             content=cached,
             headers={
                 "Cache-Control": f"public, max-age={_CACHE_TTL}",
@@ -147,7 +147,7 @@ async def get_entities(
             f"min_score={min_score})"
         )
 
-        return ORJSONResponse(
+        return JSONResponse(
             content=geojson,
             headers={
                 "Cache-Control": f"public, max-age={_CACHE_TTL}",
@@ -222,7 +222,7 @@ async def get_entity_arcs(
     arcs_key = f"arcs|{min_score}|{limit}"
     cached = _get_cached(arcs_key)
     if cached:
-        return ORJSONResponse(
+        return JSONResponse(
             content=cached,
             headers={"Cache-Control": f"public, max-age={_CACHE_TTL}", "X-Cache": "HIT"},
         )
@@ -234,7 +234,7 @@ async def get_entity_arcs(
             f"Map arcs: {geojson['arc_count']} arcs "
             f"(min_score={min_score}, limit={limit})"
         )
-        return ORJSONResponse(
+        return JSONResponse(
             content=geojson,
             headers={"Cache-Control": f"public, max-age={_CACHE_TTL}", "X-Cache": "MISS"},
         )
