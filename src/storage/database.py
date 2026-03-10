@@ -287,23 +287,26 @@ class DatabaseManager:
                             COALESCE(AVG(momentum_score), 0) AS avg_momentum
                         FROM mv_entity_storyline_bridge
                         GROUP BY entity_id
+                    ),
+                    scores AS (
+                        SELECT
+                            e.id,
+                            LEAST(1.0, GREATEST(0.0,
+                                0.3 * (LN(e.mention_count + 1) / mm.max_log)
+                                + 0.3 * (LEAST(COALESCE(ba.storyline_count, 0), 10) / 10.0)
+                                + 0.2 * EXP(-0.1 * LEAST(
+                                    EXTRACT(EPOCH FROM (NOW() - COALESCE(e.last_seen, e.created_at))) / 86400.0,
+                                    90
+                                ))
+                                + 0.2 * COALESCE(ba.avg_momentum, 0)
+                            )) AS score
+                        FROM entities e
+                        CROSS JOIN max_mentions mm
+                        LEFT JOIN bridge_agg ba ON ba.entity_id = e.id
                     )
-                    UPDATE entities e SET
-                        intelligence_score = LEAST(1.0, GREATEST(0.0,
-                            -- mention_freq (0.3)
-                            0.3 * (LN(e.mention_count + 1) / mm.max_log)
-                            -- connectivity (0.3)
-                            + 0.3 * (LEAST(COALESCE(ba.storyline_count, 0), 10) / 10.0)
-                            -- recency (0.2)
-                            + 0.2 * EXP(-0.1 * LEAST(
-                                EXTRACT(EPOCH FROM (NOW() - COALESCE(e.last_seen, e.created_at))) / 86400.0,
-                                90
-                            ))
-                            -- momentum (0.2)
-                            + 0.2 * COALESCE(ba.avg_momentum, 0)
-                        ))
-                    FROM max_mentions mm
-                    LEFT JOIN bridge_agg ba ON ba.entity_id = e.id
+                    UPDATE entities e SET intelligence_score = s.score
+                    FROM scores s
+                    WHERE e.id = s.id
                 """)
                 updated = cur.rowcount
             conn.commit()
