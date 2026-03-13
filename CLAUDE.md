@@ -43,11 +43,12 @@ flake8 src/ scripts/ --max-line-length=120
 ruff check src/
 
 # Run pipeline steps individually
-python -m src.ingestion.pipeline          # 1. Ingest RSS feeds
-python scripts/process_nlp.py             # 2. NLP processing
-python scripts/load_to_database.py        # 3. Load to database
-python scripts/process_narratives.py      # 4. Narrative processing (storylines + graph)
-python scripts/generate_report.py         # 5. Generate LLM report
+python -m src.ingestion.pipeline              # 1. Ingest RSS feeds
+python scripts/fetch_daily_market_data.py     # 2. Fetch market data (optional, continue_on_failure)
+python scripts/process_nlp.py                 # 3. NLP processing
+python scripts/load_to_database.py            # 4. Load to database
+python scripts/process_narratives.py          # 5. Narrative processing (storylines + graph)
+python scripts/generate_report.py             # 6. Generate LLM report
 
 # Full automated pipeline
 python scripts/daily_pipeline.py
@@ -64,7 +65,7 @@ uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 # System health check
 python scripts/check_setup.py
 
-# Daily status check (also runs via launchd at 9:00 AM)
+# Daily status check
 python scripts/pipeline_status_check.py
 ```
 
@@ -95,15 +96,15 @@ RSS Feeds (33) → Ingestion → NLP Processing → PostgreSQL+pgvector → Narr
 4. **Narrative Engine** (`src/nlp/narrative_processor.py`): HDBSCAN micro-clustering of orphan events, embedding-based matching to existing storylines, LLM summary evolution (Gemini 2.0 Flash), TF-IDF weighted Jaccard entity-overlap graph edges (uses `entity_idf` materialized view), momentum scoring with decay, **post-clustering validation filter** (regex-based off-topic archival). Community detection via `scripts/compute_communities.py` (Louvain algorithm).
 5. **Report Generation** (`src/llm/`): Google Gemini 2.5 Flash, 2-stage RAG (vector search → cross-encoder reranking with ms-marco-MiniLM), **narrative storyline context** (top 10 storylines injected as XML), trade signal extraction, "Strategic Storyline Tracker" section
 6. **HITL** (`src/hitl/`, `Home.py`): Streamlit dashboard for review, editing, rating, feedback loop
-7. **Automation** (`scripts/daily_pipeline.py`): 6 core steps (ingestion → market_data → nlp_processing → load_to_database → **narrative_processing** → generate_report) + 2 conditional steps (weekly_report on Sundays → monthly_recap after 4 weekly reports), launchd scheduling at 8:00 AM; `pipeline_status_check.py` runs at 9:00 AM
+7. **Automation** (`scripts/daily_pipeline.py`): 6 core steps (ingestion → market_data → nlp_processing → load_to_database → **narrative_processing** → generate_report) + 2 conditional steps (weekly_report on Sundays → monthly_recap after 4 weekly reports); scheduled via **GitHub Actions** on Hetzner
 
 ### Key Modules by Size/Complexity
 
 - `src/llm/report_generator.py` (~2700 lines) — Core LLM integration, RAG pipeline, trade signals, narrative storyline context
-- `src/storage/database.py` (~1995 lines) — All PostgreSQL/pgvector operations
-- `src/nlp/narrative_processor.py` (~1320 lines) — **Narrative Engine**: HDBSCAN clustering, storyline matching, LLM evolution, TF-IDF weighted Jaccard graph edges (threshold 0.05), entity sanitization (`_is_garbage_entity`, `_clean_entity`), momentum decay, post-clustering validation. Graph candidate query includes `stabilized` storylines.
+- `src/storage/database.py` (~2445 lines) — All PostgreSQL/pgvector operations
+- `src/nlp/narrative_processor.py` (~1498 lines) — **Narrative Engine**: HDBSCAN clustering, storyline matching, LLM evolution, TF-IDF weighted Jaccard graph edges (threshold 0.05), entity sanitization (`_is_garbage_entity`, `_clean_entity`), momentum decay, post-clustering validation. Graph candidate query includes `stabilized` storylines.
 - `src/nlp/story_manager.py` — **DELETED** (legacy storyline clustering, fully replaced by narrative_processor)
-- `src/nlp/processing.py` (~610 lines) — NLP pipeline: cleaning, chunking, NER, embeddings
+- `src/nlp/processing.py` (~603 lines) — NLP pipeline: cleaning, chunking, NER, embeddings
 - `src/nlp/relevance_filter.py` — LLM-based article relevance classification (Gemini 2.0 Flash)
 - `scripts/compute_communities.py` (~198 lines) — Louvain community detection for storyline graph (python-louvain + networkx); saves community_id to storylines table. Defaults: `min_weight=0.05`, `resolution=0.2`.
 - `src/integrations/openbb_service.py` (~1026 lines) — OpenBB financial data integration
@@ -128,7 +129,8 @@ Located in `web-platform/`. Uses Next.js 16 App Router, React 19, Tailwind CSS 4
 | `/api/v1/dashboard/` | `routers/dashboard.py` | Stats, KPIs |
 | `/api/v1/reports/` | `routers/reports.py` | Report list, detail |
 | `/api/v1/stories/` | `routers/stories.py` | Storyline list, detail, **graph network**, **community listing**, **ego network** |
-| `/api/v1/map/` | `main.py` | GeoJSON entities for map |
+| `/api/v1/map/` | `routers/map.py` | GeoJSON entities, arcs, stats, cache invalidate |
+| `/api/v1/oracle/` | `routers/oracle.py` | Oracle 2.0 chat (`POST /chat` rate limit 3/min, `GET /health`) |
 
 ### Narrative Engine (3-Layer Filtering)
 
@@ -154,7 +156,7 @@ Off-topic content is filtered at 3 pipeline stages:
 - `config/top_50_tickers.yaml` — Geopolitical market movers with aliases for NER matching
 - `config/entity_blocklist.yaml` — Noise filtering for extracted entities
 - `.env` — Database URL, API keys (Gemini, FRED), app settings (see `.env.example`)
-- `migrations/` — 17+ incremental SQL migration files, applied manually via `psql` or through `load_to_database.py --init-only` (includes narrative engine schema: storylines, storyline_edges, views, entity_idf materialized view, community_id column, graph cleanup, migration 017 adds `stabilized` to views)
+- `migrations/` — 19+ incremental SQL migration files, applied manually via `psql` or through `load_to_database.py --init-only` (includes narrative engine schema: storylines, storyline_edges, views, entity_idf materialized view, community_id column, graph cleanup, migration 017 adds `stabilized` to views, 018 orphan_events, 019 mv_entity_storyline_bridge + intelligence_score on entities)
 
 ## Key Technical Patterns
 

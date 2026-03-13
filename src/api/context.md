@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This module is the FastAPI REST backend for the Intelligence ITA platform. It exposes structured JSON endpoints consumed by the Next.js frontend (`web-platform/`) and, for map data, potentially other clients. It provides four logical groups of endpoints: GeoJSON entity map data (inline in `main.py`), dashboard statistics, report listing/detail, and storyline narrative graph data.
+This module is the FastAPI REST backend for the Intelligence ITA platform. It exposes structured JSON endpoints consumed by the Next.js frontend (`web-platform/`) and, for map data, potentially other clients. It provides four logical groups of endpoints: GeoJSON entity map data (`routers/map.py`), dashboard statistics, report listing/detail, and storyline narrative graph data.
 
 ## Architecture Role
 
@@ -24,7 +24,8 @@ Key database objects consumed:
 
 | File | Description |
 |------|-------------|
-| `main.py` | FastAPI application entry point. Configures the app, CORS middleware, rate limiter, and includes the three sub-routers. Also defines the inline map endpoints (`/api/v1/map/entities`, `/api/v1/map/entities/{entity_id}`) with raw SQL queries and local Pydantic models (`EntityProperties`, `EntityFeature`, `EntityCollection`). |
+| `main.py` | FastAPI application entry point. Configures the app, CORS middleware, rate limiter, and includes all sub-routers (dashboard, reports, stories, map, oracle). |
+| `routers/map.py` | Dedicated map router. Handles all `/api/v1/map/` endpoints with in-memory TTL cache (5 min). Uses `JSONResponse` (not ORJSONResponse). Endpoints: `GET /entities` (GeoJSON FeatureCollection with filters), `GET /entities/{id}` (entity detail + storylines), `GET /arcs` (co-occurrence LineStrings), `GET /stats` (HUD stats), `POST /cache/invalidate`. |
 | `auth.py` | Shared authentication module. Implements `verify_api_key` as a FastAPI dependency using `APIKeyHeader`. Uses `secrets.compare_digest` for timing-safe comparison. Supports a dev-mode bypass when `INTELLIGENCE_API_KEY` is unset and `ENVIRONMENT != "production"`. |
 | `routers/dashboard.py` | Dashboard statistics router. Aggregates article counts, entity counts, geocoding coverage, top sources, top mentioned entities, and report quality metrics into a single `DashboardStats` response. Uses multiple private helper functions (`_get_entity_stats`, `_get_quality_stats`, `_get_date_range`, `_count_reports`, `_calc_coverage`), each opening its own DB connection. |
 | `routers/reports.py` | Reports router. Supports paginated listing with filters (status, type, date range) and detailed retrieval by ID including sources and per-section feedback. Handles two source JSON shapes (flat list vs. dict with `recent_articles`/`historical_context` keys). Derives the report title from metadata, the first content line, or a fallback. |
@@ -40,8 +41,11 @@ Key database objects consumed:
 |--------|------|--------|-------------|---------------|
 | GET | `/` | main.py | API root, returns name and status | No |
 | GET | `/health` | main.py | Health check | No |
-| GET | `/api/v1/map/entities` | main.py | GeoJSON FeatureCollection of geocoded entities (limit 1–5000, default 5000) | Yes |
-| GET | `/api/v1/map/entities/{entity_id}` | main.py | Single entity detail with up to 10 related articles | Yes |
+| GET | `/api/v1/map/entities` | routers/map.py | GeoJSON FeatureCollection with filters: entity_type, days, min_mentions, min_score, search; limit 1–10000, default 5000; cached 5min | Yes |
+| GET | `/api/v1/map/entities/{entity_id}` | routers/map.py | Entity detail with related articles and storylines | Yes |
+| GET | `/api/v1/map/arcs` | routers/map.py | GeoJSON LineStrings for entity pairs sharing storylines; params: min_score (default 0.3), limit (default 300); cached 5min | Yes |
+| GET | `/api/v1/map/stats` | routers/map.py | Live HUD stats: entity counts, geocoded count, active storylines, type breakdown | Yes |
+| POST | `/api/v1/map/cache/invalidate` | routers/map.py | Invalidate map entity cache (called by refresh_map_data.py after pipeline) | Yes |
 | GET | `/api/v1/dashboard/stats` | routers/dashboard.py | Aggregated dashboard statistics (overview, articles, entities, quality) | Yes |
 | GET | `/api/v1/reports` | routers/reports.py | Paginated report list; query params: `page`, `per_page`, `status`, `report_type`, `date_from`, `date_to` | Yes |
 | GET | `/api/v1/reports/{report_id}` | routers/reports.py | Full report detail: content, sources, feedback, metadata | Yes |
@@ -50,6 +54,8 @@ Key database objects consumed:
 | GET | `/api/v1/stories/{storyline_id}/network` | routers/stories.py | Ego network: returns the specified node plus all direct neighbors and connecting edges; min_weight=0.05 (lower than graph default to show weaker connections) | Yes |
 | GET | `/api/v1/stories` | routers/stories.py | Paginated storyline list; query params: `page`, `per_page`, `status`; default filter: emerging + active | Yes |
 | GET | `/api/v1/stories/{storyline_id}` | routers/stories.py | Storyline detail with related storylines (up to 10) and recent articles (up to 10) | Yes |
+| POST | `/api/v1/oracle/chat` | routers/oracle.py | Oracle 2.0 chat: NL query → QueryRouter intent classification → tool execution (RAG/SQL/Graph/Market/Aggregation) → LLM synthesis. Body: `query`, `session_id`, `start_date`, `end_date`, `categories`, `gpe_filter`, `mode`, `gemini_api_key` (BYOK). Rate limit: **3/minute per IP**. | Yes |
+| GET | `/api/v1/oracle/health` | routers/oracle.py | Oracle 2.0 service health check | No |
 
 ## Pydantic Schemas
 
@@ -144,7 +150,8 @@ Key database objects consumed:
 | `GET /health` | 10/minute |
 | `GET /api/v1/map/entities` | 30/minute |
 | `GET /api/v1/map/entities/{entity_id}` | 60/minute |
-| All router endpoints (dashboard, reports, stories) | No `@limiter.limit` decorator — not individually rate-limited |
+| `POST /api/v1/oracle/chat` | 3/minute |
+| All other router endpoints (dashboard, reports, stories) | No `@limiter.limit` decorator — not individually rate-limited |
 
 ## Data Flow
 
@@ -167,7 +174,7 @@ Client request
     │       ├── reports.py    → dynamic WHERE + LIMIT/OFFSET SQL → ReportListItem[] or ReportDetail
     │       ├── stories.py    → v_active_storylines + v_storyline_graph views → GraphNetwork,
     │       │                   or storylines table + storyline_edges + article_storylines → StorylineDetail
-    │       └── main.py       → db.get_entities_with_coordinates() or inline SQL → EntityCollection
+    │       └── map.py        → db.get_entities_for_map() / get_entity_arcs() / get_map_stats() → JSONResponse (GeoJSON)
     │
     └── JSON response
             ├── dashboard: APIResponse[DashboardStats] (response_model declared)
@@ -187,7 +194,7 @@ Client request
 
 **CORS is GET/OPTIONS only:** `allow_methods=["GET", "OPTIONS"]` — the API is read-only by design. Browser-originated POST/PUT/DELETE requests will be blocked by CORS.
 
-**Rate limiting scope:** `@limiter.limit(...)` is only applied to the four endpoints defined directly in `main.py`. The dashboard, reports, and stories router endpoints have no per-endpoint rate limit decorator. The global `RateLimitExceeded` exception handler is registered on the app, so adding limits to routers requires only adding the decorator.
+**Rate limiting scope:** `@limiter.limit(...)` is applied to the four endpoints defined directly in `main.py` and to `POST /api/v1/oracle/chat` (3/min). The dashboard, reports, and stories router endpoints have no per-endpoint rate limit decorator. The global `RateLimitExceeded` exception handler is registered on the app, so adding limits to routers requires only adding the decorator.
 
 **DatabaseManager instantiated per request:** Each router handler calls `get_db()` which creates `DatabaseManager()` on every request. The class internally uses `psycopg2.pool.SimpleConnectionPool`, so connection pooling happens at that layer — not at the FastAPI dependency level.
 

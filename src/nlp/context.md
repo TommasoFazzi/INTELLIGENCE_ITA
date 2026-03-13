@@ -15,7 +15,7 @@ Processing layer between ingestion and storage. Takes JSON output from `src/inge
   - Embeddings: `generate_embedding()`, `generate_chunk_embeddings()` - 384-dim (`paraphrase-multilingual-MiniLM-L12-v2`)
   - Batch Processing: `process_article()`, `process_batch()`
 
-- `narrative_processor.py` - **Narrative Engine** (~1320 lines)
+- `narrative_processor.py` - **Narrative Engine** (~1498 lines)
   - `NarrativeProcessor` class - Full storyline lifecycle
   - **Key tunable constants:**
     - `MICRO_CLUSTER_THRESHOLD = 0.90` — cosine sim threshold for near-duplicate grouping
@@ -40,6 +40,8 @@ Processing layer between ingestion and storage. Takes JSON output from `src/inge
   - **Stage 3 — HDBSCAN discovery:**
     - `_cluster_residuals(orphaned_events)` — Applies HDBSCAN (metric='euclidean' on unit vectors) to orphaned events; noise points become individual storylines; returns list of created storyline IDs
     - `_create_storyline_from_events(events)` — Creates a new storyline record from one or more events, initial `narrative_status='emerging'`, `momentum_score=0.5`
+  - **Stage 3.5 — Orphan buffer retry:**
+    - `_retry_orphan_pool()` — Attempts to re-match events stored in the `orphan_events` buffer pool against currently active storylines before HDBSCAN clustering; events that find a match are removed from the pool; events older than 14 days are expired; reduces noise in HDBSCAN by recovering events that were too sparse on their original run
   - **Stage 4 — LLM summary evolution:**
     - `_evolve_narrative_summary(storyline_id)` — Calls Gemini 2.0 Flash (Italian prompt); new storylines get title+summary from scratch, existing ones integrate new facts while preserving historical context; also encodes `summary_vector` via sentence-transformers; max_output_tokens=400, temperature=0.3, timeout=30s
     - LLM prompt includes `ENTITÀ:` field — Gemini extracts structured entities from article text, which are then filtered through `_is_garbage_entity()` before storage

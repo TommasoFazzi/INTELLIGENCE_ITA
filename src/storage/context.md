@@ -36,7 +36,12 @@ Central persistence layer between the processing pipeline and intelligence gener
 
   **Specialized Methods:**
   - `get_all_article_embeddings(days, exclude_assigned)` - Returns articles with embeddings for storyline clustering; `exclude_assigned=True` skips articles already in `article_storylines` (used by `NarrativeProcessor.process_daily_batch`)
-  - `get_entities_with_coordinates()` - GeoJSON output for map
+  - `get_entities_with_coordinates()` - GeoJSON output for map (legacy; new map router uses `get_entities_for_map`)
+  - `get_entities_for_map(limit, entity_types, days, min_mentions, min_score, search)` - GeoJSON FeatureCollection with enriched properties (intelligence_score, storyline_count, top_storyline, community_id); supports filtering by type, recency, score, search
+  - `get_entity_detail_with_storylines(entity_id)` - Full entity detail with related articles and storylines (traverses entity_mentions → articles → article_storylines)
+  - `get_entity_arcs(min_score, limit)` - GeoJSON LineStrings for entity pairs sharing storylines; both endpoints must have intelligence_score ≥ min_score
+  - `get_map_stats()` - Live HUD stats: total entities, geocoded count, active storylines, type breakdown
+  - `compute_intelligence_scores()` - Updates `intelligence_score` on `entities` table using `mv_entity_storyline_bridge`; uses a `scores` CTE to avoid PostgreSQL UPDATE-FROM self-join limitation
   - `update_report_embedding(report_id, embedding)` - Updates `summary_vector` for a report
   - `semantic_search_reports()` - Search reports by embedding (for Oracle)
   - `get_reports_by_date_range()` - For weekly meta-analysis
@@ -48,6 +53,7 @@ Central persistence layer between the processing pipeline and intelligence gener
 | `v_active_storylines` | Active storylines ordered by momentum_score DESC, with article_count, community_id |
 | `v_storyline_graph` | Edges between active storylines, includes source/target titles |
 | `entity_idf` (materialized) | TF-IDF inverse document frequency weights for entities; used by graph builder for weighted Jaccard. Refreshed by migration 016 cleanup and `REFRESH MATERIALIZED VIEW entity_idf`. |
+| `mv_entity_storyline_bridge` (materialized) | Pre-aggregates per-entity: storyline count, max momentum, bridge score. Used by `compute_intelligence_scores()` for fast bulk updates to `entities.intelligence_score`. Created by migration 019. |
 
 These views are consumed by both the report generator (top 10 storylines for narrative context) and the API (`/api/v1/stories/graph`).
 
@@ -88,7 +94,7 @@ These views are consumed by both the report generator (top 10 storylines for nar
 | `chunks` | 500-word chunks with 384-dim embeddings for RAG |
 | `reports` | Generated intelligence reports (draft/final/status) |
 | `report_feedback` | Human corrections, ratings, comments |
-| `entities` | Named entities with coordinates for map |
+| `entities` | Named entities with coordinates for map; includes `intelligence_score` column (migration 019) |
 | **`storylines`** | Narrative threads: title, summary, embedding, momentum_score, narrative_status (emerging/active/stabilized/archived), **community_id** (Louvain community assignment from `scripts/compute_communities.py`) |
 | **`storyline_edges`** | Graph edges: source_story_id → target_story_id, TF-IDF weighted Jaccard weight, relation_type |
 | **`article_storylines`** | Junction table: article_id ↔ storyline_id, relevance_score |
