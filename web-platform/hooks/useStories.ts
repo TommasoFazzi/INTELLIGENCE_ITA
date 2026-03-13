@@ -114,3 +114,93 @@ export function useStorylineDetail(storylineId: number | null) {
     error,
   };
 }
+
+// ─── Ticker-related types ─────────────────────────────────────────────────
+
+interface TickerEntry {
+  name: string;
+  ticker: string;
+  exchange: string;
+  aliases: string[];
+  category: string;
+}
+
+interface TickerListData {
+  categories: Record<string, TickerEntry[]>;
+  total: number;
+}
+
+interface TickerListResponse {
+  success: boolean;
+  data: TickerListData;
+  generated_at: string;
+}
+
+interface TickerThemeMatch {
+  storyline_id: number;
+  title: string;
+  momentum_score: number;
+  article_count: number;
+  community_id: number | null;
+}
+
+interface TickerThemesData {
+  ticker: string;
+  name: string;
+  themes: TickerThemeMatch[];
+  days: number;
+  total_themes: number;
+}
+
+interface TickerThemesResponse {
+  success: boolean;
+  data: TickerThemesData;
+  generated_at: string;
+}
+
+/**
+ * Hook for fetching all available tickers (on-demand, cached, no polling).
+ * Returns tickers organized by category.
+ */
+export function useTickerList() {
+  const { data, error, isLoading } = useSWR<TickerListResponse, ApiError>(
+    '/api/proxy/stories/tickers',
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 300000, // cache for 5 minutes
+      errorRetryCount: 2,
+      shouldRetryOnError: (err: ApiError) => !err.isOffline,
+    }
+  );
+
+  return {
+    tickers: data?.data ?? null,
+    isLoading,
+    error,
+  };
+}
+
+/**
+ * Hook for fetching ticker-correlated storylines (on-demand, no polling).
+ * Returns the top N storylines for a given ticker.
+ * The key is null when ticker is null, which disables the SWR hook.
+ */
+export function useTickerThemes(ticker: string | null, topN: number = 5, days: number = 30) {
+  const { data, error, isLoading } = useSWR<TickerThemesResponse, ApiError>(
+    ticker ? `/api/proxy/stories/ticker/${ticker}?top_n=${topN}&days=${days}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000, // cache for 1 minute
+      errorRetryCount: 2,
+      shouldRetryOnError: (err: ApiError) => !err.isOffline,
+    }
+  );
+
+  return {
+    themes: data?.data ?? null,
+    isLoading,
+    error,
+  };
+}

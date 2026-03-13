@@ -159,12 +159,30 @@ def main():
         logger.error(f"Failed to process articles: {e}", exc_info=True)
         return 1
 
+    # Generate bullet points for successfully processed articles
+    logger.info("\n[STEP 3] Generating AI bullet points...")
+    try:
+        from src.nlp.bullet_generator import BulletGenerator
+        bullet_gen = BulletGenerator()
+
+        # Filter to only successfully processed articles
+        successful_articles = [a for a in processed_articles if a.get('nlp_processing', {}).get('success')]
+        logger.info(f"Generating bullets for {len(successful_articles)} successfully processed articles...")
+
+        processed_articles = bullet_gen.generate_batch(processed_articles, skip_errors=True, show_progress=True)
+
+        bullets_count = sum(1 for a in processed_articles if a.get('nlp_data', {}).get('bullet_points'))
+        logger.info(f"✓ Generated bullets for {bullets_count} articles")
+    except Exception as e:
+        logger.warning(f"Bullet generation failed: {e}. Proceeding without bullets.")
+        # Don't fail the whole pipeline - bullets are optional
+
     # Generate output filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_file = Path("data") / f"articles_nlp_{timestamp}.json"
 
     # Save processed articles
-    logger.info("\n[STEP 3] Saving processed articles...")
+    logger.info("\n[STEP 4] Saving processed articles...")
     try:
         save_processed_articles(processed_articles, output_file)
     except Exception as e:

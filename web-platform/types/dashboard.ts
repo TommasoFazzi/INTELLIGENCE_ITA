@@ -109,6 +109,7 @@ export interface ReportSource {
   title: string;
   link: string;
   relevance_score: number | null;
+  bullet_points?: string[];
 }
 
 export interface ReportFeedback {
@@ -150,6 +151,35 @@ export interface ReportDetail {
 export interface ReportDetailResponse {
   success: boolean;
   data: ReportDetail;
+  generated_at: string;
+}
+
+// Report Comparison Types
+
+export interface ComparisonDelta {
+  new_developments: string[];
+  resolved_topics: string[];
+  trend_shifts: string[];
+  persistent_themes: string[];
+}
+
+export interface ReportComparisonData {
+  report_a: {
+    id: number;
+    date: string;
+    type: ReportType;
+  };
+  report_b: {
+    id: number;
+    date: string;
+    type: ReportType;
+  };
+  delta: ComparisonDelta;
+}
+
+export interface ReportComparisonResponse {
+  success: boolean;
+  data: ReportComparisonData;
   generated_at: string;
 }
 

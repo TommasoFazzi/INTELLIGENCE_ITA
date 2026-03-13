@@ -20,7 +20,7 @@ from slowapi.errors import RateLimitExceeded
 
 from src.storage.database import DatabaseManager
 from src.utils.logger import get_logger
-from src.api.routers import dashboard, reports, stories, oracle, map as map_router
+from src.api.routers import dashboard, reports, stories, oracle, map as map_router, ingest
 from src.api.auth import verify_api_key
 from src.api.limiter import limiter
 
@@ -58,6 +58,7 @@ app.include_router(reports.router)
 app.include_router(stories.router)
 app.include_router(oracle.router)
 app.include_router(map_router.router)
+app.include_router(ingest.router)
 
 
 # ===================================================================

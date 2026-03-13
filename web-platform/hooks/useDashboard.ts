@@ -1,7 +1,7 @@
 'use client';
 
 import useSWR from 'swr';
-import type { DashboardStatsResponse, ReportsResponse, ReportDetailResponse, ApiError } from '@/types/dashboard';
+import type { DashboardStatsResponse, ReportsResponse, ReportDetailResponse, ReportComparisonResponse, ApiError } from '@/types/dashboard';
 
 /**
  * SWR fetcher with error handling and timeout
@@ -116,6 +116,30 @@ export function useReportDetail(reportId: number | null) {
 
   return {
     report: data?.data,
+    isLoading,
+    error,
+  };
+}
+
+/**
+ * Hook for comparing two reports and getting delta analysis
+ * Key is null when either ID is null, disabling the SWR hook
+ */
+export function useReportCompare(reportIdA: number | null, reportIdB: number | null) {
+  const key = reportIdA && reportIdB ? `/api/proxy/reports/compare?ids=${reportIdA},${reportIdB}` : null;
+  const { data, error, isLoading } = useSWR<ReportComparisonResponse, ApiError>(
+    key,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 86400000,       // Cache comparison for 24 hours (reports are static)
+      errorRetryCount: 1,               // Minimal retry for expensive LLM call
+      shouldRetryOnError: (err: ApiError) => !err.isOffline,
+    }
+  );
+
+  return {
+    comparison: data?.data,
     isLoading,
     error,
   };

@@ -14,6 +14,7 @@ class ReportSource(BaseModel):
     title: str
     link: str
     relevance_score: Optional[float] = None
+    bullet_points: list[str] = Field(default_factory=list, description="AI-generated bullet point summary")
 
 
 class ReportFeedback(BaseModel):

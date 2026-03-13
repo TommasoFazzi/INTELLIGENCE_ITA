@@ -47,6 +47,11 @@ INTENT_EXAMPLES = {
         "Come è cambiata la situazione in Iran rispetto a 6 mesi fa?",
         "Differenze tra la narrativa europea e americana sulla NATO",
     ],
+    "ticker": [
+        "Quali sono i temi principali per RTX?",
+        "Mostrami le storyline correlate a NVDA",
+        "Temi associati al ticker tecnologico",
+    ],
 }
 
 # Keywords that signal complexity
@@ -58,6 +63,10 @@ ANALYTICAL_KEYWORDS = {
 COMPLEX_KEYWORDS = {
     "confronta", "vs", "versus", "come si è evoluto", "come è cambiato",
     "rispetto a", "paragona", "differenze", "simile a",
+}
+TICKER_KEYWORDS = {
+    "ticker", "azione", "stock", "rtx", "nvda", "msft", "tsm", "temi",
+    "storyline", "associato", "correlato", "correlate", "correlati",
 }
 
 
@@ -113,6 +122,7 @@ class QueryRouter:
 - narrative: storyline evolution, graph relationships, narrative analysis
 - market: trade signals, macro indicators, investment opportunities
 - comparative: comparing two entities, time periods, or viewpoints
+- ticker: market ticker analysis, company themes, storylines correlated to stock symbols
 
 Examples:
 {examples_block}
@@ -120,7 +130,7 @@ Examples:
 Query: "{query}"
 
 Respond ONLY with valid JSON:
-{{"intent": "factual|analytical|narrative|market|comparative", "confidence": 0.0-1.0, "key_entities": ["entity1", "entity2"]}}"""
+{{"intent": "factual|analytical|narrative|market|comparative|ticker", "confidence": 0.0-1.0, "key_entities": ["entity1", "entity2"]}}"""
 
         try:
             result = self._llm_call_with_retry(
@@ -266,7 +276,7 @@ Respond ONLY with valid JSON:
             ]
 
         elif intent == QueryIntent.COMPARATIVE:
-            tool_names = ["rag_search", "rag_search"]
+            tool_names = ["rag_search", "aggregation"]
             steps = [
                 ExecutionStep(
                     tool_name="rag_search",
@@ -280,8 +290,26 @@ Respond ONLY with valid JSON:
                     is_critical=False,
                 ),
             ]
-            if "aggregation" not in tool_names:
-                tool_names.append("aggregation")
+            # If query mentions "report" and contains numbers, add report_compare tool
+            if "report" in query.lower() and any(char.isdigit() for char in query):
+                tool_names.insert(0, "report_compare")
+                # Report comparison will extract IDs from query dynamically if needed
+
+        elif intent == QueryIntent.TICKER:
+            tool_names = ["ticker_themes", "rag_search"]
+            steps = [
+                ExecutionStep(
+                    tool_name="ticker_themes",
+                    parameters={"query": query, "top_n": 5, "days": 30},
+                    description="Find storylines correlated to ticker",
+                ),
+                ExecutionStep(
+                    tool_name="rag_search",
+                    parameters={"query": query, "mode": "strategic", "top_k": 5},
+                    description="Strategic context search",
+                    is_critical=False,
+                ),
+            ]
 
         return tool_names, steps
 

@@ -14,7 +14,15 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
 - `app/page.tsx` - Landing page
 - `app/map/page.tsx` - Tactical map route (SSR metadata + dynamic import)
 - `app/dashboard/page.tsx` - Dashboard route (SWR data fetching)
-- `app/dashboard/report/[id]/page.tsx` - Report detail route
+- `app/dashboard/report/[id]/page.tsx` - **Report detail route (updated with comparison UI)**
+  - State: `compareId` (nullable) to track which report is being compared
+  - Fetches: `report` detail, `compareReport` detail (when `compareId` is set), `comparison` delta (LLM-synthesized)
+  - Conditional layout:
+    - If `compareId === null`: Standard 3-column layout (TOC + content + sources)
+    - If `compareId !== null`: Split 2-column layout with independent scroll per column (`h-[calc(100vh-200px)]`)
+  - Dropdown "Compare with..." in header filters by same `report_type` (daily/weekly)
+  - `ComparisonDelta` banner above split layout, visible with skeleton loader while Gemini processes (10–20s)
+  - "Close ×" button to exit comparison mode
 - **`app/stories/page.tsx`** - Storyline graph route (SSR metadata + dynamic import)
 - `app/sitemap.ts` - Sitemap XML generata server-side (4 route: /, /dashboard, /stories, /map)
 - `app/robots.ts` - robots.txt con riferimento a sitemap.xml
@@ -58,6 +66,15 @@ See `components/StorylineGraph/context.md` for full detail.
   - Momentum section: numeric score, HIGH/MEDIUM/LOW/MINIMAL label (thresholds: ≥0.8, ≥0.5, ≥0.3), article count, days active, animated color bar
   - Summary, key entities (badge list), connected storylines (clickable → `onNavigate(id)`), recent articles (scrollable 300 px, Italian date format)
   - `onNavigate(id)` callback triggers `handleNavigate` in StorylineGraph to center the graph camera
+
+#### Report Components (`components/report/`)
+- `ReportSections.tsx` - Accordion-based report content display with article sources
+  - Displays article metadata, link, relevance score, and optional **bullet points** (key insights from AI analysis)
+  - Expandable bullet points section with toggle state tracking per article
+- **`ComparisonDelta.tsx`** (new) - Delta analysis banner for report comparisons
+  - 4 collapsible sections: new_developments (green ✨), resolved_topics (orange ✓), trend_shifts (blue ⚡), persistent_themes (gray ⊗)
+  - Skeleton loader during LLM processing (10–20 seconds)
+  - Collapsible design with default expanded state
 
 #### Dashboard Components (`components/dashboard/`)
 - `StatsCard.tsx` - Individual KPI card
@@ -105,13 +122,24 @@ Next.js Route Handler that forwards GET/POST requests from the browser to the Fa
 ### Types & Hooks
 - `types/entities.ts` - Entity TypeScript interfaces
 - `types/dashboard.ts` - Dashboard TypeScript interfaces
+  - **`ComparisonDelta`** (new) — new_developments, resolved_topics, trend_shifts, persistent_themes arrays
+  - **`ReportComparisonResponse`** (new) — report_a, report_b metadata + delta object
+  - **`ReportSource` updated** — added optional `bullet_points?: string[]` field for AI-extracted key insights
 - **`types/oracle.ts`** - Oracle 2.0 TypeScript interfaces:
   - `OracleSource`, `QueryPlan`, `ExecutionStep`, `OracleResponse`, `OracleChatMessage`, `OracleChatFilters`
+- **`types/stories.ts` updated** — `LinkedArticle` now includes optional `bullet_points?: string[]` field
 - **`hooks/useOracleChat.ts`** - Oracle chat state management:
   - `useOracleChat()` → `{ messages, isLoading, error, sendMessage, clearMessages, lastAssistantMessage }`
   - Stable `session_id` via `crypto.randomUUID()` (persists within browser session, reset on `clearMessages`)
   - POST to `/api/proxy/oracle/chat` with 120s `AbortController` timeout
   - Optimistic user message insertion before API response
+- **`hooks/useDashboard.ts` updated**:
+  - **`useReportCompare(idA, idB)`** (new) — SWR hook for delta analysis
+  - Calls `GET /api/proxy/reports/compare?ids=A,B`
+  - Key is `null` when either ID is `null` (no-fetch behavior)
+  - 24-hour cache (`dedupingInterval: 86400000`) — reports are static
+  - 1 retry on error when online
+  - Returns `{ comparison, isLoading, error }`
 - **`types/stories.ts`** - Storyline graph TypeScript interfaces:
   - `NarrativeStatus` — `'emerging' | 'active' | 'stabilized'`
   - `StorylineNode` — id, title, summary, category, narrative_status, momentum_score, article_count, key_entities, start_date, last_update, days_active

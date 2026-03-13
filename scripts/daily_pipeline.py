@@ -4,6 +4,7 @@ Daily Intelligence Pipeline Orchestrator
 
 Esegue la pipeline giornaliera completa:
 1. Ingestion (RSS feeds)
+1.5. PDF Ingestion (documenti istituzionali)
 2. Market Data (OpenBB)
 3. NLP Processing
 4. Database Loading
@@ -92,6 +93,13 @@ DEFAULT_STEPS = [
         description="Fetch e parsing degli RSS feeds",
         timeout_seconds=900,  # 15 min
         continue_on_failure=False
+    ),
+    PipelineStep(
+        name="pdf_ingestion",
+        command="python scripts/ingest_pdfs.py --all --max-age-days 7",
+        description="Ingestion di documenti PDF istituzionali",
+        timeout_seconds=600,  # 10 min
+        continue_on_failure=True  # PDF ingestion è opzionale
     ),
     PipelineStep(
         name="market_data",

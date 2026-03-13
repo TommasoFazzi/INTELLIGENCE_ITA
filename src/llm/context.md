@@ -57,6 +57,8 @@ Intelligence synthesis layer that consumes context from the vector database and 
   - `aggregation_tool.py` - `AggregationTool` - pre-parametrized stats (trend_over_time, top_n, distribution, statistics)
   - `graph_tool.py` - `GraphTool` - recursive CTE graph traversal on `storyline_edges`
   - `market_tool.py` - `MarketTool` - trade_signals and macro_indicators analysis
+  - `ticker_themes_tool.py` - **`TickerThemesTool`** — Finds storylines correlated to a market ticker (Milestone B)
+  - `report_compare_tool.py` - **`ReportCompareTool`** — Compares two reports via `compare_reports()` service, returns Gemini-synthesized delta (Milestone C)
 
 - `schemas.py` - Pydantic schemas for structured LLM output
   - `IntelligenceReportMVP`, `IntelligenceReport`, `TradeSignal`, `ImpactScore`

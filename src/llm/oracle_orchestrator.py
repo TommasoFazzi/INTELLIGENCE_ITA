@@ -41,6 +41,8 @@ from .tools.sql_tool import SQLTool
 from .tools.aggregation_tool import AggregationTool
 from .tools.graph_tool import GraphTool
 from .tools.market_tool import MarketTool
+from .tools.ticker_themes_tool import TickerThemesTool
+from .tools.report_compare_tool import ReportCompareTool
 from .tools.base import ToolResult
 from ..storage.database import DatabaseManager
 from ..utils.logger import get_logger
@@ -99,7 +101,7 @@ class OracleOrchestrator:
     # ── Tool registration ──────────────────────────────────────────────────────
 
     def _register_tools(self):
-        for tool_class in (RAGTool, SQLTool, AggregationTool, GraphTool, MarketTool):
+        for tool_class in (RAGTool, SQLTool, AggregationTool, GraphTool, MarketTool, TickerThemesTool, ReportCompareTool):
             self.tool_registry.register(tool_class, db=self.db, llm=self.llm)
         logger.info(f"Registered tools: {self.tool_registry.registered_names()}")
 

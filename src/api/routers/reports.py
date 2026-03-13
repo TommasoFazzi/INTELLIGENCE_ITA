@@ -12,6 +12,7 @@ from ..schemas.reports import (
 )
 from ...storage.database import DatabaseManager
 from ..auth import verify_api_key
+from ...services.report_compare_service import compare_reports
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,101 @@ async def list_reports(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/compare")
+async def compare_two_reports(
+    ids: str = Query(..., description="Comma-separated report IDs, e.g. '42,38'"),
+    api_key: str = Depends(verify_api_key),
+):
+    """
+    Compare two reports and get LLM-synthesized delta analysis.
+
+    Identifies new developments, resolved topics, trend shifts, and persistent themes.
+
+    - **ids**: Comma-separated report IDs (exactly 2 required)
+    """
+    db = get_db()
+    try:
+        # Parse IDs
+        try:
+            id_parts = [int(x.strip()) for x in ids.split(",") if x.strip()]
+        except ValueError:
+            raise HTTPException(status_code=422, detail="ids must be comma-separated integers")
+
+        if len(id_parts) != 2:
+            raise HTTPException(status_code=422, detail="Exactly 2 report IDs required")
+
+        id_a, id_b = id_parts[0], id_parts[1]
+
+        # Fetch both reports from DB
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                # Fetch report A
+                cur.execute("""
+                    SELECT id, report_date, report_type, status,
+                           draft_content, final_content
+                    FROM reports
+                    WHERE id = %s
+                """, [id_a])
+                row_a = cur.fetchone()
+
+                # Fetch report B
+                cur.execute("""
+                    SELECT id, report_date, report_type, status,
+                           draft_content, final_content
+                    FROM reports
+                    WHERE id = %s
+                """, [id_b])
+                row_b = cur.fetchone()
+
+        if not row_a or not row_b:
+            raise HTTPException(status_code=404, detail="One or both reports not found")
+
+        # Build report dicts for comparison service
+        report_a = {
+            'id': row_a[0],
+            'report_date': row_a[1],
+            'report_type': row_a[2],
+            'status': row_a[3],
+            'draft_content': row_a[4],
+            'final_content': row_a[5],
+        }
+        report_b = {
+            'id': row_b[0],
+            'report_date': row_b[1],
+            'report_type': row_b[2],
+            'status': row_b[3],
+            'draft_content': row_b[4],
+            'final_content': row_b[5],
+        }
+
+        # Call comparison service (LLM delta analysis)
+        delta = compare_reports(report_a, report_b)
+
+        return {
+            "success": True,
+            "data": {
+                "report_a": {
+                    "id": id_a,
+                    "date": str(report_a["report_date"]),
+                    "type": report_a["report_type"]
+                },
+                "report_b": {
+                    "id": id_b,
+                    "date": str(report_b["report_date"]),
+                    "type": report_b["report_type"]
+                },
+                "delta": delta
+            },
+            "generated_at": datetime.utcnow().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Compare reports error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
+
+
 @router.get("/{report_id}")
 async def get_report(report_id: int, api_key: str = Depends(verify_api_key)):
     """
@@ -176,6 +272,15 @@ async def get_report(report_id: int, api_key: str = Depends(verify_api_key)):
                 """, [report_id])
                 feedback_rows = cur.fetchall()
 
+                # Get bullet points for articles (will be joined later)
+                cur.execute("""
+                    SELECT article_id, ai_analysis->'bullet_points' as bullet_points
+                    FROM articles
+                    WHERE ai_analysis IS NOT NULL
+                """)
+                bullets_rows = cur.fetchall()
+                bullets_map = {row[0]: row[1] for row in bullets_rows if row[0] and row[1]}
+
         # Parse content (use _safe_str to handle any invalid UTF-8 sequences in stored data)
         content_text = _safe_str(row[6]) or _safe_str(row[5])
         metadata = row[7] or {}
@@ -193,11 +298,23 @@ async def get_report(report_id: int, api_key: str = Depends(verify_api_key)):
 
         for s in source_items:
             if isinstance(s, dict):
+                article_id = s.get('article_id', 0)
+                # Get bullet points from the bullets_map if available
+                bullet_points = bullets_map.get(article_id, [])
+                # Handle case where bullets are stored as JSON string
+                if isinstance(bullet_points, str):
+                    import json
+                    try:
+                        bullet_points = json.loads(bullet_points)
+                    except:
+                        bullet_points = []
+
                 sources.append(ReportSource(
-                    article_id=s.get('article_id', 0),
+                    article_id=article_id,
                     title=s.get('title', ''),
                     link=s.get('link', ''),
-                    relevance_score=s.get('relevance_score') or s.get('similarity')
+                    relevance_score=s.get('relevance_score') or s.get('similarity'),
+                    bullet_points=bullet_points if isinstance(bullet_points, list) else []
                 ))
 
         # Derive title: metadata title > first line of content > fallback

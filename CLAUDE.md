@@ -127,7 +127,7 @@ Located in `web-platform/`. Uses Next.js 16 App Router, React 19, Tailwind CSS 4
 | Prefix | Router | Description |
 |--------|--------|-------------|
 | `/api/v1/dashboard/` | `routers/dashboard.py` | Stats, KPIs |
-| `/api/v1/reports/` | `routers/reports.py` | Report list, detail |
+| `/api/v1/reports/` | `routers/reports.py` | Report list, detail, **`GET /compare?ids=A,B` — LLM delta analysis** |
 | `/api/v1/stories/` | `routers/stories.py` | Storyline list, detail, **graph network**, **community listing**, **ego network** |
 | `/api/v1/map/` | `routers/map.py` | GeoJSON entities, arcs, stats, cache invalidate |
 | `/api/v1/oracle/` | `routers/oracle.py` | Oracle 2.0 chat (`POST /chat` rate limit 3/min, `GET /health`) |

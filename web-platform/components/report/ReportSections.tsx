@@ -211,12 +211,25 @@ interface SourcesSidebarProps {
 
 export function SourcesSidebar({ sources, highlightedIdx }: SourcesSidebarProps) {
   const highlightRef = useRef<HTMLLIElement>(null);
+  const [expandedBullets, setExpandedBullets] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (highlightedIdx !== null && highlightRef.current) {
       highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [highlightedIdx]);
+
+  const toggleBullets = (idx: number) => {
+    setExpandedBullets((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
+  };
 
   if (sources.length === 0) return null;
 
@@ -228,6 +241,9 @@ export function SourcesSidebar({ sources, highlightedIdx }: SourcesSidebarProps)
       <ul className="space-y-2">
         {sources.map((source, idx) => {
           const isHighlighted = highlightedIdx === idx + 1; // [Article 1] = index 0
+          const hasBullets = source.bullet_points && source.bullet_points.length > 0;
+          const isBulletsExpanded = expandedBullets.has(idx);
+
           return (
             <li
               key={`${source.article_id}-${idx}`}
@@ -261,6 +277,39 @@ export function SourcesSidebar({ sources, highlightedIdx }: SourcesSidebarProps)
                   </span>
                 )}
               </div>
+
+              {/* Bullet Points Section */}
+              {hasBullets && (
+                <div className="mt-2 pt-2 border-t border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => toggleBullets(idx)}
+                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    <ChevronDown
+                      size={12}
+                      className={`transition-transform ${
+                        isBulletsExpanded ? 'rotate-180' : ''
+                      }`}
+                    />
+                    <span>Key Points</span>
+                  </button>
+
+                  {isBulletsExpanded && (
+                    <ul className="mt-1.5 space-y-1.5 ml-1">
+                      {(source.bullet_points ?? []).map((bullet, bulletIdx) => (
+                        <li
+                          key={bulletIdx}
+                          className="text-[10px] text-gray-400 leading-snug flex gap-2"
+                        >
+                          <span className="text-gray-600 flex-shrink-0">•</span>
+                          <span>{bullet}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </li>
           );
         })}

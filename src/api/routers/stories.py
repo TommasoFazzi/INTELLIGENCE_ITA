@@ -14,6 +14,7 @@ from ..schemas.stories import (
 )
 from ...storage.database import DatabaseManager
 from ..auth import verify_api_key
+from ...services.ticker_service import load_tickers_config, get_themes_for_ticker
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,21 @@ def _get_cached_graph(min_weight: float, min_momentum: float) -> Optional[dict]:
 
 def _set_cached_graph(data: dict, min_weight: float, min_momentum: float, ttl: int = 3600) -> None:
     _graph_cache[(min_weight, min_momentum)] = {"data": data, "expires_at": time.time() + ttl}
+
+
+def _parse_bullet_points(bullet_data) -> list[str]:
+    """Parse bullet points from JSONB field (can be string or list)."""
+    if not bullet_data:
+        return []
+    if isinstance(bullet_data, list):
+        return bullet_data
+    if isinstance(bullet_data, str):
+        try:
+            parsed = json.loads(bullet_data)
+            return parsed if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+    return []
 
 
 def get_db() -> DatabaseManager:
@@ -243,6 +259,74 @@ async def list_communities(
 
     except Exception as e:
         logger.error("Communities error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/tickers")
+async def list_tickers(
+    api_key: str = Depends(verify_api_key),
+):
+    """
+    List all available market tickers organized by category.
+
+    Returns ticker symbols, names, exchanges, and aliases for use in frontend filters.
+    Data is cached for 1 hour (YAML config loaded once).
+    """
+    try:
+        config = load_tickers_config()
+
+        # Organize by category
+        categories = {}
+        for ticker_info in config['tickers'].values():
+            category = ticker_info['category']
+            if category not in categories:
+                categories[category] = []
+            categories[category].append(ticker_info)
+
+        return {
+            "success": True,
+            "data": {
+                "categories": categories,
+                "total": config['total']
+            },
+            "generated_at": datetime.utcnow().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error("Tickers list error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/ticker/{ticker}")
+async def get_ticker_themes(
+    ticker: str,
+    top_n: int = Query(5, ge=1, le=20, description="Maximum storylines to return"),
+    days: int = Query(30, ge=1, le=365, description="Look back this many days"),
+    api_key: str = Depends(verify_api_key),
+):
+    """
+    Find storylines correlated to a specific ticker symbol.
+
+    Searches for the ticker's aliases in article key_entities and aggregates
+    the associated storylines by article count and momentum score.
+
+    Returns the top N most-relevant storylines from the past N days.
+    """
+    db = get_db()
+    try:
+        result = get_themes_for_ticker(db, ticker, days=days, top_n=top_n)
+
+        return {
+            "success": True,
+            "data": result,
+            "generated_at": datetime.utcnow().isoformat(),
+        }
+
+    except ValueError as e:
+        # Ticker not found
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("Ticker themes error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -469,9 +553,10 @@ async def get_storyline_detail(storyline_id: int, api_key: str = Depends(verify_
                 """, [storyline_id, storyline_id, storyline_id])
                 related_rows = cur.fetchall()
 
-                # Recent articles (last 10)
+                # Recent articles (last 10) with bullet points
                 cur.execute("""
-                    SELECT a.id, a.title, a.source, a.published_date
+                    SELECT a.id, a.title, a.source, a.published_date,
+                           a.ai_analysis->'bullet_points' as bullet_points
                     FROM article_storylines als
                     JOIN articles a ON als.article_id = a.id
                     WHERE als.storyline_id = %s
@@ -516,6 +601,7 @@ async def get_storyline_detail(storyline_id: int, api_key: str = Depends(verify_
                     id=r[0], title=r[1],
                     source=r[2],
                     published_date=r[3].isoformat() if r[3] else None,
+                    bullet_points=_parse_bullet_points(r[4]) if len(r) > 4 else []
                 )
                 for r in article_rows
             ],

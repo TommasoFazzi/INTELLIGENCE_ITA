@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { useGraphNetwork, useEgoNetwork } from '@/hooks/useStories';
+import { useGraphNetwork, useEgoNetwork, useTickerList, useTickerThemes } from '@/hooks/useStories';
 import StorylineDossier from './StorylineDossier';
 import type { NarrativeStatus } from '@/types/stories';
 
@@ -48,6 +48,11 @@ export default function StorylineGraph() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [minMomentum, setMinMomentum] = useState(0);
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+
+  // Ticker hooks
+  const { tickers } = useTickerList();
+  const { themes } = useTickerThemes(selectedTicker);
 
   // Ego-network state: loaded on node click, overlay on top of frozen global graph
   const { egoNetwork } = useEgoNetwork(selectedId, 0.05);
@@ -55,6 +60,19 @@ export default function StorylineGraph() {
     if (!egoNetwork || !selectedId) return new Set();
     return new Set([selectedId, ...egoNetwork.neighbors.map((n) => n.id)]);
   }, [egoNetwork, selectedId]);
+
+  // Ticker-correlated storylines
+  const tickerHighlightIds = useMemo<Set<number>>(() => {
+    if (!themes || !themes.themes) return new Set();
+    return new Set(themes.themes.map((t) => t.storyline_id));
+  }, [themes]);
+
+  // Zoom to ticker-relevant nodes when ticker is selected
+  useEffect(() => {
+    if (tickerHighlightIds.size > 0 && graphRef.current) {
+      graphRef.current.zoomToFit(400, 50, (node: GraphNode) => tickerHighlightIds.has(node.id));
+    }
+  }, [tickerHighlightIds]);
 
   // Transform API data for react-force-graph (with momentum filter)
   const graphData = useMemo(() => {
@@ -173,7 +191,14 @@ export default function StorylineGraph() {
       // Momentum-as-brightness: low momentum = dimmer, high = full.
       // Clamped to [0.5, 1.0] so even dormant nodes stay visible.
       const momentumBrightness = Math.max(0.5, Math.min(1.0, 0.5 + momentum_score * 0.5));
-      const alpha = isEgoActive && !isNeighbor ? 0.08 : momentumBrightness;
+
+      // Ticker filter: dim non-highlighted nodes (ego mode takes precedence)
+      let alpha = momentumBrightness;
+      if (isEgoActive && !isNeighbor) {
+        alpha = 0.08;
+      } else if (tickerHighlightIds.size > 0 && !isEgoActive && !tickerHighlightIds.has(node.id)) {
+        alpha = 0.08;
+      }
       ctx.globalAlpha = alpha;
 
       // Node radius based on momentum (min 4, max 16)
@@ -224,7 +249,7 @@ export default function StorylineGraph() {
       // Reset alpha so subsequent canvas draws are unaffected
       ctx.globalAlpha = 1.0;
     },
-    [selectedId, hoveredNode, egoNeighborIds, communityColorMap]
+    [selectedId, hoveredNode, egoNeighborIds, communityColorMap, tickerHighlightIds]
   );
 
   // Community label overlay drawn after all nodes
@@ -345,6 +370,41 @@ export default function StorylineGraph() {
       <div className="absolute top-4 right-4 pointer-events-auto">
         {!selectedId && (
           <div className="bg-[#0A1628]/80 backdrop-blur-sm border border-white/10 rounded px-4 py-3 min-w-[190px]">
+            {/* Ticker filter dropdown */}
+            {tickers && (
+              <div className="mb-3">
+                <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">
+                  Filter by Ticker
+                </label>
+                <select
+                  aria-label="Filter storylines by market ticker"
+                  value={selectedTicker ?? ''}
+                  onChange={(e) => setSelectedTicker(e.target.value || null)}
+                  className="w-full bg-black/60 border border-white/10 rounded text-[11px] text-gray-300 px-2 py-1 cursor-pointer"
+                >
+                  <option value="">All Tickers</option>
+                  {Object.entries(tickers.categories).map(([cat, entries]) => (
+                    <optgroup key={cat} label={cat.toUpperCase()}>
+                      {entries.map((e) => (
+                        <option key={e.ticker} value={e.ticker}>
+                          {e.ticker} — {e.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                {selectedTicker && (
+                  <button
+                    onClick={() => setSelectedTicker(null)}
+                    className="mt-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                    type="button"
+                  >
+                    Clear filter ×
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Momentum slider */}
             <div className="mb-3">
               <div className="flex justify-between text-xs font-mono text-gray-500 mb-1">

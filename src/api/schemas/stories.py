@@ -1,6 +1,6 @@
 """Pydantic schemas for Storyline & Graph API responses."""
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class StorylineNode(BaseModel):
@@ -67,6 +67,7 @@ class LinkedArticle(BaseModel):
     title: str
     source: Optional[str] = None
     published_date: Optional[str] = None
+    bullet_points: list[str] = Field(default_factory=list, description="AI-generated bullet point summary")
 
 
 class StorylineDetail(BaseModel):

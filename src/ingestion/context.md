@@ -40,6 +40,15 @@ A single `asyncio.run()` in `pipeline.run()` orchestrates both feed parsing and 
   - `get_summary()` - Statistics by category/source
   - Auto-saves JSON to `data/articles_{timestamp}.json`
 
+- **`pdf_ingestor.py`** - **PDF document ingestion** (Milestone D)
+  - `PDFIngestor` class - Extracts text from PDF files (institutional documents: SIPRI, CRS, ISS, NATO, etc.)
+  - Uses PyMuPDF (`fitz`) for PDF text extraction with fallback error handling
+  - `ingest_from_file(pdf_path, ...)` - Extract from local PDF file
+  - `ingest_from_url_async(pdf_url, ...)` - Async download + extract from URL
+  - `_extract_text_from_pdf(pdf_data)` - Converts PDF bytes to text via PyMuPDF
+  - Outputs article dicts compatible with existing NLP pipeline (same structure as RSS articles)
+  - Reuses `process_nlp.py` and `load_to_database.py` without changes
+
 ## Dependencies
 
 - **Internal**: `src/utils/logger`

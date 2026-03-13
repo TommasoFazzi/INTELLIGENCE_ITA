@@ -457,6 +457,15 @@ class DatabaseManager:
                 stats["saved"] += 1
                 chunks_count = len(article.get('nlp_data', {}).get('chunks', []))
                 stats["total_chunks"] += chunks_count
+
+                # Save AI-generated bullet points if available
+                bullet_points = article.get('nlp_data', {}).get('bullet_points')
+                if bullet_points:
+                    try:
+                        self.update_article_analysis(article_id, {'bullet_points': bullet_points})
+                    except Exception as e:
+                        logger.warning(f"Failed to save bullet points for article {article_id}: {e}")
+
             elif article.get('nlp_processing', {}).get('success', False):
                 stats["skipped"] += 1  # Duplicate
             else:

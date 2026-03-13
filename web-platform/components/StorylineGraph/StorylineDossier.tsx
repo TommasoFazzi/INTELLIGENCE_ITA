@@ -1,6 +1,7 @@
 'use client';
 
-import { X, TrendingUp, FileText, GitBranch, Calendar, Tag } from 'lucide-react';
+import { useState } from 'react';
+import { X, TrendingUp, FileText, GitBranch, Calendar, Tag, ChevronDown } from 'lucide-react';
 import { useStorylineDetail } from '@/hooks/useStories';
 import type { NarrativeStatus } from '@/types/stories';
 
@@ -24,8 +25,21 @@ const STATUS_BG: Record<NarrativeStatus, string> = {
 
 export default function StorylineDossier({ storylineId, onClose, onNavigate }: StorylineDossierProps) {
   const { detail, isLoading, error } = useStorylineDetail(storylineId);
+  const [expandedBullets, setExpandedBullets] = useState<Set<number>>(new Set());
 
   if (!storylineId) return null;
+
+  const toggleBullets = (articleId: number) => {
+    setExpandedBullets((prev) => {
+      const next = new Set(prev);
+      if (next.has(articleId)) {
+        next.delete(articleId);
+      } else {
+        next.add(articleId);
+      }
+      return next;
+    });
+  };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -249,30 +263,68 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
                   Recent Articles ({detail.recent_articles.length})
                 </h3>
                 <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                  {detail.recent_articles.map((article) => (
-                    <div
-                      key={article.id}
-                      className="border-l-2 border-[#FF6B35]/30 pl-3 py-2"
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Calendar size={12} className="text-gray-500" />
-                        <span className="text-xs font-mono text-gray-500">
-                          {formatDate(article.published_date)}
-                        </span>
-                        {article.source && (
-                          <>
-                            <span className="text-gray-600">|</span>
-                            <span className="text-xs font-mono text-gray-500">
-                              {article.source}
-                            </span>
-                          </>
+                  {detail.recent_articles.map((article) => {
+                    const hasBullets = (article.bullet_points?.length ?? 0) > 0;
+                    const isBulletsExpanded = expandedBullets.has(article.id);
+
+                    return (
+                      <div
+                        key={article.id}
+                        className="border-l-2 border-[#FF6B35]/30 pl-3 py-2"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar size={12} className="text-gray-500" />
+                          <span className="text-xs font-mono text-gray-500">
+                            {formatDate(article.published_date)}
+                          </span>
+                          {article.source && (
+                            <>
+                              <span className="text-gray-600">|</span>
+                              <span className="text-xs font-mono text-gray-500">
+                                {article.source}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <h4 className="text-sm text-white leading-snug">
+                          {article.title}
+                        </h4>
+
+                        {/* Bullet Points */}
+                        {hasBullets && (
+                          <div className="mt-2 pt-2 border-t border-[#FF6B35]/10">
+                            <button
+                              type="button"
+                              onClick={() => toggleBullets(article.id)}
+                              className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                            >
+                              <ChevronDown
+                                size={12}
+                                className={`transition-transform ${
+                                  isBulletsExpanded ? 'rotate-180' : ''
+                                }`}
+                              />
+                              <span>Key Points</span>
+                            </button>
+
+                            {isBulletsExpanded && (
+                              <ul className="mt-1.5 space-y-1 ml-1">
+                                {(article.bullet_points ?? []).map((bullet, bulletIdx) => (
+                                  <li
+                                    key={bulletIdx}
+                                    className="text-[10px] text-gray-400 leading-snug flex gap-2"
+                                  >
+                                    <span className="text-gray-600 flex-shrink-0">•</span>
+                                    <span>{bullet}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
                         )}
                       </div>
-                      <h4 className="text-sm text-white leading-snug">
-                        {article.title}
-                      </h4>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

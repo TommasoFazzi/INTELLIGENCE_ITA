@@ -456,6 +456,7 @@ class QueryIntent(str, Enum):
     NARRATIVE = "narrative"
     MARKET = "market"
     COMPARATIVE = "comparative"
+    TICKER = "ticker"
 
 
 class QueryComplexity(str, Enum):

@@ -7,7 +7,7 @@ const API_KEY = process.env.INTELLIGENCE_API_KEY || '';
 const ALLOWED_GET_PREFIXES = ['dashboard', 'reports', 'stories', 'map'];
 
 // Allowed API path prefixes for POST requests
-const ALLOWED_POST_PREFIXES = ['oracle'];
+const ALLOWED_POST_PREFIXES = ['oracle', 'ingest'];
 
 function validatePath(pathStr: string, prefix: string): boolean {
   return !pathStr.includes('..') && !pathStr.startsWith('/') && pathStr.startsWith(prefix);
@@ -97,17 +97,28 @@ export async function POST(
   const upstream = `${API_URL}/api/v1/${pathStr}`;
 
   try {
-    const body = await request.text();
-
+    const contentType = request.headers.get('content-type') || '';
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s timeout
 
+    let body;
+    let headers: HeadersInit = {
+      ...(API_KEY && { 'X-API-Key': API_KEY }),
+    };
+
+    // Handle multipart/form-data (file uploads)
+    if (contentType.includes('multipart/form-data')) {
+      body = await request.arrayBuffer();
+      headers['Content-Type'] = contentType;
+    } else {
+      // Handle JSON
+      body = await request.text();
+      headers['Content-Type'] = 'application/json';
+    }
+
     const response = await fetch(upstream, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(API_KEY && { 'X-API-Key': API_KEY }),
-      },
+      headers,
       body,
       signal: controller.signal,
     });

@@ -59,6 +59,7 @@ export interface LinkedArticle {
   title: string;
   source: string | null;
   published_date: string | null;
+  bullet_points?: string[];
 }
 
 export interface StorylineDetailData {

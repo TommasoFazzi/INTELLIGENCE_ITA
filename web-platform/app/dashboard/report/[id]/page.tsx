@@ -2,10 +2,11 @@
 
 import { use, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { useReportDetail } from '@/hooks/useDashboard';
+import { useReportDetail, useReports, useReportCompare } from '@/hooks/useDashboard';
 import { parseReport } from '@/lib/parseReport';
 import { Navbar } from '@/components/landing';
 import { MarketTickers } from '@/components/report/MarketTickers';
+import { ComparisonDelta } from '@/components/report/ComparisonDelta';
 import {
   TableOfContents,
   AccordionSection,
@@ -25,8 +26,9 @@ import {
   Link2,
   FileText,
   ExternalLink,
+  X,
 } from 'lucide-react';
-import type { ApiError } from '@/types/dashboard';
+import type { ApiError, ReportType } from '@/types/dashboard';
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -101,12 +103,31 @@ export default function ReportDetailPage({
   const [activeSection, setActiveSection] = useState('');
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [highlightedSource, setHighlightedSource] = useState<number | null>(null);
+  const [compareId, setCompareId] = useState<number | null>(null);
+
+  // Fetch reports for dropdown (show recent reports, max 50)
+  const { reports: availableReports } = useReports(1, 50);
+
+  // Fetch comparison report detail
+  const { report: compareReport } = useReportDetail(compareId);
+
+  // Fetch comparison delta analysis
+  const { comparison, isLoading: compareLoading } = useReportCompare(
+    report ? report.id : null,
+    compareId
+  );
 
   // Parse the markdown
   const parsed = useMemo(() => {
     if (!report?.content.full_text) return null;
     return parseReport(report.content.full_text);
   }, [report?.content.full_text]);
+
+  // Parse compare report markdown
+  const parsedCompare = useMemo(() => {
+    if (!compareReport?.content.full_text) return null;
+    return parseReport(compareReport.content.full_text);
+  }, [compareReport?.content.full_text]);
 
   // Open Executive Summary by default
   useMemo(() => {
@@ -213,6 +234,35 @@ export default function ReportDetailPage({
                       {report.model_used}
                     </Badge>
                   )}
+
+                  {/* Compare with dropdown */}
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={compareId?.toString() ?? ''}
+                      onChange={(e) => setCompareId(e.target.value ? Number(e.target.value) : null)}
+                      className="bg-black/60 border border-white/10 rounded text-[11px] text-gray-300 px-2 py-1.5 hover:border-white/20 transition-colors"
+                      aria-label="Compare with another report"
+                    >
+                      <option value="">Compare with...</option>
+                      {availableReports
+                        ?.filter((r) => r.id !== report.id && r.report_type === report.report_type)
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {formatDate(r.report_date)} — {r.title || `Report ${r.id}`}
+                          </option>
+                        ))}
+                    </select>
+                    {compareId && (
+                      <button
+                        onClick={() => setCompareId(null)}
+                        className="text-gray-500 hover:text-gray-300 transition-colors p-1"
+                        title="Close comparison"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
                   <span className="flex items-center gap-2 text-sm text-gray-400 ml-auto">
                     <Calendar className="w-4 h-4" />
                     {formatDate(report.report_date)}
@@ -225,6 +275,13 @@ export default function ReportDetailPage({
 
               {/* ── Macro Dashboard Tickers ───────────────────────── */}
               {parsed.macro && <MarketTickers macro={parsed.macro} />}
+
+              {/* ── Comparison Delta Banner ────────────────────────── */}
+              {compareId && (
+                <div className="mb-6 rounded-lg border border-blue-900/50 bg-blue-950/20 p-4">
+                  <ComparisonDelta delta={comparison?.delta ?? null} isLoading={compareLoading} />
+                </div>
+              )}
 
               {/* ── Mobile tab switcher ───────────────────────────── */}
               <div className="flex gap-2 mb-4 lg:hidden">
@@ -248,23 +305,100 @@ export default function ReportDetailPage({
                 </Button>
               </div>
 
-              {/* ── 3-Column Layout ──────────────────────────────── */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* LEFT: Table of Contents (desktop only) */}
-                <div className={`hidden lg:block lg:col-span-2 ${mobileTab !== 'report' ? 'lg:block' : ''}`}>
-                  {parsed.toc.length > 0 && (
-                    <TableOfContents
-                      entries={parsed.toc}
-                      activeId={activeSection}
-                      onNavigate={navigateTo}
-                    />
-                  )}
-                </div>
+              {/* ── Layout: Single or Comparison ──────────────────── */}
+              {compareId && parsedCompare ? (
+                // COMPARISON LAYOUT: 2-column side-by-side
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* LEFT: Report A */}
+                  <div className="space-y-3 overflow-y-auto h-[calc(100vh-200px)]">
+                    <div className="sticky top-0 bg-[#0A1628] z-10 pb-2">
+                      <h3 className="text-lg font-semibold text-white">
+                        {parsed.title || report.content.title || formatDate(report.report_date)}
+                      </h3>
+                      <p className="text-xs text-gray-400">{formatDate(report.report_date)}</p>
+                    </div>
 
-                {/* CENTER: Accordion Sections */}
-                <div
-                  className={`lg:col-span-7 space-y-3 ${mobileTab !== 'report' ? 'hidden lg:block' : ''}`}
-                >
+                    {parsed.toc.length > 0 && (
+                      <div className="mb-3">
+                        <TableOfContents
+                          entries={parsed.toc}
+                          activeId={activeSection}
+                          onNavigate={navigateTo}
+                        />
+                      </div>
+                    )}
+
+                    {parsed.sections.length > 0 ? (
+                      parsed.sections.map((section) => (
+                        <AccordionSection
+                          key={section.id}
+                          section={section}
+                          isOpen={openSections.has(section.id)}
+                          onToggle={() => toggleSection(section.id)}
+                          onHoverArticle={setHighlightedSource}
+                        />
+                      ))
+                    ) : (
+                      <div className="prose prose-invert prose-sm max-w-none text-gray-300">
+                        <ReactMarkdown>{report.content.full_text}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* RIGHT: Report B (Compare) */}
+                  <div className="space-y-3 overflow-y-auto h-[calc(100vh-200px)]">
+                    <div className="sticky top-0 bg-[#0A1628] z-10 pb-2">
+                      <h3 className="text-lg font-semibold text-white">
+                        {parsedCompare?.title || compareReport?.content?.title || (compareReport && formatDate(compareReport.report_date)) || 'Report'}
+                      </h3>
+                      <p className="text-xs text-gray-400">{compareReport && formatDate(compareReport.report_date)}</p>
+                    </div>
+
+                    {parsedCompare?.toc && parsedCompare.toc.length > 0 && (
+                      <div className="mb-3">
+                        <TableOfContents
+                          entries={parsedCompare.toc}
+                          activeId={activeSection}
+                          onNavigate={navigateTo}
+                        />
+                      </div>
+                    )}
+
+                    {parsedCompare?.sections && parsedCompare.sections.length > 0 ? (
+                      parsedCompare.sections.map((section) => (
+                        <AccordionSection
+                          key={section.id}
+                          section={section}
+                          isOpen={openSections.has(section.id)}
+                          onToggle={() => toggleSection(section.id)}
+                          onHoverArticle={setHighlightedSource}
+                        />
+                      ))
+                    ) : (
+                      <div className="prose prose-invert prose-sm max-w-none text-gray-300">
+                        <ReactMarkdown>{compareReport?.content?.full_text || ''}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // STANDARD 3-COLUMN LAYOUT
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* LEFT: Table of Contents (desktop only) */}
+                  <div className={`hidden lg:block lg:col-span-2 ${mobileTab !== 'report' ? 'lg:block' : ''}`}>
+                    {parsed.toc.length > 0 && (
+                      <TableOfContents
+                        entries={parsed.toc}
+                        activeId={activeSection}
+                        onNavigate={navigateTo}
+                      />
+                    )}
+                  </div>
+
+                  {/* CENTER: Accordion Sections */}
+                  <div
+                    className={`lg:col-span-7 space-y-3 ${mobileTab !== 'report' ? 'hidden lg:block' : ''}`}
+                  >
                   {/* Mobile horizontal TOC */}
                   {parsed.toc.length > 0 && (
                     <div className="flex gap-2 overflow-x-auto pb-2 lg:hidden scrollbar-thin scrollbar-thumb-white/10">
@@ -371,6 +505,7 @@ export default function ReportDetailPage({
                   )}
                 </div>
               </div>
+              )}
             </>
           )}
         </div>
