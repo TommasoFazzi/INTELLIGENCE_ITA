@@ -274,7 +274,7 @@ async def get_report(report_id: int, api_key: str = Depends(verify_api_key)):
 
                 # Get bullet points for articles (will be joined later)
                 cur.execute("""
-                    SELECT article_id, ai_analysis->'bullet_points' as bullet_points
+                    SELECT id, ai_analysis->'bullet_points' as bullet_points
                     FROM articles
                     WHERE ai_analysis IS NOT NULL
                 """)
