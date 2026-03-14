@@ -27,6 +27,9 @@
     "swr": "^2.3.7",
     "tailwind-merge": "^3.4.0"
   },
+  "overrides": {
+    "@hono/node-server": ">=1.19.10"
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/mapbox-gl": "^3.4.1",
