@@ -73,6 +73,15 @@ _OFF_TOPIC_PATTERNS: List[re.Pattern] = [
 ]
 
 
+def _strip_llm_markdown(text: str) -> str:
+    """Strip markdown formatting that LLMs emit despite plain-text instructions."""
+    text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)   # ## headings
+    text = re.sub(r'\*{1,3}([^*\n]+)\*{1,3}', r'\1', text)          # **bold**, *italic*
+    text = re.sub(r'`([^`\n]+)`', r'\1', text)                       # `inline code`
+    text = re.sub(r'^\s*>\s*', '', text, flags=re.MULTILINE)         # > blockquotes
+    return text.strip()
+
+
 class NarrativeProcessor:
     """
     Narrative engine that manages storyline lifecycle:
@@ -1001,43 +1010,55 @@ class NarrativeProcessor:
 
         # Build prompt
         if current_summary:
-            prompt = f"""Sei un analista geopolitico esperto. Aggiorna il riassunto di questa storyline integrando i nuovi fatti.
+            prompt = f"""You are a senior geopolitical intelligence analyst. Your task is to update a storyline brief using ONLY information from the source articles provided. Do not invent facts.
 
-STORYLINE ATTUALE:
-Titolo: {current_title}
-Riassunto: {current_summary}
-Entità chiave: {entities_text}
+CURRENT BRIEF:
+Title: {current_title}
+Executive Summary:
+{current_summary}
+Key Entities: {entities_text}
 
-NUOVI ARTICOLI:
+NEW ARTICLES:
 {articles_text}
 
-Rispondi in questo formato esatto:
-TITOLO: [titolo aggiornato, max 8 parole, in italiano]
-RIASSUNTO: [riassunto aggiornato, 3-5 frasi, integra i nuovi fatti mantenendo il contesto storico]
-ENTITÀ: [lista di 5-10 entità chiave separate da virgola — solo nomi propri: paesi, leader, organizzazioni, città, trattati. NO titoli di articoli, NO frammenti HTML, NO parole generiche, NO numeri isolati, NO acronimi di 2 lettere]"""
+Update the previous 3 bullet points by integrating the new facts, replacing outdated information while keeping the historical context intact. Write in dry, operational English. Base the output strictly on the articles above.
+
+Respond in this EXACT format (no markdown, no extra text):
+TITLE: [Max 8 words. Situation-Report style. E.g., 'Red Sea: Escalating Houthi Drone Attacks on Shipping']
+EXECUTIVE SUMMARY:
+- [Bullet 1: The core event or primary update — what happened]
+- [Bullet 2: Key actors involved and immediate context]
+- [Bullet 3: Strategic, economic, or security implications]
+ENTITIES: [5-10 key proper nouns — People, Organizations, Locations — comma-separated. No generic words, no article titles, no HTML.]"""
         else:
-            prompt = f"""Sei un analista geopolitico esperto. Genera un titolo e un riassunto per questa nuova storyline.
+            prompt = f"""You are a senior geopolitical intelligence analyst. Write a new intelligence brief for the following storyline using ONLY the information from the source articles. Do not invent facts.
 
-ARTICOLI:
+SOURCE ARTICLES:
 {articles_text}
 
-ENTITÀ CHIAVE ATTUALI (da spaCy, possono contenere errori): {entities_text}
+KEY ENTITIES (extracted by NLP, may contain noise): {entities_text}
 
-Rispondi in questo formato esatto:
-TITOLO: [titolo descrittivo, max 8 parole, in italiano, specifico e informativo]
-RIASSUNTO: [riassunto di 3-5 frasi che descrive la narrativa principale]
-ENTITÀ: [lista di 5-10 entità chiave separate da virgola — solo nomi propri: paesi, leader, organizzazioni, città, trattati. NO titoli di articoli, NO frammenti HTML, NO parole generiche, NO numeri isolati, NO acronimi di 2 lettere]"""
+Write in dry, operational English. Base the output strictly on the articles above.
+
+Respond in this EXACT format (no markdown, no extra text):
+TITLE: [Max 8 words. Situation-Report style. E.g., 'Taiwan Strait: PLA Naval Exercises Near Median Line']
+EXECUTIVE SUMMARY:
+- [Bullet 1: The core event — what happened and where]
+- [Bullet 2: Key actors involved and immediate context]
+- [Bullet 3: Strategic, economic, or security implications]
+ENTITIES: [5-10 key proper nouns — People, Organizations, Locations — comma-separated. No generic words, no article titles, no HTML.]"""
 
         try:
             response = self.model.generate_content(
                 prompt,
                 generation_config={
-                    "max_output_tokens": 400,  # titolo(~15t) + riassunto(~200t IT) + margine
-                    "temperature": 0.3,        # format-following: bassa varianza, output coerente
+                    "max_output_tokens": 400,  # title(~15t) + 3 bullets(~150t) + entities(~60t) + margin
+                    "temperature": 0.3,        # low variance for consistent structured output
                 },
-                request_options={"timeout": 30}  # 2.0-flash: <4s normale, 30s = 7× safety margin
+                request_options={"timeout": 30}  # 2.0-flash: <4s normal, 30s = 7× safety margin
             )
-            text = response.text.strip()
+            # Strip markdown formatting that Gemini may emit despite instructions
+            text = _strip_llm_markdown(response.text)
 
             # Parse response
             new_title = current_title
@@ -1045,27 +1066,25 @@ ENTITÀ: [lista di 5-10 entità chiave separate da virgola — solo nomi propri:
 
             for line in text.split('\n'):
                 line = line.strip()
-                if line.upper().startswith('TITOLO:'):
-                    new_title = line[7:].strip().strip('"\'')[:100]
-                elif line.upper().startswith('RIASSUNTO:'):
-                    new_summary = line[10:].strip()
+                if line.upper().startswith('TITLE:'):
+                    new_title = line[6:].strip().strip('"\'')[:100]
 
-            # If summary continues on next lines after RIASSUNTO:
-            if 'RIASSUNTO:' in text:
-                riassunto_parts = text.split('RIASSUNTO:', 1)
-                if len(riassunto_parts) == 2:
-                    summary_block = riassunto_parts[1]
-                    # Stop at ENTITÀ: if present
-                    if 'ENTIT' in summary_block.upper():
-                        summary_block = re.split(r'ENTIT[ÀA]:', summary_block, flags=re.IGNORECASE)[0]
+            # Extract EXECUTIVE SUMMARY block (multiline bullets)
+            if 'EXECUTIVE SUMMARY:' in text.upper():
+                summary_parts = re.split(r'EXECUTIVE SUMMARY:', text, flags=re.IGNORECASE, maxsplit=1)
+                if len(summary_parts) == 2:
+                    summary_block = summary_parts[1]
+                    # Stop at ENTITIES: if present
+                    if 'ENTITIES:' in summary_block.upper():
+                        summary_block = re.split(r'ENTITIES:', summary_block, flags=re.IGNORECASE)[0]
                     new_summary = summary_block.strip()
 
-            # Parse ENTITÀ: line from Gemini response
+            # Parse ENTITIES: line
             new_entities = None
             for line in text.split('\n'):
                 line_stripped = line.strip()
-                if re.match(r'^ENTIT[ÀA]:', line_stripped, re.IGNORECASE):
-                    entities_raw = re.sub(r'^ENTIT[ÀA]:', '', line_stripped, flags=re.IGNORECASE).strip()
+                if re.match(r'^ENTITIES:', line_stripped, re.IGNORECASE):
+                    entities_raw = re.sub(r'^ENTITIES:', '', line_stripped, flags=re.IGNORECASE).strip()
                     # Split by comma, clean each entity
                     parsed = [e.strip().strip('"\'-[]') for e in entities_raw.split(',')]
                     parsed = [e for e in parsed if e and len(e) >= 2]

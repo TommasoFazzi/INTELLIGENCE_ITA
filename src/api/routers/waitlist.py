@@ -1,9 +1,12 @@
 """Waitlist API router — public endpoint for invite-only access requests."""
+import json
+import os
 import re
+import urllib.request
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
 from ...storage.database import DatabaseManager
@@ -20,6 +23,28 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 def get_db() -> DatabaseManager:
     return DatabaseManager()
+
+
+def _send_telegram_notify(email: str, role: Optional[str]) -> None:
+    """Send Telegram notification when a new waitlist entry is created."""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+
+    if not token or not chat_id:
+        return  # Not configured — skip silently
+
+    text = f"🔔 *Nuova richiesta accesso*\n\nEmail: `{email}`\nRuolo: {role or 'non specificato'}"
+    payload = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}).encode()
+
+    try:
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as exc:
+        logger.warning(f"Waitlist Telegram notify failed: {exc}")
 
 
 class WaitlistEntry(BaseModel):
@@ -50,7 +75,7 @@ class WaitlistEntry(BaseModel):
 
 @router.post("")
 @limiter.limit("5/minute")
-async def join_waitlist(request: Request, entry: WaitlistEntry):
+async def join_waitlist(request: Request, entry: WaitlistEntry, background_tasks: BackgroundTasks):
     """
     Add an email to the waitlist.
 
@@ -83,6 +108,7 @@ async def join_waitlist(request: Request, entry: WaitlistEntry):
                 conn.commit()
 
         logger.info(f"Waitlist: new entry {entry.email} (role={entry.role})")
+        background_tasks.add_task(_send_telegram_notify, entry.email, entry.role)
         return {"status": "ok", "message": "You've been added to the waitlist."}
 
     except HTTPException:

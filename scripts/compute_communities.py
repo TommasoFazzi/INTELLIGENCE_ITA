@@ -13,7 +13,10 @@ Usage:
     python scripts/compute_communities.py --dry-run
 """
 
+import os
+import re
 import sys
+import time
 import argparse
 from collections import Counter
 from pathlib import Path
@@ -31,11 +34,69 @@ try:
 except ImportError:
     LOUVAIN_AVAILABLE = False
 
+try:
+    import google.generativeai as genai
+    _gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if _gemini_api_key:
+        genai.configure(api_key=_gemini_api_key, transport='rest')
+        _llm_model = genai.GenerativeModel('gemini-2.0-flash')
+        GEMINI_AVAILABLE = True
+    else:
+        GEMINI_AVAILABLE = False
+except ImportError:
+    GEMINI_AVAILABLE = False
+
 from psycopg2.extras import execute_values
 from src.storage.database import DatabaseManager
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _name_community(cid: int, nodes_in_community: list, conn) -> str | None:
+    """Call Gemini to generate a 2-4 word macro-theme label for a community.
+
+    Returns the name string, or None if Gemini is unavailable or the call fails.
+    """
+    if not GEMINI_AVAILABLE:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT title FROM storylines
+                WHERE id = ANY(%s) AND title IS NOT NULL
+                ORDER BY momentum_score DESC NULLS LAST
+                LIMIT 15
+            """, (nodes_in_community,))
+            titles = [row[0] for row in cur.fetchall()]
+
+        if not titles:
+            return None
+
+        headlines_text = "\n".join(f"- {t}" for t in titles)
+        prompt = (
+            "You are an expert Geopolitical Analyst. I will give you a list of news headlines "
+            "that form a specific intelligence cluster.\n"
+            "Your task is to give a short, overarching name to this cluster.\n"
+            "Rule 1: The name must be in English.\n"
+            "Rule 2: It must be extremely concise (2 to 4 words maximum).\n"
+            "Rule 3: Use a professional geopolitical/macro-economic tone "
+            "(e.g., 'Gulf Energy Crisis', 'Red Sea Maritime Threats', 'Sino-US Tech War').\n"
+            "Rule 4: Return ONLY the short name, nothing else. No markdown, no quotes.\n\n"
+            f"Headlines in this cluster:\n{headlines_text}"
+        )
+        response = _llm_model.generate_content(
+            prompt,
+            generation_config={"max_output_tokens": 20, "temperature": 0.2},
+            request_options={"timeout": 30},
+        )
+        # Strip stray markdown (quotes, asterisks, etc.)
+        name = re.sub(r'[*`"\'#]', '', response.text).strip()[:80]
+        return name if name else None
+
+    except Exception as e:
+        logger.error(f"Failed to name community {cid}: {e} — skipping")
+        return None
 
 
 def compute_and_save_communities(
@@ -147,6 +208,34 @@ def compute_and_save_communities(
 
     stats["updated"] = len(partition)
     logger.info("Saved community IDs for %d storylines", stats["updated"])
+
+    # Generate LLM community names (one call per community, resilient to failures)
+    if GEMINI_AVAILABLE:
+        logger.info("Generating LLM community names (%d communities)...", len(freq))
+        community_nodes: dict[int, list] = {}
+        for node, cid in partition.items():
+            community_nodes.setdefault(cid, []).append(node)
+
+        with db.get_connection() as conn:
+            named = 0
+            for cid in sorted(community_nodes.keys()):
+                nodes = community_nodes[cid]
+                name = _name_community(cid, nodes, conn)
+                if name:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "UPDATE storylines SET community_name = %s WHERE id = ANY(%s)",
+                            (name, nodes),
+                        )
+                    conn.commit()
+                    logger.info("  Community %d (%d nodes) → '%s'", cid, len(nodes), name)
+                    named += 1
+                time.sleep(1.5)  # respect Gemini rate limits
+        logger.info("Named %d/%d communities", named, len(freq))
+        stats["communities_named"] = named
+    else:
+        logger.warning("GEMINI_API_KEY not set — community_name not generated")
+
     return stats
 
 
@@ -189,6 +278,7 @@ def main():
     print(f"Communities found:   {stats['communities']}")
     print(f"Modularity:          {stats.get('modularity', 'N/A')}")
     print(f"Storylines updated:  {stats['updated']}")
+    print(f"Communities named:   {stats.get('communities_named', 'N/A (dry-run or Gemini unavailable)')}")
     if args.dry_run:
         print("\n[DRY RUN] No changes written to database.")
     print("\nDone!")

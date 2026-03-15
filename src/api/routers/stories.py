@@ -208,7 +208,8 @@ async def list_communities(
                            AVG(momentum_score) AS avg_momentum,
                            ARRAY_AGG(id ORDER BY momentum_score DESC) AS storyline_ids,
                            ARRAY_AGG(title ORDER BY momentum_score DESC) AS titles,
-                           ARRAY_AGG(key_entities ORDER BY momentum_score DESC) AS all_entities
+                           ARRAY_AGG(key_entities ORDER BY momentum_score DESC) AS all_entities,
+                           MIN(community_name) AS community_name
                     FROM storylines
                     WHERE narrative_status IN ('emerging', 'active')
                       AND community_id IS NOT NULL
@@ -219,7 +220,7 @@ async def list_communities(
 
         communities = []
         for r in rows:
-            cid, size, avg_mom, sids, titles, all_ents = r
+            cid, size, avg_mom, sids, titles, all_ents, db_community_name = r
 
             # Aggregate entities across all storylines in community
             entity_counter: Counter = Counter()
@@ -234,7 +235,10 @@ async def list_communities(
                     except (json.JSONDecodeError, TypeError):
                         pass
             top_entities = [e for e, _ in entity_counter.most_common(10)]
-            label = top_entities[0].title() if top_entities else f"Community {cid}"
+            # Use LLM-generated name if available, fall back to top entity
+            label = db_community_name or (
+                top_entities[0].title() if top_entities else f"Community {cid}"
+            )
 
             # Top 5 storylines by momentum (lightweight summary)
             top_storylines = [
