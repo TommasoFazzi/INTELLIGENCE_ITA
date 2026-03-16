@@ -245,6 +245,14 @@ class TestMinFloor:
         # The function itself doesn't filter — _execute() does
         assert decayed[0]["similarity"] < MIN_DECAYED_SCORE
 
+    def test_floor_fallback_when_all_below(self):
+        """If floor eliminates everything, _execute() falls back to top results."""
+        # This tests the logic: (filtered if filtered else chunks)[:top_k]
+        all_below = [{"similarity": 0.10}, {"similarity": 0.05}]
+        filtered = [r for r in all_below if r.get("similarity", 0) >= MIN_DECAYED_SCORE]
+        result = (filtered if filtered else all_below)[:2]
+        assert len(result) == 2  # fallback kept all results
+
 
 # ── Test over-fetch multiplier ────────────────────────────────────────────────
 

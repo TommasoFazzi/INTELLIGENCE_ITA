@@ -17,15 +17,15 @@ import spacy
 # Intelligence domain stopwords (da rimuovere dalla query)
 INTELLIGENCE_STOPWORDS = {
     # Core domain terms
-    "intelligence", "report", "briefing", "analysis", "strategic",
+    "intelligence", "report", "briefing",
     "tactical", "operational", "summary", "update", "alert",
 
     # Document types
     "daily", "weekly", "monthly", "quarterly", "article", "news",
 
-    # Analysis terms
-    "trends", "developments", "situation", "overview", "assessment",
-    "implications", "outlook", "forecast", "projection",
+    # Analysis terms (only truly generic ones)
+    "developments", "situation", "overview",
+    "implications", "projection",
 
     # Generic query terms
     "latest", "recent", "new", "current", "ongoing", "emerging"
@@ -43,7 +43,11 @@ PRESERVE_TERMS = {
     "economy", "sanctions", "trade", "energy",
 
     # Tech
-    "ai", "semiconductor", "chip", "technology"
+    "ai", "semiconductor", "chip", "technology",
+
+    # Analysis/domain terms with semantic value
+    "strategic", "analysis", "outlook", "forecast",
+    "assessment", "trends",
 }
 
 

@@ -201,8 +201,9 @@ class RAGTool(BaseTool):
                     date_field="published_date", score_field=score_field,
                     reference_date=ref_date,
                 )
-                chunks = [c for c in chunks if c.get(score_field, 0) >= MIN_DECAYED_SCORE]
-                chunks = chunks[:top_k]
+                # Apply floor, but fallback to top results if floor eliminates everything
+                filtered = [c for c in chunks if c.get(score_field, 0) >= MIN_DECAYED_SCORE]
+                chunks = (filtered if filtered else chunks)[:top_k]
 
             if reports:
                 reports = apply_time_decay(
@@ -210,8 +211,8 @@ class RAGTool(BaseTool):
                     date_field="report_date", score_field="similarity",
                     reference_date=ref_date,
                 )
-                reports = [r for r in reports if r.get("similarity", 0) >= MIN_DECAYED_SCORE]
-                reports = reports[:top_k]
+                filtered = [r for r in reports if r.get("similarity", 0) >= MIN_DECAYED_SCORE]
+                reports = (filtered if filtered else reports)[:top_k]
 
             ref_label = ref_date.isoformat()[:10] if ref_date else "now"
             logger.info(
