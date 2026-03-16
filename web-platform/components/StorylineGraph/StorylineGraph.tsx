@@ -195,7 +195,7 @@ export default function StorylineGraph() {
       // Ticker filter: dim non-highlighted nodes (ego mode takes precedence)
       let alpha = momentumBrightness;
       if (isEgoActive && !isNeighbor) {
-        alpha = 0.08;
+        alpha = 0.05;
       } else if (tickerHighlightIds.size > 0 && !isEgoActive && !tickerHighlightIds.has(node.id)) {
         alpha = 0.08;
       }
@@ -223,8 +223,8 @@ export default function StorylineGraph() {
       ctx.lineWidth = isSelected ? 2 : 1;
       ctx.stroke();
 
-      // Label (only show when zoomed in enough or for high-momentum nodes)
-      if (globalScale > 1.5 || momentum_score > 0.7 || isHovered || isSelected) {
+      // Label: only show on hover, selection, or ego-network neighbors
+      if (isHovered || isSelected || (isEgoActive && isNeighbor)) {
         const label = title.length > 30 ? title.slice(0, 30) + '...' : title;
         const fontSize = Math.max(10 / globalScale, 3);
         ctx.font = `${fontSize}px monospace`;
@@ -286,19 +286,29 @@ export default function StorylineGraph() {
 
       // Dim non-ego links; brighten ego links
       const alpha = isEgoActive ? (isEgoEdge ? 0.9 : 0.03) : (0.2 + weight * 0.6);
-      const lineWidth = isEgoActive && isEgoEdge ? 1.0 + weight * 3.0 : 0.5 + weight * 2.5;
+      const lineWidth = isEgoActive && isEgoEdge ? 2.5 + weight * 1.5 : 0.5 + weight * 2.0;
 
       ctx.beginPath();
       ctx.moveTo(source.x, source.y);
       ctx.lineTo(target.x, target.y);
       ctx.strokeStyle = isEgoEdge
-        ? `rgba(255, 107, 53, ${alpha})`
-        : `rgba(100, 100, 100, ${alpha})`;
+        ? `rgba(249, 115, 22, ${alpha})`
+        : `rgba(150, 190, 220, ${0.06 + weight * 0.18})`;
       ctx.lineWidth = lineWidth;
       ctx.stroke();
     },
     [egoNeighborIds]
   );
+
+  // Configure D3 forces for a more open "galaxy" layout
+  useEffect(() => {
+    const fg = graphRef.current;
+    if (!fg) return;
+    fg.d3Force('charge').strength(-200);
+    fg.d3Force('link').distance(80);
+    fg.d3Force('center').strength(0.05);
+    fg.d3ReheatSimulation();
+  }, []);
 
   const handleNodeClick = useCallback((node: any) => {
     setSelectedId((prev) => (prev === node.id ? null : node.id));
@@ -336,7 +346,7 @@ export default function StorylineGraph() {
         onNodeHover={(node: any) => setHoveredNode(node || null)}
         backgroundColor="#0A1628"
         warmupTicks={300}
-        cooldownTicks={0}
+        cooldownTicks={200}
         d3AlphaDecay={0.05}
         d3VelocityDecay={0.4}
         linkDirectionalParticles={0}
