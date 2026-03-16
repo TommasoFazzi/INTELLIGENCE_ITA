@@ -82,14 +82,17 @@ async def get_graph_network(
     try:
         with db.get_connection() as conn:
             with conn.cursor() as cur:
-                # Nodes: active storylines from the view
-                # community_id is included after migration 015 (NULL before)
+                # Nodes: active storylines — read directly from storylines table
+                # to include community_name (added migration 022, not in v_active_storylines view)
                 cur.execute("""
                     SELECT id, title, summary, narrative_status,
                            category, article_count, momentum_score,
                            key_entities, start_date, last_update,
-                           days_active, community_id
-                    FROM v_active_storylines
+                           EXTRACT(DAY FROM NOW() - start_date)::INTEGER AS days_active,
+                           community_id, community_name
+                    FROM storylines
+                    WHERE narrative_status IN ('emerging', 'active', 'stabilized')
+                    ORDER BY momentum_score DESC, last_update DESC
                 """)
                 node_rows = cur.fetchall()
 
@@ -125,6 +128,7 @@ async def get_graph_network(
                 last_update=r[9].isoformat() if r[9] else None,
                 days_active=r[10],
                 community_id=r[11] if len(r) > 11 else None,
+                community_name=r[12] if len(r) > 12 else None,
             )
             nodes.append(node)
             momentum_sum += node.momentum_score

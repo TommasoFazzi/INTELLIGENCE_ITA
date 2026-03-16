@@ -17,6 +17,7 @@ class StorylineNode(BaseModel):
     last_update: Optional[str] = None
     days_active: Optional[int] = None
     community_id: Optional[int] = None
+    community_name: Optional[str] = None
 
 
 class StorylineEdge(BaseModel):

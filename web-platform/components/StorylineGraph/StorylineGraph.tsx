@@ -20,6 +20,7 @@ interface GraphNode {
   article_count: number;
   category: string | null;
   community_id?: number | null;
+  community_name?: string | null;
   key_entities?: string[];
   x?: number;
   y?: number;
@@ -86,6 +87,7 @@ export default function StorylineGraph() {
       article_count: n.article_count,
       category: n.category,
       community_id: n.community_id ?? null,
+      community_name: n.community_name ?? null,
       key_entities: n.key_entities,
     }));
 
@@ -109,26 +111,30 @@ export default function StorylineGraph() {
   // Compute community sizes + labels, sorted by size descending.
   // Top N get distinct colors from COMMUNITY_PALETTE; the rest = OTHER_COLOR.
   const { communityLabels, communityColorMap, othersCount, othersNodes } = useMemo(() => {
-    const communityMap = new Map<number, { count: number; entities: Map<string, number> }>();
+    const communityMap = new Map<number, { count: number; community_name: string | null; entities: Map<string, number> }>();
 
     for (const node of graphData.nodes) {
       const cid = node.community_id;
       if (cid == null) continue;
       if (!communityMap.has(cid)) {
-        communityMap.set(cid, { count: 0, entities: new Map() });
+        communityMap.set(cid, { count: 0, community_name: node.community_name ?? null, entities: new Map() });
       }
       const entry = communityMap.get(cid)!;
       entry.count++;
+      // Capture first non-null community_name we find for this community
+      if (!entry.community_name && node.community_name) entry.community_name = node.community_name;
       for (const e of (node.key_entities || []).slice(0, 5)) {
         entry.entities.set(e, (entry.entities.get(e) || 0) + 1);
       }
     }
 
     const allSorted = Array.from(communityMap.entries())
-      .map(([cid, { count, entities }]) => {
+      .map(([cid, { count, community_name, entities }]) => {
+        // LLM name takes priority; fallback to top entity from key_entities
         const topEntity = [...entities.entries()]
           .sort((a, b) => b[1] - a[1])[0]?.[0] || `Community ${cid}`;
-        return { cid, label: topEntity, count };
+        const label = community_name || topEntity;
+        return { cid, label, count };
       })
       .sort((a, b) => b.count - a.count);
 
@@ -225,6 +231,7 @@ export default function StorylineGraph() {
 
       // Label: only show on hover, selection, or ego-network neighbors
       if (isHovered || isSelected || (isEgoActive && isNeighbor)) {
+        ctx.globalAlpha = 1.0; // labels always at full opacity for readability
         const label = title.length > 30 ? title.slice(0, 30) + '...' : title;
         const fontSize = Math.max(10 / globalScale, 3);
         ctx.font = `${fontSize}px monospace`;
@@ -233,7 +240,7 @@ export default function StorylineGraph() {
 
         // Text background
         const textWidth = ctx.measureText(label).width;
-        ctx.fillStyle = 'rgba(10, 22, 40, 0.85)';
+        ctx.fillStyle = 'rgba(10, 22, 40, 0.92)';
         ctx.fillRect(
           x - textWidth / 2 - 2,
           y + radius + 2,
