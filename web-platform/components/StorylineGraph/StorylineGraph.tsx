@@ -50,6 +50,7 @@ export default function StorylineGraph() {
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [minMomentum, setMinMomentum] = useState(0);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+  const [legendExpanded, setLegendExpanded] = useState(false);
 
   // Ticker hooks
   const { tickers } = useTickerList();
@@ -440,37 +441,46 @@ export default function StorylineGraph() {
               />
             </div>
 
-            {/* Dynamic community legend */}
+            {/* Dynamic community legend — collapsible */}
             {communityLabels.length > 0 && (
               <>
-                <div className="text-xs font-mono text-gray-500 mb-2 uppercase">Communities</div>
-                <div className="space-y-1.5 max-h-[240px] overflow-y-auto">
-                  {communityLabels.map(({ cid, label, count }) => (
-                    <div key={cid} className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: communityColorMap.get(cid) || OTHER_COLOR }}
-                      />
-                      <span className="text-xs font-mono text-gray-300 truncate max-w-[120px]">
-                        {label}
-                      </span>
-                      <span className="text-xs font-mono text-gray-600 ml-auto">{count}</span>
-                    </div>
-                  ))}
-                  {/* "Others" row — aggregates all ghost communities */}
-                  {othersCount > 0 && (
-                    <div className="flex items-center gap-2 mt-1 pt-1 border-t border-white/5">
-                      <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: OTHER_COLOR }}
-                      />
-                      <span className="text-xs font-mono text-gray-500 truncate max-w-[120px]">
-                        Others ({othersCount})
-                      </span>
-                      <span className="text-xs font-mono text-gray-600 ml-auto">{othersNodes}</span>
-                    </div>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setLegendExpanded((v) => !v)}
+                  className="flex items-center justify-between w-full text-xs font-mono text-gray-500 mb-2 uppercase hover:text-gray-300 transition-colors"
+                >
+                  <span>Communities ({communityLabels.length + (othersCount > 0 ? 1 : 0)})</span>
+                  <span className="ml-2 text-gray-600">{legendExpanded ? '▲' : '▼'}</span>
+                </button>
+                {legendExpanded && (
+                  <div className="space-y-1.5">
+                    {communityLabels.map(({ cid, label, count }) => (
+                      <div key={cid} className="flex items-start gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
+                          style={{ backgroundColor: communityColorMap.get(cid) || OTHER_COLOR }}
+                        />
+                        <span className="text-xs font-mono text-gray-300 flex-1 leading-tight">
+                          {label}
+                        </span>
+                        <span className="text-xs font-mono text-gray-600 flex-shrink-0">{count}</span>
+                      </div>
+                    ))}
+                    {/* "Others" row */}
+                    {othersCount > 0 && (
+                      <div className="flex items-center gap-2 mt-1 pt-1 border-t border-white/5">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: OTHER_COLOR }}
+                        />
+                        <span className="text-xs font-mono text-gray-500 flex-1">
+                          Others ({othersCount})
+                        </span>
+                        <span className="text-xs font-mono text-gray-600 flex-shrink-0">{othersNodes}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
