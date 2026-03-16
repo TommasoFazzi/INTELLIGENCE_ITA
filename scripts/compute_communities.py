@@ -220,6 +220,9 @@ def compute_and_save_communities(
             named = 0
             for cid in sorted(community_nodes.keys()):
                 nodes = community_nodes[cid]
+                if len(nodes) < 2:
+                    # Skip singletons — no meaningful macro-theme from a single storyline
+                    continue
                 name = _name_community(cid, nodes, conn)
                 if name:
                     with conn.cursor() as cur:

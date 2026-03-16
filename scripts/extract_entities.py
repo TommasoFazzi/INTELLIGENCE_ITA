@@ -9,6 +9,7 @@ import sys
 import argparse
 from pathlib import Path
 from collections import Counter
+from psycopg2.extras import execute_values, Json
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -117,31 +118,52 @@ def extract_entities_from_articles(days: int = 0):
                 article_entities[key].append(article_id)
     
     logger.info(f"Found {len(entity_counter)} unique entities")
-    
-    # Save entities to database
-    saved_count = 0
-    
-    for (entity_name, entity_type), mention_count in entity_counter.most_common():
-        entity_id = db.save_entity(
-            name=entity_name,
-            entity_type=entity_type,
-            metadata={'mention_count': mention_count}
-        )
-        
-        if entity_id:
-            saved_count += 1
-            
-            # Save entity-article relationships (batch insert)
-            article_ids = article_entities[(entity_name, entity_type)]
-            with db.get_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.executemany("""
-                        INSERT INTO entity_mentions (entity_id, article_id)
-                        VALUES (%s, %s)
-                        ON CONFLICT (entity_id, article_id) DO NOTHING
-                    """, [(entity_id, aid) for aid in article_ids])
-    
+
+    # Phase 1: Bulk upsert all entities, collect returned IDs.
+    # Pass mention_count as an explicit column so ON CONFLICT accumulates the
+    # correct run-delta (EXCLUDED.mention_count) rather than always adding 1.
+    entity_rows = [
+        (name, etype, count, Json({'mention_count': count}))
+        for (name, etype), count in entity_counter.most_common()
+    ]
+
+    entity_id_map = {}  # (name, entity_type) -> id
+    with db.get_connection() as conn:
+        with conn.cursor() as cur:
+            results = execute_values(cur, """
+                INSERT INTO entities (name, entity_type, mention_count, metadata)
+                VALUES %s
+                ON CONFLICT (name, entity_type) DO UPDATE SET
+                    mention_count = entities.mention_count + EXCLUDED.mention_count,
+                    last_seen = CURRENT_TIMESTAMP,
+                    metadata = EXCLUDED.metadata
+                RETURNING id, name, entity_type
+            """, entity_rows, fetch=True)
+            for eid, name, etype in results:
+                entity_id_map[(name, etype)] = eid
+        conn.commit()
+
+    saved_count = len(entity_id_map)
     logger.info(f"✓ Saved {saved_count} entities to database")
+
+    # Phase 2: Bulk insert all entity_mentions in one query.
+    mention_pairs = [
+        (entity_id_map[(name, etype)], aid)
+        for (name, etype), article_ids in article_entities.items()
+        if (name, etype) in entity_id_map
+        for aid in article_ids
+    ]
+
+    if mention_pairs:
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                execute_values(cur, """
+                    INSERT INTO entity_mentions (entity_id, article_id)
+                    VALUES %s
+                    ON CONFLICT (entity_id, article_id) DO NOTHING
+                """, mention_pairs)
+            conn.commit()
+        logger.info(f"✓ Saved {len(mention_pairs)} entity-article relationships")
     
     # Print statistics by type
     logger.info("\nEntity Statistics by Type:")
