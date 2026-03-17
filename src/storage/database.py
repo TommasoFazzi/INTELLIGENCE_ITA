@@ -1837,6 +1837,54 @@ class DatabaseManager:
             logger.error(f"Error getting entity arcs: {e}")
             return {'type': 'FeatureCollection', 'features': [], 'arc_count': 0}
 
+    def get_entity_ids_by_storyline(self, storyline_id: int) -> Dict[str, Any]:
+        """
+        Get geocoded entity IDs linked to a specific storyline via mv_entity_storyline_bridge.
+
+        Used by the cross-filter feature (stories graph → intelligence map).
+
+        Returns:
+            Dict with storyline_id, storyline_title, entity_ids list, entity_count.
+            Returns None if storyline not found.
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    # Get storyline title
+                    cur.execute(
+                        "SELECT title FROM storylines WHERE id = %s",
+                        (storyline_id,)
+                    )
+                    row = cur.fetchone()
+                    if not row:
+                        return None
+
+                    storyline_title = row[0]
+
+                    # Get entity IDs via bridge MV
+                    cur.execute("""
+                        SELECT DISTINCT e.id
+                        FROM mv_entity_storyline_bridge b
+                        JOIN entities e ON e.id = b.entity_id
+                        WHERE b.storyline_id = %s
+                          AND e.latitude IS NOT NULL
+                          AND e.geo_status = 'FOUND'
+                        ORDER BY e.intelligence_score DESC NULLS LAST
+                    """, (storyline_id,))
+
+                    entity_ids = [r[0] for r in cur.fetchall()]
+
+                    return {
+                        'storyline_id': storyline_id,
+                        'storyline_title': storyline_title,
+                        'entity_ids': entity_ids,
+                        'entity_count': len(entity_ids),
+                    }
+
+        except Exception as e:
+            logger.error(f"Error getting entities by storyline {storyline_id}: {e}")
+            return None
+
     def get_map_stats(self) -> Dict[str, Any]:
         """
         Get live stats for the Intelligence Map HUD overlay.

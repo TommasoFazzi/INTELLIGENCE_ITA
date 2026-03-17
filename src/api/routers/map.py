@@ -245,6 +245,40 @@ async def get_entity_arcs(
 
 
 # ---------------------------------------------------------------------------
+# GET /api/v1/map/entities/by-storyline/{storyline_id}
+# ---------------------------------------------------------------------------
+@router.get("/entities/by-storyline/{storyline_id}")
+@limiter.limit("30/minute")
+async def get_entities_by_storyline(
+    request: Request,
+    storyline_id: int,
+    api_key: str = Depends(verify_api_key),
+    db: DatabaseManager = Depends(get_db),
+):
+    """
+    Returns geocoded entity IDs linked to a specific storyline.
+
+    Used by the cross-filter feature: clicking 'View on Map' on the
+    narrative graph highlights the entities involved in that storyline.
+    """
+    try:
+        result = db.get_entity_ids_by_storyline(storyline_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Storyline not found")
+
+        logger.info(
+            f"Storyline {storyline_id} → {result['entity_count']} geocoded entities"
+        )
+        return JSONResponse(content=result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching entities for storyline {storyline_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ---------------------------------------------------------------------------
 # GET /api/v1/map/stats
 # ---------------------------------------------------------------------------
 @router.get("/stats")
