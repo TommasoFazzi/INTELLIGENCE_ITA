@@ -108,6 +108,8 @@ services:
     environment:
       INTELLIGENCE_API_URL: http://backend:8000
       INTELLIGENCE_API_KEY: ${INTELLIGENCE_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      ACCESS_CODES: ${ACCESS_CODES}
     networks:
       - internal
     deploy:
