@@ -145,9 +145,9 @@ DEFAULT_STEPS = [
     ),
     PipelineStep(
         name="geocoding",
-        command="python scripts/geocode_entities.py --limit 200",
-        description="Geocoding entità via Photon (komoot.io)",
-        timeout_seconds=300,  # 5 min (Photon is fast)
+        command="python scripts/geocode_geonames.py --limit 200",
+        description="Geocoding entità via GeoNames+Gemini CoT (con Photon fallback)",
+        timeout_seconds=300,  # 5 min
         continue_on_failure=True  # Map enrichment, non blocca il report
     ),
     PipelineStep(
