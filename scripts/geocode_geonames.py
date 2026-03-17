@@ -89,7 +89,7 @@ FEATURE_TYPE_MAP: dict[str, tuple[str, list[str]]] = {
     'city':     ('P', ['PPLC', 'PPLA', 'PPLA2', 'PPL', 'PPLS']),
     'region':   ('L', ['AREA', 'RGN', 'RGNH', 'CONT']),
     'sea':      ('H', ['SEA', 'OCN', 'BAY', 'GULF', 'CHAN']),
-    'strait':   ('H', ['STR', 'CHAN']),
+    'strait':   ('H', ['STRT', 'STR', 'CHAN']),
     'river':    ('H', ['STM', 'STMH', 'STMI']),
     'lake':     ('H', ['LK', 'LKS', 'LKN', 'RSV']),
     'facility': ('S', ['AIRP', 'MILB', 'PORT', 'PRNQ', 'RSTN']),
@@ -397,6 +397,18 @@ def geocode_entity(
             f"→ {result.lat:.4f}, {result.lng:.4f}"
         )
         return result
+
+    # Step 3b: Relaxed lookup — drop country_code filter
+    # Handles mismatches like Hong Kong (Gemini→CN, GeoNames→HK) or Gaza (PS vs IL)
+    if country_code:
+        result = _lookup_gazetteer_filtered(db, clean_name, None, feature_type)
+        if result:
+            result.reasoning = reasoning
+            logger.info(
+                f"  ✓ GeoNames+Gemini (relaxed): '{clean_name}' ({feature_type}) "
+                f"→ {result.lat:.4f}, {result.lng:.4f}"
+            )
+            return result
 
     # Step 4: Photon fallback (highly specific locations, military bases, etc.)
     logger.info(f"  → GeoNames miss for '{clean_name}' — Photon fallback")
