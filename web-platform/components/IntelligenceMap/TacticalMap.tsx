@@ -35,11 +35,15 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
     const { layers, toggleLayer, stopPulse } = useMapLayers({ mapRef: map });
 
     // addSourceAndLayers must be defined before useMapData (passed as dep)
-    // We use a ref to break the circular dependency
+    // We use a ref + stable wrapper to break the circular dependency
     const addSourceAndLayersRef = useRef<(data: EntityCollection) => void>(() => {});
+    // Stable function identity — never changes, always delegates to current ref
+    const addSourceAndLayersStable = useCallback((data: EntityCollection) => {
+        addSourceAndLayersRef.current(data);
+    }, []);
 
     const { entityCount, mapStats, selectedEntity, setSelectedEntity, loadEntities, loadStats } =
-        useMapData({ mapRef: map, addSourceAndLayers: (...args) => addSourceAndLayersRef.current(...args) });
+        useMapData({ mapRef: map, addSourceAndLayers: addSourceAndLayersStable });
 
     const [storylineBanner, setStorylineBanner] = useState<StorylineBanner | null>(null);
 
@@ -316,7 +320,15 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
         map.current.on('mouseleave', 'clusters', () => { if (map.current) map.current.getCanvas().style.cursor = ''; });
     };
 
-    // ── Map initialization ───────────────────────────────────────────────────
+    // ── Stable refs for init effect (avoid re-running on callback identity change) ──
+    const loadEntitiesRef = useRef(loadEntities);
+    const loadStatsRef = useRef(loadStats);
+    const stopPulseRef = useRef(stopPulse);
+    loadEntitiesRef.current = loadEntities;
+    loadStatsRef.current = loadStats;
+    stopPulseRef.current = stopPulse;
+
+    // ── Map initialization (runs once) ────────────────────────────────────────
 
     useEffect(() => {
         if (map.current) return;
@@ -340,18 +352,18 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
                 const c = map.current.getCenter();
                 setMapState({ latitude: c.lat, longitude: c.lng, zoom: map.current.getZoom() });
             });
-            map.current.on('load', () => { loadEntities(); loadStats(); });
+            map.current.on('load', () => { loadEntitiesRef.current(); loadStatsRef.current(); });
         } catch (error) {
             console.error('Error initializing map:', error);
         }
 
         return () => {
-            stopPulse();
+            stopPulseRef.current();
             popup.current?.remove();
             map.current?.remove();
             map.current = null;
         };
-    }, [loadEntities, loadStats, stopPulse]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Storyline highlight mode ─────────────────────────────────────────────
 
