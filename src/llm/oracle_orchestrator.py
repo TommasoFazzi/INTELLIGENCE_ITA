@@ -258,6 +258,7 @@ class OracleOrchestrator:
             QueryIntent.MARKET: 0.04,        # markets are ultra time-sensitive
             QueryIntent.COMPARATIVE: 0.015,  # comparisons need history
             QueryIntent.TICKER: 0.03,        # ticker = recent
+            QueryIntent.OVERVIEW: 0.005,     # panoramic — needs full history, half-life ~140 days
         }
         if "time_decay_k" not in filters:
             filters["time_decay_k"] = _INTENT_DECAY_K.get(

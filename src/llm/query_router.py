@@ -52,6 +52,13 @@ INTENT_EXAMPLES = {
         "Mostrami le storyline correlate a NVDA",
         "Temi associati al ticker tecnologico",
     ],
+    "overview": [
+        "Give me a geopolitical overview of Myanmar",
+        "Panorama geopolitico dell'Iran",
+        "Quadro generale della situazione in Ucraina",
+        "Excursus sulla crisi energetica europea",
+        "Situazione geopolitica del Medio Oriente",
+    ],
 }
 
 # Keywords that signal complexity
@@ -67,6 +74,13 @@ COMPLEX_KEYWORDS = {
 TICKER_KEYWORDS = {
     "ticker", "azione", "stock", "rtx", "nvda", "msft", "tsm", "temi",
     "storyline", "associato", "correlato", "correlate", "correlati",
+}
+OVERVIEW_KEYWORDS = {
+    "panorama", "panoramica", "overview", "landscape", "excursus",
+    "quadro generale", "situazione generale", "quadro geopolitico",
+    "geopolitical overview", "geopolitical landscape", "country profile",
+    "scenario complessivo", "storia di", "contesto storico",
+    "analisi paese", "country analysis", "comprehensive analysis",
 }
 
 
@@ -100,7 +114,7 @@ class QueryRouter:
             sub_queries = [p.strip() for p in parts if p.strip()]
 
         # Query expansion for complex analytical/narrative queries
-        if complexity == QueryComplexity.COMPLEX and intent in (QueryIntent.ANALYTICAL, QueryIntent.NARRATIVE, QueryIntent.COMPARATIVE):
+        if complexity == QueryComplexity.COMPLEX and intent in (QueryIntent.ANALYTICAL, QueryIntent.NARRATIVE, QueryIntent.COMPARATIVE, QueryIntent.OVERVIEW):
             expanded = self._expand_query(query)
             if expanded:
                 # Inject expanded queries into RAG steps
@@ -121,6 +135,12 @@ class QueryRouter:
     # ── Intent classification (LLM) ───────────────────────────────────────────
 
     def _classify_intent(self, query: str):
+        # Pre-LLM override: overview keywords are unambiguous
+        q_lower = query.lower()
+        if any(kw in q_lower for kw in OVERVIEW_KEYWORDS):
+            logger.info("QueryRouter: overview keyword detected, overriding to OVERVIEW")
+            return QueryIntent.OVERVIEW, []
+
         examples_block = "\n".join(
             f"  {intent}: {', '.join(exs[:2])}"
             for intent, exs in INTENT_EXAMPLES.items()
@@ -132,6 +152,7 @@ class QueryRouter:
 - market: trade signals, macro indicators, investment opportunities
 - comparative: comparing two entities, time periods, or viewpoints
 - ticker: market ticker analysis, company themes, storylines correlated to stock symbols
+- overview: broad geopolitical overview, country/region profile, comprehensive landscape analysis, excursus — needs historical depth, not just recent news
 
 Examples:
 {examples_block}
@@ -139,7 +160,7 @@ Examples:
 Query: "{query}"
 
 Respond ONLY with valid JSON:
-{{"intent": "factual|analytical|narrative|market|comparative|ticker", "confidence": 0.0-1.0, "key_entities": ["entity1", "entity2"]}}"""
+{{"intent": "factual|analytical|narrative|market|comparative|ticker|overview", "confidence": 0.0-1.0, "key_entities": ["entity1", "entity2"]}}"""
 
         try:
             result = self._llm_call_with_retry(
@@ -193,6 +214,10 @@ Respond ONLY with valid JSON:
         words = query.lower().split()
         word_count = len(words)
         q_lower = query.lower()
+
+        # OVERVIEW is always COMPLEX — needs query expansion for breadth
+        if intent == QueryIntent.OVERVIEW:
+            return QueryComplexity.COMPLEX
 
         # COMPLEX signals
         if any(kw in q_lower for kw in COMPLEX_KEYWORDS):
@@ -321,6 +346,22 @@ Respond ONLY with valid JSON:
             if "report" in query.lower() and any(char.isdigit() for char in query):
                 tool_names.insert(0, "report_compare")
                 # Report comparison will extract IDs from query dynamically if needed
+
+        elif intent == QueryIntent.OVERVIEW:
+            tool_names = ["rag_search", "graph_navigation"]
+            steps = [
+                ExecutionStep(
+                    tool_name="rag_search",
+                    parameters={"query": query, "mode": "both", "top_k": 15},
+                    description="Deep RAG search for comprehensive overview (no recency bias)",
+                ),
+                ExecutionStep(
+                    tool_name="graph_navigation",
+                    parameters={"operation": "connected_storylines", "max_depth": 3},
+                    description="Graph traversal for related storylines",
+                    is_critical=False,
+                ),
+            ]
 
         elif intent == QueryIntent.TICKER:
             tool_names = ["ticker_themes", "rag_search"]

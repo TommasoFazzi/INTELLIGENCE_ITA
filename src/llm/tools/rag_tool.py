@@ -278,47 +278,46 @@ class RAGTool(BaseTool):
                 f"chunks={len(chunks)}, reports={len(reports)}"
             )
 
-        # ── Recency boost: ensure fresh reports are always present ────────
+        # ── Recency boost: ensure fresh reports are present (ONLY when explicitly requested) ──
         if mode in ("both", "strategic"):
             RECENCY_SLOTS = 2
             recency_boost = filters.get("recency_boost", False)
-            existing_ids = {r.get("id") for r in reports}
 
-            # Fallback: if semantic search returned < 3 reports, supplement with latest
-            if len(reports) < 3 or recency_boost:
+            # Only inject recent reports when recency_boost is explicitly set
+            # (triggered by keywords like "ultimo", "recente", "latest")
+            # This prevents irrelevant recent reports from polluting topic-specific queries
+            if recency_boost:
+                existing_ids = {r.get("id") for r in reports}
                 try:
-                    n_fetch = max(RECENCY_SLOTS + 1, 5) if recency_boost else 5
-                    latest = self.db.get_latest_reports(n=n_fetch, days_back=14)
+                    latest = self.db.get_latest_reports(n=RECENCY_SLOTS + 1, days_back=14)
                     added = 0
                     for lr in latest:
                         if lr["id"] not in existing_ids:
-                            lr["similarity"] = 0.5  # neutral score for non-semantic results
+                            lr["similarity"] = 0.5
                             reports.append(lr)
                             existing_ids.add(lr["id"])
                             added += 1
                     if added:
-                        logger.info(f"Recency fallback: added {added} recent reports")
+                        logger.info(f"Recency boost: added {added} recent reports")
                 except Exception as e:
-                    logger.warning(f"Recency fallback failed: {e}")
+                    logger.warning(f"Recency boost failed: {e}")
 
-            # Guarantee recency slots: ensure top N by date are in results
-            if reports and len(reports) > RECENCY_SLOTS:
-                by_date = sorted(
-                    reports,
-                    key=lambda r: r.get("report_date") or date.min,
-                    reverse=True,
-                )
-                # Ensure the RECENCY_SLOTS freshest reports are in the final list
-                top_by_score = reports[:top_k]
-                top_ids = {r.get("id") for r in top_by_score}
-                for fresh in by_date[:RECENCY_SLOTS]:
-                    if fresh.get("id") not in top_ids:
-                        # Replace the last score-ranked item with this fresh one
-                        if len(top_by_score) >= top_k:
-                            top_by_score[-1] = fresh
-                        else:
-                            top_by_score.append(fresh)
-                reports = top_by_score
+                # Guarantee recency slots in final results
+                if reports and len(reports) > RECENCY_SLOTS:
+                    by_date = sorted(
+                        reports,
+                        key=lambda r: r.get("report_date") or date.min,
+                        reverse=True,
+                    )
+                    top_by_score = reports[:top_k]
+                    top_ids = {r.get("id") for r in top_by_score}
+                    for fresh in by_date[:RECENCY_SLOTS]:
+                        if fresh.get("id") not in top_ids:
+                            if len(top_by_score) >= top_k:
+                                top_by_score[-1] = fresh
+                            else:
+                                top_by_score.append(fresh)
+                    reports = top_by_score
 
         data = {"chunks": chunks, "reports": reports}
         metadata = {
