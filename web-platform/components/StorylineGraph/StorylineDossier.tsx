@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { X, TrendingUp, FileText, GitBranch, Calendar, Tag, ChevronDown } from 'lucide-react';
+import { X, TrendingUp, FileText, GitBranch, Calendar, Tag, ChevronDown, MapPin } from 'lucide-react';
+import Link from 'next/link';
 import { useStorylineDetail } from '@/hooks/useStories';
 import type { NarrativeStatus } from '@/types/stories';
 
@@ -87,6 +88,14 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
                     <span className="text-xs text-gray-400 font-mono">
                       ID: {detail.storyline.id}
                     </span>
+                    <span className="text-gray-500">|</span>
+                    <Link
+                      href={`/map?storyline_id=${detail.storyline.id}`}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded border border-[#00A8E8]/40 bg-[#00A8E8]/10 text-[#00A8E8] text-xs font-mono hover:bg-[#00A8E8]/20 transition-all"
+                    >
+                      <MapPin size={10} />
+                      MAP
+                    </Link>
                   </div>
                 )}
               </>

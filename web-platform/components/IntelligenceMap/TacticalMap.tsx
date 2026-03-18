@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import GridOverlay from './GridOverlay';
@@ -8,201 +8,54 @@ import HUDOverlay from './HUDOverlay';
 import EntityDossier from './EntityDossier';
 import FilterPanel from './FilterPanel';
 import { ENTITY_TYPE_COLORS } from '@/types/entities';
-import { COMMUNITY_PALETTE, COMMUNITY_OTHER } from '@/lib/communityColors';
-import type { EntityFilters } from '@/utils/api';
-import type { EntityCollection, MapStats } from '@/types/entities';
+import { useMapPosition } from '@/hooks/useMapPosition';
+import { useMapLayers, ENTITY_COLOR_MATCH, COMMUNITY_COLOR_MATCH } from '@/hooks/useMapLayers';
+import { useMapData } from '@/hooks/useMapData';
+import type { EntityCollection } from '@/types/entities';
 
-interface EntityData {
-    id: number;
-    name: string;
-    entity_type: string;
-    latitude: number;
-    longitude: number;
-    mention_count: number;
-    first_seen: string;
-    last_seen: string;
-    metadata: Record<string, any>;
-    related_articles: any[];
-    related_storylines: any[];
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface TacticalMapProps {
+    storylineId?: number | null;
 }
 
-type ColorMode = 'entity_type' | 'community';
-
-interface LayerToggles {
-    heatmap: boolean;
-    arcs: boolean;
-    pulse: boolean;
-    colorMode: ColorMode;
+interface StorylineBanner {
+    title: string;
+    count: number;
 }
 
-// Color expression: maps entity_type → hex color
-const ENTITY_COLOR_MATCH: any[] = [
-    'match',
-    ['get', 'entity_type'],
-    'GPE',    ENTITY_TYPE_COLORS.GPE,
-    'ORG',    ENTITY_TYPE_COLORS.ORG,
-    'PERSON', ENTITY_TYPE_COLORS.PERSON,
-    'LOC',    ENTITY_TYPE_COLORS.LOC,
-    'FAC',    ENTITY_TYPE_COLORS.FAC,
-    '#888888',
-];
+// ── Component ────────────────────────────────────────────────────────────────
 
-// Community color expression: maps primary_community_id % palette_length → color.
-// Deterministic and sync with StorylineGraph palette.
-const buildCommunityColorExpr = (): any[] => {
-    const n = COMMUNITY_PALETTE.length;
-    const expr: any[] = ['match', ['%', ['coalesce', ['get', 'primary_community_id'], -1], n]];
-    for (let i = 0; i < n; i++) {
-        expr.push(i, COMMUNITY_PALETTE[i]);
-    }
-    expr.push(COMMUNITY_OTHER);
-    return expr;
-};
-
-const COMMUNITY_COLOR_MATCH = buildCommunityColorExpr();
-
-export default function TacticalMap() {
+export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
     const popup = useRef<mapboxgl.Popup | null>(null);
-    const pulseAnimRef = useRef<number | null>(null);
-    const pulseState = useRef({ radius: 8, opacity: 1 });
-    const arcsLoaded = useRef(false);
 
-    const [mapState, setMapState] = useState({ latitude: 41.9028, longitude: 12.4964, zoom: 3 });
-    const [selectedEntity, setSelectedEntity] = useState<EntityData | null>(null);
-    const [entityCount, setEntityCount] = useState({ filtered: 0, total: 0 });
-    const [mapStats, setMapStats] = useState<MapStats | null>(null);
-    const [layers, setLayers] = useState<LayerToggles>({
-        heatmap: false,
-        arcs: false,
-        pulse: false,
-        colorMode: 'entity_type',
-    });
+    const { mapState, setMapState } = useMapPosition();
+    const { layers, toggleLayer, stopPulse } = useMapLayers({ mapRef: map });
 
-    // -----------------------------------------------------------------------
-    // 3c — Pulse animation (requestAnimationFrame)
-    // -----------------------------------------------------------------------
-    const startPulse = useCallback(() => {
-        const animate = () => {
-            if (!map.current?.getLayer('entity-pulse')) return;
-            pulseState.current.opacity -= 0.015;
-            pulseState.current.radius += 0.35;
-            if (pulseState.current.opacity <= 0) {
-                pulseState.current.opacity = 1;
-                pulseState.current.radius = 8;
-            }
-            map.current.setPaintProperty('entity-pulse', 'circle-stroke-opacity', pulseState.current.opacity);
-            map.current.setPaintProperty('entity-pulse', 'circle-radius', pulseState.current.radius);
-            pulseAnimRef.current = requestAnimationFrame(animate);
-        };
-        pulseAnimRef.current = requestAnimationFrame(animate);
-    }, []);
+    // addSourceAndLayers must be defined before useMapData (passed as dep)
+    // We use a ref to break the circular dependency
+    const addSourceAndLayersRef = useRef<(data: EntityCollection) => void>(() => {});
 
-    const stopPulse = useCallback(() => {
-        if (pulseAnimRef.current !== null) {
-            cancelAnimationFrame(pulseAnimRef.current);
-            pulseAnimRef.current = null;
-        }
-        if (map.current?.getLayer('entity-pulse')) {
-            map.current.setPaintProperty('entity-pulse', 'circle-stroke-opacity', 0.5);
-            map.current.setPaintProperty('entity-pulse', 'circle-radius', 8);
-        }
-    }, []);
+    const { entityCount, mapStats, selectedEntity, setSelectedEntity, loadEntities, loadStats } =
+        useMapData({ mapRef: map, addSourceAndLayers: (...args) => addSourceAndLayersRef.current(...args) });
 
-    // -----------------------------------------------------------------------
-    // 3b — Load arcs (lazy, on first toggle-on)
-    // -----------------------------------------------------------------------
-    const loadArcs = useCallback(async () => {
-        if (!map.current) return;
-        try {
-            const { fetchEntityArcs } = await import('@/utils/api');
-            const arcsData = await fetchEntityArcs(0.3, 300);
-            const source = map.current.getSource('entity-arcs') as mapboxgl.GeoJSONSource;
-            if (source) source.setData(arcsData as any);
-            console.log(`✓ Loaded ${(arcsData as any).arc_count ?? 0} entity arcs`);
-        } catch (error) {
-            console.error('Error loading arcs:', error);
-        }
-    }, []);
+    const [storylineBanner, setStorylineBanner] = useState<StorylineBanner | null>(null);
 
-    // -----------------------------------------------------------------------
-    // Layer visibility — react to toggle state changes
-    // -----------------------------------------------------------------------
-    useEffect(() => {
+    // ── Build all map layers ─────────────────────────────────────────────────
+
+    const addSourceAndLayers = useCallback((entityData: any) => {
         if (!map.current) return;
 
-        if (map.current.getLayer('intel-heatmap')) {
-            map.current.setLayoutProperty('intel-heatmap', 'visibility', layers.heatmap ? 'visible' : 'none');
-        }
-
-        if (map.current.getLayer('arc-lines')) {
-            map.current.setLayoutProperty('arc-lines', 'visibility', layers.arcs ? 'visible' : 'none');
-            if (layers.arcs && !arcsLoaded.current) {
-                arcsLoaded.current = true;
-                loadArcs();
-            }
-        }
-
-        if (map.current.getLayer('entity-pulse')) {
-            map.current.setLayoutProperty('entity-pulse', 'visibility', layers.pulse ? 'visible' : 'none');
-            if (layers.pulse) { startPulse(); } else { stopPulse(); }
-        }
-
-        // 3d — Community vs entity_type color mode
-        const colorExpr = layers.colorMode === 'community' ? COMMUNITY_COLOR_MATCH : ENTITY_COLOR_MATCH;
-        if (map.current.getLayer('entity-markers')) {
-            map.current.setPaintProperty('entity-markers', 'circle-color', colorExpr as any);
-        }
-        if (map.current.getLayer('entity-labels')) {
-            map.current.setPaintProperty('entity-labels', 'text-color', colorExpr as any);
-        }
-    }, [layers, loadArcs, startPulse, stopPulse]);
-
-    // -----------------------------------------------------------------------
-    // Fetch entity data
-    // -----------------------------------------------------------------------
-    const loadEntities = useCallback(async (filters: EntityFilters = {}) => {
-        if (!map.current) return;
-        try {
-            const { fetchEntities } = await import('@/utils/api');
-            const entityData: EntityCollection = await fetchEntities(filters);
-            setEntityCount({ filtered: entityData.filtered_count, total: entityData.total_count });
-            console.log(`✓ Loaded ${entityData.features.length} entities`);
-
-            const source = map.current.getSource('entities') as mapboxgl.GeoJSONSource;
-            if (source) {
-                source.setData(entityData as any);
-            } else {
-                addSourceAndLayers(entityData);
-            }
-        } catch (error) {
-            console.error('Error loading entities:', error);
-        }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const loadStats = useCallback(async () => {
-        try {
-            const { fetchMapStats } = await import('@/utils/api');
-            setMapStats(await fetchMapStats());
-        } catch (error) {
-            console.error('Error loading map stats:', error);
-        }
-    }, []);
-
-    // -----------------------------------------------------------------------
-    // Build all map layers
-    // -----------------------------------------------------------------------
-    const addSourceAndLayers = (entityData: any) => {
-        if (!map.current) return;
-
-        // Entity source (clustered)
+        // Entity source (clustered) — promoteId for feature-state support
         map.current.addSource('entities', {
             type: 'geojson',
             data: entityData,
             cluster: true,
             clusterMaxZoom: 14,
             clusterRadius: 50,
+            promoteId: 'id',
         });
 
         // Arc source (empty until first toggle-on)
@@ -211,7 +64,7 @@ export default function TacticalMap() {
             data: { type: 'FeatureCollection', features: [] },
         });
 
-        // 3a — Heatmap (intelligence_score weighted, hidden by default)
+        // Heatmap (intelligence_score weighted, hidden by default)
         map.current.addLayer({
             id: 'intel-heatmap',
             type: 'heatmap',
@@ -235,15 +88,26 @@ export default function TacticalMap() {
             },
         });
 
-        // 3b — Arc lines (entity co-occurrence, hidden by default)
+        // Arc lines — dynamic width/color by shared_storylines
         map.current.addLayer({
             id: 'arc-lines',
             type: 'line',
             source: 'entity-arcs',
             layout: { visibility: 'none', 'line-join': 'round', 'line-cap': 'round' },
             paint: {
-                'line-color': '#00A8E8',
-                'line-width': ['interpolate', ['linear'], ['get', 'shared_storylines'], 1, 0.5, 5, 2.5],
+                'line-color': [
+                    'interpolate', ['linear'], ['get', 'shared_storylines'],
+                    1, '#00A8E8',
+                    5, '#FFD700',
+                    10, '#FF6B35',
+                ],
+                'line-width': [
+                    'interpolate', ['linear'], ['get', 'shared_storylines'],
+                    1, 1.0,
+                    3, 2.5,
+                    5, 4.0,
+                    10, 6.0,
+                ],
                 'line-opacity': ['interpolate', ['linear'], ['get', 'max_momentum'], 0, 0.15, 1, 0.45],
             },
         });
@@ -277,7 +141,7 @@ export default function TacticalMap() {
             paint: { 'text-color': '#FFFFFF' },
         });
 
-        // Entity markers (color-coded)
+        // Entity markers — feature-state driven opacity for storyline highlight
         map.current.addLayer({
             id: 'entity-markers',
             type: 'circle',
@@ -286,18 +150,27 @@ export default function TacticalMap() {
             paint: {
                 'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 6, 10, 12],
                 'circle-color': ENTITY_COLOR_MATCH as any,
-                'circle-stroke-width': 2,
+                'circle-stroke-width': [
+                    'case',
+                    ['boolean', ['feature-state', 'highlighted'], false], 4,
+                    2,
+                ],
                 'circle-stroke-color': [
                     'case',
-                    ['boolean', ['feature-state', 'hover'], false],
-                    '#FFFFFF',
+                    ['boolean', ['feature-state', 'highlighted'], false], '#FFD700',
+                    ['boolean', ['feature-state', 'hover'], false], '#FFFFFF',
                     'rgba(255, 255, 255, 0.4)',
                 ],
-                'circle-opacity': 0.85,
+                'circle-opacity': [
+                    'case',
+                    ['boolean', ['feature-state', 'highlighted'], false], 1.0,
+                    ['boolean', ['feature-state', 'dimmed'], false], 0.15,
+                    0.85,
+                ],
             },
         });
 
-        // 3c — Pulse ring (entities seen < 48h, hidden by default)
+        // Pulse ring (entities seen < 48h, hidden by default)
         map.current.addLayer({
             id: 'entity-pulse',
             type: 'circle',
@@ -314,7 +187,7 @@ export default function TacticalMap() {
             },
         });
 
-        // Entity labels
+        // Entity labels — feature-state driven opacity
         map.current.addLayer({
             id: 'entity-labels',
             type: 'symbol',
@@ -331,16 +204,24 @@ export default function TacticalMap() {
                 'text-color': ENTITY_COLOR_MATCH as any,
                 'text-halo-color': '#0A1628',
                 'text-halo-width': 1,
+                'text-opacity': [
+                    'case',
+                    ['boolean', ['feature-state', 'highlighted'], false], 1.0,
+                    ['boolean', ['feature-state', 'dimmed'], false], 0.1,
+                    1.0,
+                ],
             },
             minzoom: 5,
         });
 
         setupEventHandlers();
-    };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // -----------------------------------------------------------------------
-    // Hover + click event handlers
-    // -----------------------------------------------------------------------
+    // Keep ref in sync
+    addSourceAndLayersRef.current = addSourceAndLayers;
+
+    // ── Event handlers ───────────────────────────────────────────────────────
+
     const setupEventHandlers = () => {
         if (!map.current) return;
 
@@ -435,9 +316,8 @@ export default function TacticalMap() {
         map.current.on('mouseleave', 'clusters', () => { if (map.current) map.current.getCanvas().style.cursor = ''; });
     };
 
-    // -----------------------------------------------------------------------
-    // Map initialization
-    // -----------------------------------------------------------------------
+    // ── Map initialization ───────────────────────────────────────────────────
+
     useEffect(() => {
         if (map.current) return;
         if (!mapContainer.current) return;
@@ -473,14 +353,103 @@ export default function TacticalMap() {
         };
     }, [loadEntities, loadStats, stopPulse]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const toggleLayer = (key: keyof LayerToggles) => {
-        setLayers(prev => {
-            if (key === 'colorMode') {
-                return { ...prev, colorMode: prev.colorMode === 'entity_type' ? 'community' : 'entity_type' };
+    // ── Storyline highlight mode ─────────────────────────────────────────────
+
+    useEffect(() => {
+        if (!map.current) return;
+
+        // Clear previous highlight
+        const clearHighlight = () => {
+            if (!map.current) return;
+            try { map.current.removeFeatureState({ source: 'entities' }); } catch { /* source not ready */ }
+            setStorylineBanner(null);
+        };
+
+        if (!storylineId) {
+            clearHighlight();
+            return;
+        }
+
+        // Wait for map style + source to be ready
+        const applyHighlight = async () => {
+            if (!map.current || !map.current.getSource('entities')) return;
+
+            try {
+                const { fetchEntitiesByStoryline } = await import('@/utils/api');
+                const data = await fetchEntitiesByStoryline(storylineId);
+                if (!map.current) return;
+
+                const highlightIds = new Set(data.entity_ids);
+
+                // Get all rendered features to dim non-highlighted ones
+                const allFeatures = map.current.querySourceFeatures('entities', {
+                    sourceLayer: '',
+                    filter: ['!', ['has', 'point_count']],
+                });
+
+                // Clear previous state first
+                try { map.current.removeFeatureState({ source: 'entities' }); } catch { /* ok */ }
+
+                // Apply feature states
+                for (const f of allFeatures) {
+                    const fId = f.properties?.id ?? f.id;
+                    if (fId == null) continue;
+                    if (highlightIds.has(Number(fId))) {
+                        map.current.setFeatureState({ source: 'entities', id: fId }, { highlighted: true });
+                    } else {
+                        map.current.setFeatureState({ source: 'entities', id: fId }, { dimmed: true });
+                    }
+                }
+
+                // Fit bounds to highlighted entities (maxZoom: 5 to avoid ocean zoom)
+                const bounds = new mapboxgl.LngLatBounds();
+                let hasBounds = false;
+                for (const f of allFeatures) {
+                    const fId = f.properties?.id ?? f.id;
+                    if (fId != null && highlightIds.has(Number(fId)) && f.geometry.type === 'Point') {
+                        const [lng, lat] = f.geometry.coordinates as [number, number];
+                        bounds.extend([lng, lat]);
+                        hasBounds = true;
+                    }
+                }
+                if (hasBounds) {
+                    map.current.fitBounds(bounds, { padding: 100, maxZoom: 5, duration: 1000 });
+                }
+
+                setStorylineBanner({ title: data.storyline_title, count: data.entity_count });
+
+                // Auto-enable arcs for storyline context
+                toggleLayer('arcs');
+            } catch (error) {
+                console.error('Error applying storyline highlight:', error);
             }
-            return { ...prev, [key]: !prev[key as 'heatmap' | 'arcs' | 'pulse'] };
-        });
-    };
+        };
+
+        // If map is already loaded, apply immediately; otherwise wait for sourcedata
+        if (map.current.isStyleLoaded() && map.current.getSource('entities')) {
+            applyHighlight();
+        } else {
+            const onSourceData = (e: mapboxgl.MapSourceDataEvent) => {
+                if (e.sourceId === 'entities' && e.isSourceLoaded) {
+                    map.current?.off('sourcedata', onSourceData);
+                    applyHighlight();
+                }
+            };
+            map.current.on('sourcedata', onSourceData);
+        }
+    }, [storylineId, toggleLayer]);
+
+    // ── Clear storyline highlight ────────────────────────────────────────────
+
+    const clearStorylineHighlight = useCallback(() => {
+        if (!map.current) return;
+        try { map.current.removeFeatureState({ source: 'entities' }); } catch { /* ok */ }
+        setStorylineBanner(null);
+        // Update URL without storyline_id
+        window.history.replaceState(null, '', '/map');
+    }, []);
+
+    // ── Render ───────────────────────────────────────────────────────────────
 
     return (
         <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -496,7 +465,26 @@ export default function TacticalMap() {
                 stats={mapStats}
             />
 
-            {/* Layer toggle controls (below INTELITA branding) */}
+            {/* Storyline highlight banner */}
+            {storylineBanner && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-auto">
+                    <div className="flex items-center gap-3 px-4 py-2 rounded-lg border border-[#FFD700]/40 bg-[#0A1628]/95 backdrop-blur-sm font-mono text-xs">
+                        <span className="w-2 h-2 rounded-full bg-[#FFD700] animate-pulse" />
+                        <span className="text-[#FFD700] font-bold">STORYLINE</span>
+                        <span className="text-gray-300 max-w-[300px] truncate">{storylineBanner.title}</span>
+                        <span className="text-gray-500">{storylineBanner.count} entities</span>
+                        <button
+                            type="button"
+                            onClick={clearStorylineHighlight}
+                            className="ml-2 px-2 py-0.5 rounded border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 transition-all"
+                        >
+                            CLEAR
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Layer toggle controls */}
             <div className="absolute top-44 left-6 z-30 pointer-events-auto font-mono text-[10px] space-y-1">
                 <LayerToggleBtn label="HEATMAP"  active={layers.heatmap}                      color="#FF6B35" onClick={() => toggleLayer('heatmap')} />
                 <LayerToggleBtn label="ARCS"     active={layers.arcs}                         color="#00A8E8" onClick={() => toggleLayer('arcs')} />
@@ -515,6 +503,8 @@ export default function TacticalMap() {
         </div>
     );
 }
+
+// ── Layer Toggle Button ──────────────────────────────────────────────────────
 
 function LayerToggleBtn({ label, active, color, onClick }: {
     label: string; active: boolean; color: string; onClick: () => void;

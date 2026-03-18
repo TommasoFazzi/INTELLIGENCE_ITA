@@ -1,5 +1,7 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import MapLoader from '@/components/IntelligenceMap/MapLoader';
+import MapSkeleton from '@/components/IntelligenceMap/MapSkeleton';
 
 // Server-side metadata for SEO
 export const metadata: Metadata = {
@@ -17,19 +19,17 @@ export const metadata: Metadata = {
  *
  * Architecture:
  * 1. Page.tsx (Server) - handles metadata/SEO
- * 2. MapLoader (Client) - handles dynamic import
+ * 2. MapLoader (Client) - handles dynamic import + reads searchParams
  * 3. TacticalMap (Client) - the actual Mapbox map
  *
- * Benefits:
- * - Metadata rendered server-side for SEO
- * - Mapbox GL bundle loaded only on client (requires WebGL)
- * - Loading skeleton shown during bundle download
- * - Code splitting for ~500KB Mapbox bundle
+ * Suspense boundary required by Next.js for useSearchParams() in MapLoader.
  */
 export default function MapPage() {
   return (
     <main className="w-full h-screen">
-      <MapLoader />
+      <Suspense fallback={<MapSkeleton />}>
+        <MapLoader />
+      </Suspense>
     </main>
   );
 }

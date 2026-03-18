@@ -67,6 +67,26 @@ export async function fetchEntityArcs(minScore = 0.3, limit = 300): Promise<GeoJ
 }
 
 /**
+ * Fetch entity IDs linked to a specific storyline (cross-filter: graph → map)
+ */
+export interface StorylineEntities {
+  storyline_id: number;
+  storyline_title: string;
+  entity_ids: number[];
+  entity_count: number;
+}
+
+export async function fetchEntitiesByStoryline(storylineId: number): Promise<StorylineEntities> {
+  const response = await fetch(`/api/proxy/map/entities/by-storyline/${storylineId}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch entities for storyline ${storylineId}: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
  * Fetch map stats for HUD overlay
  */
 export async function fetchMapStats(): Promise<MapStats> {
