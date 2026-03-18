@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type mapboxgl from 'mapbox-gl';
 import type { EntityFilters } from '@/utils/api';
 import type { EntityCollection, MapStats } from '@/types/entities';
@@ -32,12 +32,14 @@ export function useMapData({ mapRef, addSourceAndLayers }: UseMapDataOptions) {
     const [entityCount, setEntityCount] = useState({ filtered: 0, total: 0 });
     const [mapStats, setMapStats] = useState<MapStats | null>(null);
     const [selectedEntity, setSelectedEntity] = useState<EntityData | null>(null);
+    const entityDataRef = useRef<EntityCollection | null>(null);
 
     const loadEntities = useCallback(async (filters: EntityFilters = {}) => {
         if (!mapRef.current) return;
         try {
             const { fetchEntities } = await import('@/utils/api');
             const entityData: EntityCollection = await fetchEntities(filters);
+            entityDataRef.current = entityData;
             setEntityCount({ filtered: entityData.filtered_count, total: entityData.total_count });
             console.log(`✓ Loaded ${entityData.features.length} entities`);
 
@@ -61,5 +63,5 @@ export function useMapData({ mapRef, addSourceAndLayers }: UseMapDataOptions) {
         }
     }, []);
 
-    return { entityCount, mapStats, selectedEntity, setSelectedEntity, loadEntities, loadStats };
+    return { entityCount, mapStats, selectedEntity, setSelectedEntity, loadEntities, loadStats, entityDataRef };
 }

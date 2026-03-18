@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import GraphLoader from '@/components/StorylineGraph/GraphLoader';
+import GraphSkeleton from '@/components/StorylineGraph/GraphSkeleton';
 
 export const metadata: Metadata = {
   title: 'Narrative Graph',
@@ -15,14 +17,16 @@ export const metadata: Metadata = {
  * Stories Page - Server Component wrapper
  *
  * Architecture:
- * 1. Page.tsx (Server) - handles metadata/SEO
- * 2. GraphLoader (Client) - handles dynamic import
+ * 1. Page.tsx (Server) - handles metadata/SEO + Suspense for useSearchParams
+ * 2. GraphLoader (Client) - handles dynamic import + URL params
  * 3. StorylineGraph (Client) - the force-directed graph
  */
 export default function StoriesPage() {
   return (
     <main className="w-full h-screen">
-      <GraphLoader />
+      <Suspense fallback={<GraphSkeleton />}>
+        <GraphLoader />
+      </Suspense>
     </main>
   );
 }

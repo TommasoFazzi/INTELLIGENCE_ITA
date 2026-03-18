@@ -9,7 +9,7 @@ import EntityDossier from './EntityDossier';
 import FilterPanel from './FilterPanel';
 import { ENTITY_TYPE_COLORS } from '@/types/entities';
 import { useMapPosition } from '@/hooks/useMapPosition';
-import { useMapLayers, ENTITY_COLOR_MATCH, COMMUNITY_COLOR_MATCH } from '@/hooks/useMapLayers';
+import { useMapLayers, ENTITY_COLOR_MATCH } from '@/hooks/useMapLayers';
 import { useMapData } from '@/hooks/useMapData';
 import type { EntityCollection } from '@/types/entities';
 
@@ -42,7 +42,7 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
         addSourceAndLayersRef.current(data);
     }, []);
 
-    const { entityCount, mapStats, selectedEntity, setSelectedEntity, loadEntities, loadStats } =
+    const { entityCount, mapStats, selectedEntity, setSelectedEntity, loadEntities, loadStats, entityDataRef } =
         useMapData({ mapRef: map, addSourceAndLayers: addSourceAndLayersStable });
 
     const [storylineBanner, setStorylineBanner] = useState<StorylineBanner | null>(null);
@@ -52,14 +52,13 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
     const addSourceAndLayers = useCallback((entityData: any) => {
         if (!map.current) return;
 
-        // Entity source (clustered) — promoteId for feature-state support
+        // Entity source (clustered)
         map.current.addSource('entities', {
             type: 'geojson',
             data: entityData,
             cluster: true,
             clusterMaxZoom: 14,
             clusterRadius: 50,
-            promoteId: 'id',
         });
 
         // Arc source (empty until first toggle-on)
@@ -145,7 +144,7 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
             paint: { 'text-color': '#FFFFFF' },
         });
 
-        // Entity markers — feature-state driven opacity for storyline highlight
+        // Entity markers — property-driven opacity for storyline highlight (_hl: 'on'|'off')
         map.current.addLayer({
             id: 'entity-markers',
             type: 'circle',
@@ -156,19 +155,18 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
                 'circle-color': ENTITY_COLOR_MATCH as any,
                 'circle-stroke-width': [
                     'case',
-                    ['boolean', ['feature-state', 'highlighted'], false], 4,
+                    ['==', ['get', '_hl'], 'on'], 4,
                     2,
                 ],
                 'circle-stroke-color': [
                     'case',
-                    ['boolean', ['feature-state', 'highlighted'], false], '#FFD700',
-                    ['boolean', ['feature-state', 'hover'], false], '#FFFFFF',
+                    ['==', ['get', '_hl'], 'on'], '#FFD700',
                     'rgba(255, 255, 255, 0.4)',
                 ],
                 'circle-opacity': [
                     'case',
-                    ['boolean', ['feature-state', 'highlighted'], false], 1.0,
-                    ['boolean', ['feature-state', 'dimmed'], false], 0.15,
+                    ['==', ['get', '_hl'], 'on'], 1.0,
+                    ['==', ['get', '_hl'], 'off'], 0.15,
                     0.85,
                 ],
             },
@@ -191,7 +189,7 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
             },
         });
 
-        // Entity labels — feature-state driven opacity
+        // Entity labels — property-driven opacity for storyline highlight
         map.current.addLayer({
             id: 'entity-labels',
             type: 'symbol',
@@ -210,8 +208,8 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
                 'text-halo-width': 1,
                 'text-opacity': [
                     'case',
-                    ['boolean', ['feature-state', 'highlighted'], false], 1.0,
-                    ['boolean', ['feature-state', 'dimmed'], false], 0.1,
+                    ['==', ['get', '_hl'], 'on'], 1.0,
+                    ['==', ['get', '_hl'], 'off'], 0.1,
                     1.0,
                 ],
             },
@@ -365,15 +363,16 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // ── Storyline highlight mode ─────────────────────────────────────────────
+    // ── Storyline highlight mode (property-based, works with clustering) ─────
 
     useEffect(() => {
         if (!map.current) return;
 
-        // Clear previous highlight
+        // Clear previous highlight by restoring original data (no _hl property)
         const clearHighlight = () => {
-            if (!map.current) return;
-            try { map.current.removeFeatureState({ source: 'entities' }); } catch { /* source not ready */ }
+            if (!map.current || !entityDataRef.current) return;
+            const source = map.current.getSource('entities') as mapboxgl.GeoJSONSource | undefined;
+            if (source) source.setData(entityDataRef.current as any);
             setStorylineBanner(null);
         };
 
@@ -382,43 +381,38 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
             return;
         }
 
-        // Wait for map style + source to be ready
+        // Stamp _hl property on GeoJSON features and update source
         const applyHighlight = async () => {
-            if (!map.current || !map.current.getSource('entities')) return;
+            if (!map.current || !entityDataRef.current) return;
 
             try {
                 const { fetchEntitiesByStoryline } = await import('@/utils/api');
                 const data = await fetchEntitiesByStoryline(storylineId);
-                if (!map.current) return;
+                if (!map.current || !entityDataRef.current) return;
 
                 const highlightIds = new Set(data.entity_ids);
+                const original = entityDataRef.current;
 
-                // Get all rendered features to dim non-highlighted ones
-                const allFeatures = map.current.querySourceFeatures('entities', {
-                    sourceLayer: '',
-                    filter: ['!', ['has', 'point_count']],
-                });
+                // Stamp each feature with _hl: 'on' | 'off'
+                const stamped = {
+                    ...original,
+                    features: original.features.map((f: any) => ({
+                        ...f,
+                        properties: {
+                            ...f.properties,
+                            _hl: highlightIds.has(f.properties?.id) ? 'on' : 'off',
+                        },
+                    })),
+                };
 
-                // Clear previous state first
-                try { map.current.removeFeatureState({ source: 'entities' }); } catch { /* ok */ }
-
-                // Apply feature states
-                for (const f of allFeatures) {
-                    const fId = f.properties?.id ?? f.id;
-                    if (fId == null) continue;
-                    if (highlightIds.has(Number(fId))) {
-                        map.current.setFeatureState({ source: 'entities', id: fId }, { highlighted: true });
-                    } else {
-                        map.current.setFeatureState({ source: 'entities', id: fId }, { dimmed: true });
-                    }
-                }
+                const source = map.current.getSource('entities') as mapboxgl.GeoJSONSource;
+                if (source) source.setData(stamped as any);
 
                 // Fit bounds to highlighted entities (maxZoom: 5 to avoid ocean zoom)
                 const bounds = new mapboxgl.LngLatBounds();
                 let hasBounds = false;
-                for (const f of allFeatures) {
-                    const fId = f.properties?.id ?? f.id;
-                    if (fId != null && highlightIds.has(Number(fId)) && f.geometry.type === 'Point') {
+                for (const f of stamped.features) {
+                    if (f.properties._hl === 'on' && f.geometry?.type === 'Point') {
                         const [lng, lat] = f.geometry.coordinates as [number, number];
                         bounds.extend([lng, lat]);
                         hasBounds = true;
@@ -429,15 +423,12 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
                 }
 
                 setStorylineBanner({ title: data.storyline_title, count: data.entity_count });
-
-                // Auto-enable arcs for storyline context
-                toggleLayer('arcs');
             } catch (error) {
                 console.error('Error applying storyline highlight:', error);
             }
         };
 
-        // If map is already loaded, apply immediately; otherwise wait for sourcedata
+        // If source is ready, apply immediately; otherwise wait for sourcedata
         if (map.current.isStyleLoaded() && map.current.getSource('entities')) {
             applyHighlight();
         } else {
@@ -449,17 +440,18 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
             };
             map.current.on('sourcedata', onSourceData);
         }
-    }, [storylineId, toggleLayer]);
+    }, [storylineId, entityDataRef]);
 
     // ── Clear storyline highlight ────────────────────────────────────────────
 
     const clearStorylineHighlight = useCallback(() => {
-        if (!map.current) return;
-        try { map.current.removeFeatureState({ source: 'entities' }); } catch { /* ok */ }
+        if (!map.current || !entityDataRef.current) return;
+        // Restore original data without _hl properties
+        const source = map.current.getSource('entities') as mapboxgl.GeoJSONSource | undefined;
+        if (source) source.setData(entityDataRef.current as any);
         setStorylineBanner(null);
-        // Update URL without storyline_id
         window.history.replaceState(null, '', '/map');
-    }, []);
+    }, [entityDataRef]);
 
     // ── Render ───────────────────────────────────────────────────────────────
 

@@ -42,7 +42,11 @@ const OTHER_COLOR = COMMUNITY_OTHER;
 const EGO_HIGHLIGHT = '#FFFFFF'; // bright highlight for ghost nodes during ego drill-down
 const TOP_N = COMMUNITY_PALETTE.length; // 15
 
-export default function StorylineGraph() {
+interface StorylineGraphProps {
+  highlightId?: number | null;
+}
+
+export default function StorylineGraph({ highlightId = null }: StorylineGraphProps) {
   const graphRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { graph, isLoading, error, refresh } = useGraphNetwork();
@@ -108,6 +112,23 @@ export default function StorylineGraph() {
 
     return { nodes: filteredNodes, links };
   }, [graph, minMomentum]);
+
+  // Auto-select node from URL param (deep-link from map → graph)
+  const highlightApplied = useRef(false);
+  useEffect(() => {
+    if (!highlightId || !graph || highlightApplied.current) return;
+    highlightApplied.current = true;
+    setSelectedId(highlightId);
+    // Wait for force simulation to position nodes, then zoom
+    const timer = setTimeout(() => {
+      const node = graphData.nodes.find((n) => n.id === highlightId);
+      if (node && node.x !== undefined && node.y !== undefined && graphRef.current) {
+        graphRef.current.centerAt(node.x, node.y, 500);
+        graphRef.current.zoom(3, 500);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [highlightId, graph, graphData.nodes]);
 
   // Compute community sizes + labels, sorted by size descending.
   // Top N get distinct colors from COMMUNITY_PALETTE; the rest = OTHER_COLOR.
