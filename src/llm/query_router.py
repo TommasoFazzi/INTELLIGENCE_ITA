@@ -103,7 +103,7 @@ class QueryRouter:
             self._intent_cache[cache_key] = {"intent": intent.value, "key_entities": key_entities}
 
         complexity = self._assess_complexity(query, intent)
-        tools, steps = self._select_tools(intent, complexity, query)
+        tools, steps = self._select_tools(intent, complexity, query, key_entities=key_entities)
 
         estimated_time = {"simple": 5.0, "medium": 15.0, "complex": 30.0}[complexity.value]
         requires_decomp = complexity == QueryComplexity.COMPLEX and intent == QueryIntent.COMPARATIVE
@@ -134,12 +134,24 @@ class QueryRouter:
 
     # ── Intent classification (LLM) ───────────────────────────────────────────
 
+    def _extract_entities_spacy(self, query: str) -> List[str]:
+        """Extract GPE/ORG/LOC entities from query using spaCy NER."""
+        try:
+            from ..utils.stopwords import _cleaner
+            if _cleaner.nlp:
+                doc = _cleaner.nlp(query)
+                return [ent.text for ent in doc.ents if ent.label_ in {"GPE", "ORG", "LOC"}]
+        except Exception:
+            pass
+        return []
+
     def _classify_intent(self, query: str):
         # Pre-LLM override: overview keywords are unambiguous
         q_lower = query.lower()
         if any(kw in q_lower for kw in OVERVIEW_KEYWORDS):
-            logger.info("QueryRouter: overview keyword detected, overriding to OVERVIEW")
-            return QueryIntent.OVERVIEW, []
+            entities = self._extract_entities_spacy(query)
+            logger.info(f"QueryRouter: overview keyword detected, overriding to OVERVIEW, entities={entities}")
+            return QueryIntent.OVERVIEW, entities
 
         examples_block = "\n".join(
             f"  {intent}: {', '.join(exs[:2])}"
@@ -250,7 +262,7 @@ Respond ONLY with valid JSON:
     def _has_recency_intent(self, query: str) -> bool:
         return bool(self._RECENCY_KEYWORDS.search(query))
 
-    def _select_tools(self, intent: QueryIntent, complexity: QueryComplexity, query: str):
+    def _select_tools(self, intent: QueryIntent, complexity: QueryComplexity, query: str, key_entities: Optional[List[str]] = None):
         tool_names: List[str] = []
         steps: List[ExecutionStep] = []
         recency = self._has_recency_intent(query)
@@ -349,11 +361,15 @@ Respond ONLY with valid JSON:
 
         elif intent == QueryIntent.OVERVIEW:
             tool_names = ["rag_search", "graph_navigation"]
+            # Use vector-only search to avoid FTS AND-matching problem
+            # (e.g. "myanmar geopolitical landscape" requires ALL 3 terms in same chunk,
+            #  finding only 2 chunks out of 227 that mention Myanmar)
+            # GPE filter NOT used: many articles lack GPE entities in JSONB
             steps = [
                 ExecutionStep(
                     tool_name="rag_search",
-                    parameters={"query": query, "mode": "both", "top_k": 15},
-                    description="Deep RAG search for comprehensive overview (no recency bias)",
+                    parameters={"query": query, "mode": "both", "top_k": 15, "filters": {"search_type": "vector"}},
+                    description="Deep vector search for comprehensive overview (no recency bias)",
                 ),
                 ExecutionStep(
                     tool_name="graph_navigation",
