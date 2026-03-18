@@ -991,6 +991,42 @@ class DatabaseManager:
             logger.error(f"Error getting reports: {e}")
             return []
 
+    def get_latest_reports(self, n: int = 5, days_back: int = 14) -> List[Dict[str, Any]]:
+        """
+        Get the N most recent reports by date, regardless of embedding status.
+        Used by Oracle for recency-based retrieval and as fallback when semantic
+        search returns few results.
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT id, report_date, draft_content, final_content,
+                               status, report_type, metadata,
+                               CASE WHEN content_embedding IS NOT NULL THEN true ELSE false END as has_embedding
+                        FROM reports
+                        WHERE report_date >= NOW() - INTERVAL '%s days'
+                        ORDER BY report_date DESC, generated_at DESC
+                        LIMIT %s
+                    """, (days_back, n))
+
+                    reports = []
+                    for row in cur.fetchall():
+                        reports.append({
+                            'id': row[0],
+                            'report_date': row[1],
+                            'draft_content': row[2],
+                            'final_content': row[3],
+                            'status': row[4],
+                            'report_type': row[5],
+                            'metadata': row[6],
+                            'has_embedding': row[7],
+                        })
+                    return reports
+        except Exception as e:
+            logger.error(f"Error getting latest reports: {e}")
+            return []
+
     def update_report(
         self,
         report_id: int,

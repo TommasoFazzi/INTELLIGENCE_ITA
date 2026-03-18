@@ -1740,6 +1740,22 @@ If no storyline data is provided, skip this section entirely.
         logger.info("\n✓ Report generation complete")
         return report
 
+    def _compute_and_save_report_embedding(self, report_id: int, report: Dict[str, Any]) -> None:
+        """Compute and save embedding for a report so Oracle can find it via semantic search."""
+        try:
+            content = report.get('report_text', '')
+            if not content:
+                logger.warning(f"Report #{report_id} has no text, skipping embedding")
+                return
+            embedding = self.nlp.embedding_model.encode(content).tolist()
+            success = self.db.update_report_embedding(report_id, embedding)
+            if success:
+                logger.info(f"✓ Report #{report_id} embedding saved ({len(embedding)}-dim)")
+            else:
+                logger.warning(f"Failed to save embedding for report #{report_id}")
+        except Exception as e:
+            logger.warning(f"Could not compute embedding for report #{report_id}: {e}")
+
     def save_report(self, report: Dict[str, Any], output_dir: str = "reports") -> Path:
         """
         Save report to file.
@@ -1823,6 +1839,8 @@ If no storyline data is provided, skip this section entirely.
             if report_id:
                 report['report_id'] = report_id
                 logger.info(f"✓ Report saved to database with ID: {report_id}")
+                # Auto-compute embedding for Oracle semantic search
+                self._compute_and_save_report_embedding(report_id, report)
             else:
                 logger.warning("Failed to save report to database")
 
@@ -2641,6 +2659,8 @@ Respond with JSON only:"""
             report_id = self.db.save_report(report)
 
             if report_id:
+                # Auto-compute embedding for Oracle semantic search
+                self._compute_and_save_report_embedding(report_id, report)
                 # Save trade signals
                 signal_stats = self.save_trade_signals(
                     report_id=report_id,

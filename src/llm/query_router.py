@@ -99,6 +99,15 @@ class QueryRouter:
             parts = re.split(r"\bvs\b|\bversus\b|\bconfrontra\b|\brispetto a\b", query, flags=re.IGNORECASE)
             sub_queries = [p.strip() for p in parts if p.strip()]
 
+        # Query expansion for complex analytical/narrative queries
+        if complexity == QueryComplexity.COMPLEX and intent in (QueryIntent.ANALYTICAL, QueryIntent.NARRATIVE, QueryIntent.COMPARATIVE):
+            expanded = self._expand_query(query)
+            if expanded:
+                # Inject expanded queries into RAG steps
+                for step in steps:
+                    if step.tool_name == "rag_search":
+                        step.parameters["multi_query"] = expanded
+
         return QueryPlan(
             intent=intent,
             complexity=complexity,
@@ -205,15 +214,30 @@ Respond ONLY with valid JSON:
 
     # ── Tool selection ────────────────────────────────────────────────────────
 
+    # Recency keywords — triggers recency_boost flag on RAG steps
+    _RECENCY_KEYWORDS = re.compile(
+        r"\b(ultimo|ultima|ultimi|ultime|latest|recent[ei]?|più recente|"
+        r"report di oggi|report di ieri|today|yesterday|stamattina|"
+        r"questa settimana|this week|last report)\b",
+        re.IGNORECASE,
+    )
+
+    def _has_recency_intent(self, query: str) -> bool:
+        return bool(self._RECENCY_KEYWORDS.search(query))
+
     def _select_tools(self, intent: QueryIntent, complexity: QueryComplexity, query: str):
         tool_names: List[str] = []
         steps: List[ExecutionStep] = []
+        recency = self._has_recency_intent(query)
 
         if intent == QueryIntent.FACTUAL:
             tool_names = ["rag_search"]
+            rag_filters = {}
+            if recency:
+                rag_filters["recency_boost"] = True
             steps = [ExecutionStep(
                 tool_name="rag_search",
-                parameters={"query": query, "mode": "both", "top_k": 10},
+                parameters={"query": query, "mode": "both", "top_k": 10, "filters": rag_filters} if rag_filters else {"query": query, "mode": "both", "top_k": 10},
                 description="Hybrid RAG search for factual information",
             )]
 
@@ -244,10 +268,13 @@ Respond ONLY with valid JSON:
 
         elif intent == QueryIntent.NARRATIVE:
             tool_names = ["rag_search", "graph_navigation"]
+            rag_params = {"query": query, "mode": "both", "top_k": 8}
+            if recency:
+                rag_params["filters"] = {"recency_boost": True}
             steps = [
                 ExecutionStep(
                     tool_name="rag_search",
-                    parameters={"query": query, "mode": "both", "top_k": 8},
+                    parameters=rag_params,
                     description="RAG search for narrative context",
                 ),
                 ExecutionStep(
@@ -351,6 +378,36 @@ Output ONLY the SQL query, nothing else."""
             return None
         except Exception as e:
             logger.warning(f"QueryRouter: SQL generation failed ({e}), skipping sql_query tool")
+            return None
+
+    def _expand_query(self, query: str) -> Optional[List[str]]:
+        """Use LLM to decompose a complex query into 2-3 focused sub-queries for better RAG retrieval."""
+        prompt = f"""You are a geopolitical intelligence analyst. A user has asked a complex question.
+Decompose it into 2-3 simpler, focused search queries that together cover all aspects of the original question.
+Each sub-query should be a concise search phrase (5-15 words) optimized for semantic retrieval.
+
+Original question: "{query}"
+
+Respond ONLY with valid JSON: {{"queries": ["sub-query 1", "sub-query 2", "sub-query 3"]}}"""
+
+        try:
+            result = self._llm_call_with_retry(
+                prompt,
+                genai.types.GenerationConfig(
+                    response_mime_type="application/json",
+                    temperature=0.2,
+                    max_output_tokens=200,
+                ),
+            )
+            raw = (result.text or "").strip()
+            parsed = json.loads(raw)
+            queries = parsed.get("queries", [])
+            if queries and len(queries) <= 5:
+                logger.info(f"Query expansion: {len(queries)} sub-queries generated")
+                return queries
+            return None
+        except Exception as e:
+            logger.warning(f"Query expansion failed ({e}), using original query")
             return None
 
     def _sanitize_user_query(self, query: str) -> str:

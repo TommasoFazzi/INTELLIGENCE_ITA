@@ -88,7 +88,7 @@ class OracleOrchestrator:
         # Caches
         self._intent_cache: TTLCache = TTLCache(maxsize=200, ttl=600)      # 10min
         self._sql_result_cache: TTLCache = TTLCache(maxsize=500, ttl=300)  # 5min
-        self._embedding_cache: TTLCache = TTLCache(maxsize=1000, ttl=3600) # 1h
+        self._embedding_cache: TTLCache = TTLCache(maxsize=1000, ttl=300)  # 5min
 
         # Background cleanup daemon
         self._cleanup_thread = threading.Thread(

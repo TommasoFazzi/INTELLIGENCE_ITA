@@ -24,6 +24,8 @@ SEARCH_TYPE_SCORE_FIELD = {
 
 # Singleton embedding model (shared with oracle_engine.py)
 _embedding_model = None
+# Singleton cross-encoder reranker (same model used by report_generator)
+_reranker = None
 
 
 def _get_embedding_model():
@@ -33,6 +35,15 @@ def _get_embedding_model():
         _embedding_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
         logger.info("RAGTool: loaded embedding model")
     return _embedding_model
+
+
+def _get_reranker():
+    global _reranker
+    if _reranker is None:
+        from sentence_transformers import CrossEncoder
+        _reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+        logger.info("RAGTool: loaded cross-encoder reranker")
+    return _reranker
 
 
 def apply_time_decay(
@@ -127,9 +138,11 @@ class RAGTool(BaseTool):
         mode: str = kwargs.get("mode", "both")
         top_k: int = kwargs.get("top_k", 10)
         filters: Dict = kwargs.get("filters") or {}
+        multi_query: Optional[List[str]] = kwargs.get("multi_query")
 
         cleaned = clean_query(query)
-        embedding = _get_embedding_model().encode(cleaned).tolist()
+        model = _get_embedding_model()
+        embedding = model.encode(cleaned).tolist()
 
         start_date = filters.get("start_date")
         end_date = filters.get("end_date")
@@ -147,38 +160,57 @@ class RAGTool(BaseTool):
         chunks: List[Dict] = []
         reports: List[Dict] = []
 
+        # Build list of (query_text, embedding) pairs for multi-query expansion
+        query_variants = [(cleaned, embedding)]
+        if multi_query:
+            for sq in multi_query[:3]:  # cap at 3 sub-queries
+                sq_cleaned = clean_query(sq)
+                sq_emb = model.encode(sq_cleaned).tolist()
+                query_variants.append((sq_cleaned, sq_emb))
+            logger.info(f"Multi-query expansion: {len(query_variants)} total queries")
+
         if mode in ("both", "factual"):
-            if search_type == "vector":
-                chunks = self.db.semantic_search(
-                    query_embedding=embedding,
-                    top_k=fetch_k,
-                    category=categories[0] if categories else None,
-                    start_date=start_date,
-                    end_date=end_date,
-                    sources=sources,
-                    gpe_entities=gpe_filter,
-                )
-            elif search_type == "keyword":
-                chunks = self.db.full_text_search(
-                    query=cleaned,
-                    top_k=fetch_k,
-                    category=categories[0] if categories else None,
-                    start_date=start_date,
-                    end_date=end_date,
-                    sources=sources,
-                    gpe_entities=gpe_filter,
-                )
-            else:  # hybrid
-                chunks = self.db.hybrid_search(
-                    query=cleaned,
-                    query_embedding=embedding,
-                    top_k=fetch_k,
-                    category=categories[0] if categories else None,
-                    start_date=start_date,
-                    end_date=end_date,
-                    sources=sources,
-                    gpe_entities=gpe_filter,
-                )
+            per_query_k = max(fetch_k // len(query_variants), top_k) if len(query_variants) > 1 else fetch_k
+            all_chunks = []
+            for q_text, q_emb in query_variants:
+                if search_type == "vector":
+                    results = self.db.semantic_search(
+                        query_embedding=q_emb,
+                        top_k=per_query_k,
+                        category=categories[0] if categories else None,
+                        start_date=start_date,
+                        end_date=end_date,
+                        sources=sources,
+                        gpe_entities=gpe_filter,
+                    )
+                elif search_type == "keyword":
+                    results = self.db.full_text_search(
+                        query=q_text,
+                        top_k=per_query_k,
+                        category=categories[0] if categories else None,
+                        start_date=start_date,
+                        end_date=end_date,
+                        sources=sources,
+                        gpe_entities=gpe_filter,
+                    )
+                else:  # hybrid
+                    results = self.db.hybrid_search(
+                        query=q_text,
+                        query_embedding=q_emb,
+                        top_k=per_query_k,
+                        category=categories[0] if categories else None,
+                        start_date=start_date,
+                        end_date=end_date,
+                        sources=sources,
+                        gpe_entities=gpe_filter,
+                    )
+                all_chunks.append(results)
+
+            if len(all_chunks) > 1:
+                # Reciprocal Rank Fusion across sub-queries
+                chunks = self._rrf_merge(all_chunks, id_field="chunk_id")
+            else:
+                chunks = all_chunks[0] if all_chunks else []
 
         if mode in ("both", "strategic"):
             reports = self.db.semantic_search_reports(
@@ -188,6 +220,32 @@ class RAGTool(BaseTool):
                 start_date=start_date,
                 end_date=end_date,
             )
+
+        # ── Deduplicate chunks: keep highest-scoring chunk per article ────
+        if chunks:
+            seen_articles = {}
+            unique_chunks = []
+            for chunk in chunks:
+                aid = chunk.get("article_id")
+                if aid not in seen_articles:
+                    seen_articles[aid] = True
+                    unique_chunks.append(chunk)
+            if len(unique_chunks) < len(chunks):
+                logger.info(f"Chunk dedup: {len(chunks)} → {len(unique_chunks)} (removed {len(chunks) - len(unique_chunks)} duplicates)")
+            chunks = unique_chunks
+
+        # ── Cross-encoder reranking ───────────────────────────────────────
+        if chunks and len(chunks) > top_k:
+            try:
+                reranker = _get_reranker()
+                pairs = [[query, c.get("content", "")] for c in chunks]
+                scores = reranker.predict(pairs, batch_size=32, show_progress_bar=False)
+                for i, chunk in enumerate(chunks):
+                    chunk["rerank_score"] = float(scores[i])
+                chunks.sort(key=lambda x: x.get("rerank_score", 0), reverse=True)
+                logger.info(f"Cross-encoder reranking: {len(chunks)} chunks reranked")
+            except Exception as e:
+                logger.warning(f"Reranking failed, using original order: {e}")
 
         # ── Apply time-weighted decay ─────────────────────────────────────
         if decay_active:
@@ -220,6 +278,48 @@ class RAGTool(BaseTool):
                 f"chunks={len(chunks)}, reports={len(reports)}"
             )
 
+        # ── Recency boost: ensure fresh reports are always present ────────
+        if mode in ("both", "strategic"):
+            RECENCY_SLOTS = 2
+            recency_boost = filters.get("recency_boost", False)
+            existing_ids = {r.get("id") for r in reports}
+
+            # Fallback: if semantic search returned < 3 reports, supplement with latest
+            if len(reports) < 3 or recency_boost:
+                try:
+                    n_fetch = max(RECENCY_SLOTS + 1, 5) if recency_boost else 5
+                    latest = self.db.get_latest_reports(n=n_fetch, days_back=14)
+                    added = 0
+                    for lr in latest:
+                        if lr["id"] not in existing_ids:
+                            lr["similarity"] = 0.5  # neutral score for non-semantic results
+                            reports.append(lr)
+                            existing_ids.add(lr["id"])
+                            added += 1
+                    if added:
+                        logger.info(f"Recency fallback: added {added} recent reports")
+                except Exception as e:
+                    logger.warning(f"Recency fallback failed: {e}")
+
+            # Guarantee recency slots: ensure top N by date are in results
+            if reports and len(reports) > RECENCY_SLOTS:
+                by_date = sorted(
+                    reports,
+                    key=lambda r: r.get("report_date") or date.min,
+                    reverse=True,
+                )
+                # Ensure the RECENCY_SLOTS freshest reports are in the final list
+                top_by_score = reports[:top_k]
+                top_ids = {r.get("id") for r in top_by_score}
+                for fresh in by_date[:RECENCY_SLOTS]:
+                    if fresh.get("id") not in top_ids:
+                        # Replace the last score-ranked item with this fresh one
+                        if len(top_by_score) >= top_k:
+                            top_by_score[-1] = fresh
+                        else:
+                            top_by_score.append(fresh)
+                reports = top_by_score
+
         data = {"chunks": chunks, "reports": reports}
         metadata = {
             "chunks_found": len(chunks),
@@ -230,6 +330,28 @@ class RAGTool(BaseTool):
         }
 
         return ToolResult(success=True, data=data, metadata=metadata)
+
+    @staticmethod
+    def _rrf_merge(result_lists: List[List[Dict]], id_field: str = "chunk_id", k: int = 60) -> List[Dict]:
+        """Reciprocal Rank Fusion across multiple result lists."""
+        scores: Dict[Any, float] = {}
+        items: Dict[Any, Dict] = {}
+        for results in result_lists:
+            for rank, item in enumerate(results):
+                item_id = item.get(id_field)
+                if item_id is None:
+                    continue
+                scores[item_id] = scores.get(item_id, 0) + 1.0 / (k + rank + 1)
+                if item_id not in items:
+                    items[item_id] = item
+        # Sort by RRF score and assign fusion_score
+        sorted_ids = sorted(scores, key=scores.get, reverse=True)
+        merged = []
+        for item_id in sorted_ids:
+            item = items[item_id]
+            item["rrf_score"] = scores[item_id]
+            merged.append(item)
+        return merged
 
     @staticmethod
     def _score_line(result: Dict, score_field: str = "similarity") -> str:
