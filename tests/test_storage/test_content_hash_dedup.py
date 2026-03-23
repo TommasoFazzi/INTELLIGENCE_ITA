@@ -133,10 +133,10 @@ def test_save_article_handles_empty_clean_text(db_manager, mock_connection):
         # Dovrebbe salvare con content_hash = None
         assert result == 123
 
-        # Verifica params
-        insert_call = cursor.execute.call_args_list[1]  # Second call is INSERT (no content hash check)
+        # Verifica params (index 2: [0]=link check, [1]=load_source_cache, [2]=INSERT)
+        insert_call = cursor.execute.call_args_list[2]
         params = insert_call[0][1]
-        assert params[-1] is None  # content_hash should be None
+        assert params[-3] is None  # content_hash should be None (source_id and domain added after)
 
 
 # ============================================================================
@@ -291,9 +291,10 @@ def test_save_article_unicode_in_content_hash(db_manager, mock_connection):
 
         # Verifica che hash sia stato computato correttamente
         expected_hash = hashlib.md5('Content with unicode: 中文 Русский العربية 🔥'.encode('utf-8')).hexdigest()
-        insert_call = cursor.execute.call_args_list[2]
+        # index 3: [0]=link check, [1]=content_hash check, [2]=load_source_cache, [3]=INSERT
+        insert_call = cursor.execute.call_args_list[3]
         params = insert_call[0][1]
-        assert params[-1] == expected_hash
+        assert params[-3] == expected_hash  # content_hash is 3rd from last (before source_id, domain)
 
 
 @pytest.mark.unit
@@ -326,9 +327,10 @@ def test_save_article_very_long_content(db_manager, mock_connection):
         assert result == 123
 
         # Hash dovrebbe essere sempre 32 caratteri (MD5)
-        insert_call = cursor.execute.call_args_list[2]
+        # index 3: [0]=link check, [1]=content_hash check, [2]=load_source_cache, [3]=INSERT
+        insert_call = cursor.execute.call_args_list[3]
         params = insert_call[0][1]
-        assert len(params[-1]) == 32
+        assert len(params[-3]) == 32  # content_hash is 3rd from last (before source_id, domain)
 
 
 # ============================================================================

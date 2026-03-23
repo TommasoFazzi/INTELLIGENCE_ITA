@@ -73,8 +73,10 @@ class DatabaseManager:
             raise
 
         # Cache: feed_name -> (source_id, domain) from intelligence_sources.
-        # Loaded lazily on first save_article() call.
+        # Loaded lazily on first save_article() call. _source_cache_loaded prevents
+        # repeated DB calls when the table is empty or not yet migrated.
         self._source_cache: dict = {}
+        self._source_cache_loaded: bool = False
 
     def _load_source_cache(self) -> None:
         """Load feed_name -> (source_id, domain) mapping from intelligence_sources."""
@@ -92,6 +94,8 @@ class DatabaseManager:
         except Exception as e:
             # Table may not exist yet (pre-migration). Non-fatal: articles saved without source_id.
             logger.warning(f"Could not load source cache (migration 024 applied?): {e}")
+        finally:
+            self._source_cache_loaded = True
 
     @contextmanager
     def get_connection(self):
@@ -395,7 +399,7 @@ class DatabaseManager:
                             return None
 
                     # Lookup source_id and domain from intelligence_sources cache
-                    if not self._source_cache:
+                    if not self._source_cache_loaded:
                         self._load_source_cache()
                     source_name = article.get('source', '')
                     src_id, src_domain = self._source_cache.get(source_name, (None, None))
