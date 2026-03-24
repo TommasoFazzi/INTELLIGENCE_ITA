@@ -7,13 +7,15 @@ import hashlib
 import asyncio
 import os
 import re
+import time
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 from .feed_parser import FeedParser
 from .content_extractor import ContentExtractor
 from ..utils.logger import get_logger
+from ..utils.ingestion_logger import IngestionRunStats
 
 logger = get_logger(__name__)
 
@@ -62,12 +64,18 @@ _BLOCKLIST_PATTERNS: List[re.Pattern] = [
 ]
 
 
-def _is_off_topic(title: str) -> bool:
-    """Check if an article title matches any off-topic blocklist pattern."""
+def _is_off_topic(title: str) -> Optional[str]:
+    """
+    Check if an article title matches any off-topic blocklist pattern.
+
+    Returns:
+        The matched pattern string (for logging/debugging) if off-topic,
+        or None if the article should be kept.
+    """
     for pattern in _BLOCKLIST_PATTERNS:
         if pattern.search(title):
-            return True
-    return False
+            return pattern.pattern
+    return None
 
 
 class IngestionPipeline:
@@ -146,45 +154,67 @@ class IngestionPipeline:
         category: Optional[str] = None,
         extract_content: bool = True,
         max_age_days: int = 1
-    ) -> List[Dict]:
+    ) -> Tuple[List[Dict], IngestionRunStats]:
         """
         Async core of the ingestion pipeline.
 
         Calls async methods directly to avoid nested asyncio.run() calls.
         A single event loop governs both feed parsing and content extraction.
+
+        Returns:
+            Tuple of (articles, stats) where stats contains structured metrics
+            for the full run, suitable for logging and debugging.
         """
+        stats = IngestionRunStats()
+
         # Step 1: Parse RSS feeds concurrently
         logger.info("\n[STEP 1] Parsing RSS feeds concurrently...")
+        stats.stage_start("1_rss_parsing")
         articles = await self.feed_parser._parse_all_feeds_async(category=category)
+        stats.stage_end("1_rss_parsing")
 
         if not articles:
             logger.warning("No articles found from RSS feeds")
-            return []
+            return [], stats
 
-        logger.info(f"Parsed {len(articles)} articles from RSS feeds")
+        stats.count_raw = len(articles)
+        logger.info(f"Parsed {stats.count_raw} articles from RSS feeds")
 
         # Step 1.5: Quick hash deduplication (sync, pure computation)
         logger.info("\n[STEP 1.5] Deduplicating articles (quick hash)...")
+        stats.stage_start("1.5_dedup")
         articles = self.deduplicate_by_quick_hash(articles)
+        stats.stage_end("1.5_dedup")
 
         if not articles:
             logger.warning("No articles remaining after deduplication")
-            return []
+            return [], stats
+
+        stats.count_post_dedup = len(articles)
+        stats.duplicates_removed = stats.count_raw - stats.count_post_dedup
 
         # Step 1.6: Keyword blocklist filter (before content extraction to save bandwidth)
         logger.info("\n[STEP 1.6] Filtering off-topic articles (keyword blocklist)...")
+        stats.stage_start("1.6_blocklist")
         pre_filter_count = len(articles)
         blocked = []
         filtered = []
         for a in articles:
             title = a.get('title', '')
-            if _is_off_topic(title):
+            matched_pattern = _is_off_topic(title)
+            if matched_pattern is not None:
                 blocked.append(a)
+                stats.record_blocked(matched_pattern, a.get('source', ''), title)
             else:
                 filtered.append(a)
+        stats.stage_end("1.6_blocklist")
+
         if blocked:
             for b in blocked:
-                logger.debug(f"Blocked (off-topic): {b.get('title', 'N/A')[:60]}... [{b.get('source', '?')}]")
+                logger.debug(
+                    f"Blocked (off-topic): [{b.get('source', '?')}] "
+                    f"{b.get('title', 'N/A')[:60]}"
+                )
             logger.info(
                 f"✓ Keyword blocklist: {pre_filter_count} → {len(filtered)} "
                 f"({len(blocked)} off-topic removed)"
@@ -192,8 +222,10 @@ class IngestionPipeline:
         else:
             logger.info(f"✓ Keyword blocklist: No off-topic articles found ({pre_filter_count} kept)")
         articles = filtered
+        stats.count_post_blocklist = len(articles)
 
         # Filter articles by age (sync, pure computation)
+        stats.stage_start("1.7_age_filter")
         if max_age_days > 0:
             cutoff_date = datetime.now() - timedelta(days=max_age_days)
             original_count = len(articles)
@@ -202,20 +234,46 @@ class IngestionPipeline:
                 if a.get('published') and a['published'] >= cutoff_date
             ]
             filtered_count = original_count - len(articles)
+            stats.age_filtered = filtered_count
             if filtered_count > 0:
                 logger.info(f"Filtered out {filtered_count} articles older than {max_age_days} day(s)")
             logger.info(f"{len(articles)} recent articles remaining")
+        stats.stage_end("1.7_age_filter")
+        stats.count_post_age = len(articles)
 
         # Step 2: Extract full content concurrently
         if extract_content and self.content_extractor:
             logger.info("\n[STEP 2] Extracting full article content concurrently...")
+            stats.stage_start("2_content_extraction")
             articles = await self.content_extractor._extract_batch_async(articles)
-            success_count = sum(1 for a in articles if a.get('extraction_success'))
-            logger.info(f"Extracted full content for {success_count}/{len(articles)} articles")
+            stats.stage_end("2_content_extraction")
+
+            # Aggregate extraction results into stats
+            stats.extraction_attempted = len(articles)
+            for a in articles:
+                fc = a.get('full_content') or {}
+                method = fc.get('extraction_method')
+                if a.get('extraction_success') and method:
+                    stats.extraction_ok += 1
+                    # Detect PDF sub-types before normalising method key
+                    if method in ('pymupdf4llm', 'pymupdf'):
+                        stats.pdf_direct += 1
+                    elif 'level2_pdf' in method:
+                        stats.pdf_level2 += 1
+                    stats.record_extraction_method(method)
+                else:
+                    stats.record_extraction_method('failed')
+                    url = a.get('link', '')
+                    if url:
+                        stats.failed_urls.append(url)
+
+            logger.info(
+                f"Extracted full content for {stats.extraction_ok}/{stats.extraction_attempted} articles"
+            )
         else:
             logger.info("\n[STEP 2] Skipping full content extraction")
 
-        return articles
+        return articles, stats
 
     def run(
         self,
@@ -243,21 +301,23 @@ class IngestionPipeline:
         logger.info("Starting news ingestion pipeline (async)")
         logger.info("=" * 80)
 
-        articles = asyncio.run(
+        articles, stats = asyncio.run(
             self._run_async(category, extract_content, max_age_days)
         )
 
         # Step 3: Save output (sync I/O, outside async loop)
         if save_output and articles:
             logger.info("\n[STEP 3] Saving results...")
+            stats.stage_start("3_save_output")
             output_file = self._save_output(articles, category)
+            stats.stage_end("3_save_output")
             logger.info(f"Results saved to: {output_file}")
 
             # Write to pipeline manifest if running inside orchestrator
             self._write_manifest(output_file, len(articles))
 
-            # Write to pipeline manifest if running inside orchestrator
-            self._write_manifest(output_file, len(articles))
+        # Emit structured run report (timings, funnel, method distribution, blocklist hits)
+        stats.log_report()
 
         logger.info("\n" + "=" * 80)
         logger.info("Pipeline execution completed successfully")

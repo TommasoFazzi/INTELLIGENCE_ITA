@@ -176,6 +176,7 @@ class ContentExtractor:
                 downloaded = html
 
             if not downloaded:
+                logger.debug(f"Trafilatura: no content downloaded for {url}")
                 return None
 
             # Extract with metadata
@@ -200,6 +201,8 @@ class ContentExtractor:
                     'sitename': content_dict.get('sitename'),
                     'extraction_method': 'trafilatura'
                 }
+            else:
+                logger.debug(f"Trafilatura: extract() returned empty result for {url}")
 
         except Exception as e:
             logger.debug(f"Trafilatura extraction failed for {url}: {e}")
@@ -232,6 +235,8 @@ class ContentExtractor:
                     'top_image': article.top_image,
                     'extraction_method': 'newspaper3k'
                 }
+            else:
+                logger.debug(f"Newspaper3k: no article text for {url}")
 
         except Exception as e:
             logger.debug(f"Newspaper3k extraction failed for {url}: {e}")
@@ -293,6 +298,7 @@ class ContentExtractor:
             headers = {'User-Agent': self.user_agent}
             pdf_bytes = asyncio.run(ingestor.download_pdf(url, headers=headers))
             if not pdf_bytes:
+                logger.debug(f"PDF download returned empty response: {url}")
                 return None
 
             text = ingestor.extract_text(pdf_bytes)
@@ -307,7 +313,7 @@ class ContentExtractor:
                 'is_long_document': True,
             }
         except Exception as e:
-            logger.debug(f"PDF extraction failed for {url}: {e}")
+            logger.warning(f"PDF extraction failed for {url}: {e}")
             return None
 
     def _find_pdf_link(self, html: str, base_url: str) -> Optional[str]:
@@ -454,8 +460,9 @@ class ContentExtractor:
             resp = self.session.get(url, timeout=self.timeout)
             if resp.status_code == 200:
                 return resp.text
-        except Exception:
-            pass
+            logger.debug(f"_fetch_raw_html: HTTP {resp.status_code} for {url}")
+        except Exception as e:
+            logger.debug(f"_fetch_raw_html: request failed for {url}: {e}")
         return None
 
     # =========================================================================
@@ -535,6 +542,18 @@ class ContentExtractor:
 
         success_count = sum(1 for a in final_results if a.get('extraction_success'))
         logger.info(f"Extraction complete: {success_count}/{total} successful")
+
+        # Log extraction method distribution for debugging extractor health
+        method_counts: Dict[str, int] = {}
+        for a in final_results:
+            method = (a.get('full_content') or {}).get('extraction_method') or 'failed'
+            method_counts[method] = method_counts.get(method, 0) + 1
+        if method_counts:
+            logger.info("  Extraction method breakdown:")
+            for method, count in sorted(method_counts.items(), key=lambda x: -x[1]):
+                pct = count / total * 100
+                bar = "█" * max(1, int(pct / 5))
+                logger.info(f"    {method:<38s} {count:>4}  ({pct:5.1f}%)  {bar}")
 
         return final_results
 
