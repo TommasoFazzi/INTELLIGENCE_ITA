@@ -9,8 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Install Python deps (production only, no streamlit/openbb/dev tools)
+# BuildKit cache mount: pip cache persists across builds → no re-download on requirements change
 COPY requirements-prod.txt .
-RUN pip install --no-cache-dir -r requirements-prod.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements-prod.txt
 
 # Pre-download spaCy model
 RUN python -m spacy download xx_ent_wiki_sm

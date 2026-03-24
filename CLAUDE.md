@@ -191,6 +191,15 @@ Pytest markers defined in `pytest.ini`: `unit`, `integration`, `e2e`, `slow`. Te
 
 When updating documentation, always check for and update context.md files in subdirectories, not just top-level docs. Every module directory contains a context.md — these must stay in sync with code changes.
 
+**After every task in this project**, before declaring done:
+- Modified a module under `src/`? → update its `context.md`
+- Added a new script to `scripts/`? → update `scripts/context.md`
+- Added a migration? → update `migrations/context.md`
+- Changed the API? → update `src/api/context.md`
+- Changed the frontend? → update `web-platform/context.md` and/or `web-platform/components/IntelligenceMap/context.md`
+- Changed architecture, env vars, or added a major feature? → update `CLAUDE.md` and `README.md`
+- Added new env vars? → update `.env.example` and `.env.production.example`
+
 ## Critical Pitfalls
 
 - **f-string escaping in report_generator.py:** The LLM prompt uses f-strings. Variables like `{narrative_section}` must NOT be double-braced `{{}}` or they become literal text. Pre-compute variables before the f-string.
