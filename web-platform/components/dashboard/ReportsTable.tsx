@@ -51,9 +51,79 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
     );
   }
 
+  const Pagination = () => (
+    pagination && pagination.pages > 1 ? (
+      <div className="flex items-center justify-between px-2">
+        <p className="text-sm text-gray-400">
+          Page {currentPage} of {pagination.pages} ({pagination.total} reports)
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= pagination.pages}
+            className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
+          >
+            Next
+            <ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
+      </div>
+    ) : null
+  );
+
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-white/5 overflow-hidden bg-white/[0.02]">
+      {/* ── Mobile card list (hidden on sm+) ─────────────────────────── */}
+      <div className="sm:hidden space-y-3">
+        {reports.map((report) => (
+          <Link
+            key={report.id}
+            href={`/dashboard/report/${report.id}`}
+            prefetch={false}
+            className="block rounded-lg border border-white/5 bg-white/[0.02] p-4 active:bg-white/[0.04] transition-colors"
+          >
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <span className="font-medium text-white text-sm leading-snug flex-1 min-w-0">
+                {report.title || 'Untitled'}
+              </span>
+              <Eye className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5" />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className={`capitalize text-xs ${statusColors[report.status] || ''}`}>
+                {report.status}
+              </Badge>
+              <Badge variant="outline" className={`capitalize text-xs ${typeColors[report.report_type] || ''}`}>
+                {report.report_type}
+              </Badge>
+              {report.category && (
+                <span className="text-xs text-gray-500">{report.category}</span>
+              )}
+            </div>
+            <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5" />
+                {formatDate(report.report_date)}
+              </div>
+              <span>{report.article_count} articles</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* ── Desktop table (hidden on mobile) ──────────────────────────── */}
+      <div className="hidden sm:block rounded-lg border border-white/5 overflow-hidden bg-white/[0.02]">
         <Table>
           <TableHeader>
             <TableRow className="border-white/5 hover:bg-transparent">
@@ -73,10 +143,7 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
                 className="border-white/5 hover:bg-white/[0.02] transition-colors"
               >
                 <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={`capitalize ${statusColors[report.status] || ''}`}
-                  >
+                  <Badge variant="outline" className={`capitalize ${statusColors[report.status] || ''}`}>
                     {report.status}
                   </Badge>
                 </TableCell>
@@ -90,16 +157,11 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
                   </Link>
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={`capitalize ${typeColors[report.report_type] || ''}`}
-                  >
+                  <Badge variant="outline" className={`capitalize ${typeColors[report.report_type] || ''}`}>
                     {report.report_type}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-gray-400">
-                  {report.category || '-'}
-                </TableCell>
+                <TableCell className="text-gray-400">{report.category || '-'}</TableCell>
                 <TableCell className="text-gray-400">
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
@@ -127,36 +189,7 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
         </Table>
       </div>
 
-      {/* Pagination */}
-      {pagination && pagination.pages > 1 && (
-        <div className="flex items-center justify-between px-2">
-          <p className="text-sm text-gray-400">
-            Page {currentPage} of {pagination.pages} ({pagination.total} reports)
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(currentPage - 1)}
-              disabled={currentPage <= 1}
-              className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(currentPage + 1)}
-              disabled={currentPage >= pagination.pages}
-              className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
-            >
-              Next
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <Pagination />
     </div>
   );
 }

@@ -355,7 +355,7 @@ export default function StorylineGraph({ highlightId = null }: StorylineGraphPro
   }, [graphData.nodes]);
 
   return (
-    <div ref={containerRef} className="relative w-full h-screen bg-[#0A1628] overflow-hidden">
+    <div ref={containerRef} className="relative w-full h-[100dvh] bg-[#0A1628] overflow-hidden">
       {/* Force Graph */}
       <ForceGraph2D
         ref={graphRef}
@@ -412,14 +412,14 @@ export default function StorylineGraph({ highlightId = null }: StorylineGraphPro
             {/* Ticker filter dropdown */}
             {tickers && (
               <div className="mb-3">
-                <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">
+                <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1">
                   Filter by Ticker
                 </label>
                 <select
                   aria-label="Filter storylines by market ticker"
                   value={selectedTicker ?? ''}
                   onChange={(e) => setSelectedTicker(e.target.value || null)}
-                  className="w-full bg-black/60 border border-white/10 rounded text-[11px] text-gray-300 px-2 py-1 cursor-pointer"
+                  className="w-full bg-black/60 border border-white/10 rounded text-xs text-gray-300 px-2 py-1.5 cursor-pointer"
                 >
                   <option value="">All Tickers</option>
                   {Object.entries(tickers.categories).map(([cat, entries]) => (
@@ -435,7 +435,7 @@ export default function StorylineGraph({ highlightId = null }: StorylineGraphPro
                 {selectedTicker && (
                   <button
                     onClick={() => setSelectedTicker(null)}
-                    className="mt-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                    className="mt-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
                     type="button"
                   >
                     Clear filter ×

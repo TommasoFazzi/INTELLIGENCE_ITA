@@ -26,7 +26,7 @@ export const metadata: Metadata = {
  */
 export default function MapPage() {
   return (
-    <main className="w-full h-screen">
+    <main className="w-full h-[100dvh]">
       <Suspense fallback={<MapSkeleton />}>
         <MapLoader />
       </Suspense>

@@ -47,15 +47,15 @@ function AccessForm() {
       {/* Grid overlay */}
       <div className="fixed inset-0 grid-overlay opacity-20 pointer-events-none" />
 
-      {/* Glow orb */}
+      {/* Glow orb — scaled for mobile */}
       <div
-        className="fixed w-[400px] h-[400px] rounded-full blur-[100px] opacity-15 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+        className="fixed w-[200px] h-[200px] sm:w-[400px] sm:h-[400px] rounded-full blur-[80px] sm:blur-[100px] opacity-15 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
         style={{ background: 'radial-gradient(circle, #FF6B35 0%, transparent 70%)' }}
       />
 
-      <div className="relative z-10 w-full max-w-sm">
+      <div className="relative z-10 w-full max-w-[320px] sm:max-w-sm">
         {/* Card */}
-        <div className="bg-[#1a2332]/80 border border-white/10 rounded-2xl p-8 shadow-2xl backdrop-blur-sm">
+        <div className="bg-[#1a2332]/80 border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-sm">
           {/* Logo */}
           <Link href="/" className="flex items-center justify-center gap-2 mb-8">
             <svg viewBox="0 0 40 40" fill="none" className="w-9 h-9">

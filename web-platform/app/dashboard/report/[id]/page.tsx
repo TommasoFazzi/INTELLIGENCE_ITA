@@ -240,7 +240,7 @@ export default function ReportDetailPage({
                     <select
                       value={compareId?.toString() ?? ''}
                       onChange={(e) => setCompareId(e.target.value ? Number(e.target.value) : null)}
-                      className="bg-black/60 border border-white/10 rounded text-[11px] text-gray-300 px-2 py-1.5 hover:border-white/20 transition-colors"
+                      className="bg-black/60 border border-white/10 rounded text-xs text-gray-300 px-2 py-2 min-h-[36px] hover:border-white/20 active:border-white/20 transition-colors"
                       aria-label="Compare with another report"
                     >
                       <option value="">Compare with...</option>
@@ -254,8 +254,9 @@ export default function ReportDetailPage({
                     </select>
                     {compareId && (
                       <button
+                        type="button"
                         onClick={() => setCompareId(null)}
-                        className="text-gray-500 hover:text-gray-300 transition-colors p-1"
+                        className="text-gray-500 hover:text-gray-300 active:text-gray-300 transition-colors p-2 min-h-[36px] min-w-[36px] flex items-center justify-center"
                         title="Close comparison"
                       >
                         <X className="w-4 h-4" />
@@ -478,7 +479,7 @@ export default function ReportDetailPage({
                   {/* Feedback (below sources) */}
                   {report.feedback.length > 0 && (
                     <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 mt-4">
-                      <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
                         Feedback
                       </h3>
                       <div className="space-y-2">
@@ -496,7 +497,7 @@ export default function ReportDetailPage({
                               )}
                             </div>
                             {fb.comment && (
-                              <p className="text-[11px] text-gray-300">{fb.comment}</p>
+                              <p className="text-xs text-gray-300">{fb.comment}</p>
                             )}
                           </div>
                         ))}

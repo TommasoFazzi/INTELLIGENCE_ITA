@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { BookOpen } from 'lucide-react';
 import { useOracleChat } from '../../hooks/useOracleChat';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import type { OracleChatMessage, OracleSource, QueryPlan } from '../../types/oracle';
 
 // ── Intent / Complexity badge colors ────────────────────────────────────────
@@ -154,17 +156,18 @@ function ByokPanel({
     <div className="border-b border-white/10 bg-[#0d1d35]">
       {/* Collapsed header */}
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between px-6 py-2 text-xs text-gray-400 hover:text-white transition-colors"
       >
         <div className="flex items-center gap-2">
           <span>⚙ Gemini API Key</span>
           {isActive ? (
-            <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30 text-[10px] font-medium">
+            <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30 text-xs font-medium">
               BYOK active
             </span>
           ) : (
-            <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-medium animate-pulse">
+            <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-medium animate-pulse">
               KEY REQUIRED
             </span>
           )}
@@ -218,7 +221,7 @@ function ByokPanel({
             <p className="mt-1 text-xs text-red-400">Invalid format — expected: AIza + 30-50 characters</p>
           )}
 
-          <p className="mt-1.5 text-[10px] text-gray-600">
+          <p className="mt-1.5 text-xs text-gray-500">
             🔑 A Gemini API key is required to use Oracle. Get one free at{' '}
             <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="underline text-gray-500 hover:text-white">
               aistudio.google.com/apikey
@@ -245,6 +248,7 @@ export default function OraclePage() {
     setGeminiApiKey,
   } = useOracleChat();
   const [input, setInput] = useState('');
+  const [showSources, setShowSources] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -278,12 +282,26 @@ export default function OraclePage() {
             INTELLIGENCE AI
           </span>
         </div>
-        <button
-          onClick={clearMessages}
-          className="text-xs text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30"
-        >
-          New session
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Mobile sources trigger */}
+          {lastAssistantMessage && (
+            <button
+              type="button"
+              onClick={() => setShowSources(true)}
+              className="md:hidden flex items-center gap-1.5 text-xs text-gray-400 active:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 active:border-white/30"
+            >
+              <BookOpen size={14} />
+              Sources
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={clearMessages}
+            className="text-xs text-gray-400 hover:text-white active:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30 active:border-white/30"
+          >
+            New session
+          </button>
+        </div>
       </header>
 
       {/* BYOK Panel */}
@@ -333,9 +351,10 @@ export default function OraclePage() {
                     'How has the Ukraine narrative evolved?',
                   ].map((suggestion) => (
                     <button
+                      type="button"
                       key={suggestion}
                       onClick={() => sendMessage(suggestion)}
-                      className="text-left text-xs p-3 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:border-[#FF6B35]/40 transition-all bg-white/5"
+                      className="text-left text-xs p-3 rounded-lg border border-white/10 text-gray-400 hover:text-white active:text-white hover:border-[#FF6B35]/40 active:border-[#FF6B35]/40 transition-all bg-white/5"
                     >
                       {suggestion}
                     </button>
@@ -364,7 +383,7 @@ export default function OraclePage() {
           </div>
 
           {/* Input area */}
-          <div className="border-t border-white/10 px-6 py-4">
+          <div className="border-t border-white/10 px-6 py-4 pb-safe">
             <div className="flex gap-3 items-end">
               <textarea
                 ref={textareaRef}
@@ -376,9 +395,10 @@ export default function OraclePage() {
                 className="flex-1 bg-[#1a2a4a] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FF6B35]/50 resize-none"
               />
               <button
+                type="button"
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="px-5 py-3 rounded-xl bg-[#FF6B35] text-white font-medium text-sm hover:bg-[#FF6B35]/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                className="px-5 py-3 rounded-xl bg-[#FF6B35] text-white font-medium text-sm hover:bg-[#FF6B35]/80 active:bg-[#FF6B35]/70 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
               >
                 Send
               </button>
@@ -386,7 +406,40 @@ export default function OraclePage() {
           </div>
         </div>
 
-        {/* Sources sidebar */}
+        {/* Mobile sources bottom sheet */}
+        <BottomSheet
+          open={showSources}
+          onClose={() => setShowSources(false)}
+          title="Sources & Analysis"
+          heightClass="h-[70vh]"
+          className="bg-[#0d1d35]"
+        >
+          <div className="px-4 py-3 space-y-4">
+            {lastAssistantMessage?.query_plan && (
+              <div>
+                <div className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Query Plan</div>
+                <QueryPlanBadges plan={lastAssistantMessage.query_plan} />
+                {typeof lastAssistantMessage.metadata?.execution_time === 'number' && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Executed in {(lastAssistantMessage.metadata.execution_time as number).toFixed(1)}s
+                  </div>
+                )}
+              </div>
+            )}
+            {lastAssistantMessage?.sources && lastAssistantMessage.sources.length > 0 && (
+              <div>
+                <div className="text-xs text-gray-500 mb-2 uppercase tracking-wider">
+                  Sources ({lastAssistantMessage.sources.length})
+                </div>
+                {lastAssistantMessage.sources.map((src, i) => (
+                  <SourceCard key={i} source={src} />
+                ))}
+              </div>
+            )}
+          </div>
+        </BottomSheet>
+
+        {/* Sources sidebar (desktop only) */}
         <div className="w-80 border-l border-white/10 flex flex-col overflow-hidden hidden md:flex">
           <div className="px-4 py-3 border-b border-white/10">
             <h3 className="text-sm font-semibold text-white/70">Sources & Analysis</h3>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, TrendingUp, FileText, GitBranch, Calendar, Tag, ChevronDown, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { useStorylineDetail } from '@/hooks/useStories';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import type { NarrativeStatus } from '@/types/stories';
 
 interface StorylineDossierProps {
@@ -24,20 +25,20 @@ const STATUS_BG: Record<NarrativeStatus, string> = {
   stabilized: 'bg-gray-500/20 border-gray-500/40',
 };
 
-export default function StorylineDossier({ storylineId, onClose, onNavigate }: StorylineDossierProps) {
+function DossierContent({
+  storylineId,
+  onClose,
+  onNavigate,
+  showCloseButton = false,
+}: StorylineDossierProps & { showCloseButton?: boolean }) {
   const { detail, isLoading, error } = useStorylineDetail(storylineId);
   const [expandedBullets, setExpandedBullets] = useState<Set<number>>(new Set());
-
-  if (!storylineId) return null;
 
   const toggleBullets = (articleId: number) => {
     setExpandedBullets((prev) => {
       const next = new Set(prev);
-      if (next.has(articleId)) {
-        next.delete(articleId);
-      } else {
-        next.add(articleId);
-      }
+      if (next.has(articleId)) next.delete(articleId);
+      else next.add(articleId);
       return next;
     });
   };
@@ -45,9 +46,7 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('it-IT', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+      year: 'numeric', month: 'short', day: 'numeric',
     });
   };
 
@@ -59,13 +58,13 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
   };
 
   return (
-    <div className="fixed right-4 top-4 bottom-4 w-[450px] bg-gray-900/95 backdrop-blur-sm border-2 border-[#FF6B35]/30 shadow-2xl z-50 flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="bg-gradient-to-r from-orange-900/30 to-gray-900/50 border-b-2 border-[#FF6B35]/30 p-4">
+      <div className="bg-gradient-to-r from-orange-900/30 to-gray-900/50 border-b-2 border-[#FF6B35]/30 p-4 flex-shrink-0">
         <div className="flex items-start justify-between">
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-[#FF6B35] rounded-full animate-pulse" />
+              <div className="w-2 h-2 bg-[#FF6B35] rounded-full animate-pulse flex-shrink-0" />
               <span className="text-xs font-mono text-[#FF6B35] uppercase tracking-wider">
                 Storyline Dossier
               </span>
@@ -74,11 +73,11 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
               <div className="h-8 w-64 bg-white/10 animate-pulse rounded" />
             ) : (
               <>
-                <h2 className="text-xl font-bold text-white mb-1 leading-tight">
+                <h2 className="text-lg md:text-xl font-bold text-white mb-1 leading-tight">
                   {detail?.storyline.title || 'Loading...'}
                 </h2>
                 {detail && (
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 flex-wrap mt-1">
                     <span className={`text-xs font-mono px-2 py-0.5 rounded border ${STATUS_BG[detail.storyline.narrative_status as NarrativeStatus] || STATUS_BG.active}`}>
                       <span className={STATUS_COLORS[detail.storyline.narrative_status as NarrativeStatus] || 'text-white'}>
                         {detail.storyline.narrative_status.toUpperCase()}
@@ -88,10 +87,9 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
                     <span className="text-xs text-gray-400 font-mono">
                       ID: {detail.storyline.id}
                     </span>
-                    <span className="text-gray-500">|</span>
                     <Link
                       href={`/map?storyline_id=${detail.storyline.id}`}
-                      className="flex items-center gap-1 px-2 py-0.5 rounded border border-[#00A8E8]/40 bg-[#00A8E8]/10 text-[#00A8E8] text-xs font-mono hover:bg-[#00A8E8]/20 transition-all"
+                      className="flex items-center gap-1 px-2 py-0.5 rounded border border-[#00A8E8]/40 bg-[#00A8E8]/10 text-[#00A8E8] text-xs font-mono active:bg-[#00A8E8]/20 md:hover:bg-[#00A8E8]/20 transition-all"
                     >
                       <MapPin size={10} />
                       MAP
@@ -101,13 +99,16 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
               </>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors p-1"
-            aria-label="Close dossier"
-          >
-            <X size={24} />
-          </button>
+          {showCloseButton && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-gray-400 active:text-white transition-colors p-1 flex-shrink-0 ml-2"
+              aria-label="Close dossier"
+            >
+              <X size={24} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -158,8 +159,6 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
                   </div>
                 </div>
               </div>
-
-              {/* Momentum bar */}
               <div className="mt-3">
                 <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
                   <div
@@ -180,12 +179,8 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
             {/* Summary */}
             {detail.storyline.summary && (
               <div className="border border-[#FF6B35]/20 bg-gray-800/50 p-4 rounded">
-                <h3 className="text-sm font-mono text-[#FF6B35] uppercase mb-3">
-                  Summary
-                </h3>
-                <p className="text-sm text-gray-300 leading-relaxed">
-                  {detail.storyline.summary}
-                </p>
+                <h3 className="text-sm font-mono text-[#FF6B35] uppercase mb-3">Summary</h3>
+                <p className="text-sm text-gray-300 leading-relaxed">{detail.storyline.summary}</p>
               </div>
             )}
 
@@ -244,10 +239,11 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
                   {detail.related_storylines.map((rel) => (
                     <button
                       key={rel.id}
+                      type="button"
                       onClick={() => onNavigate(rel.id)}
-                      className="w-full text-left border-l-2 border-[#00A8E8]/30 pl-3 py-2 hover:border-[#00A8E8] transition-colors group"
+                      className="w-full text-left border-l-2 border-[#00A8E8]/30 pl-3 py-2 active:border-[#00A8E8] md:hover:border-[#00A8E8] transition-colors group"
                     >
-                      <div className="text-sm text-white group-hover:text-[#00A8E8] transition-colors leading-snug">
+                      <div className="text-sm text-white group-active:text-[#00A8E8] md:group-hover:text-[#00A8E8] transition-colors leading-snug">
                         {rel.title}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
@@ -277,10 +273,7 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
                     const isBulletsExpanded = expandedBullets.has(article.id);
 
                     return (
-                      <div
-                        key={article.id}
-                        className="border-l-2 border-[#FF6B35]/30 pl-3 py-2"
-                      >
+                      <div key={article.id} className="border-l-2 border-[#FF6B35]/30 pl-3 py-2">
                         <div className="flex items-center gap-2 mb-1">
                           <Calendar size={12} className="text-gray-500" />
                           <span className="text-xs font-mono text-gray-500">
@@ -289,29 +282,22 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
                           {article.source && (
                             <>
                               <span className="text-gray-600">|</span>
-                              <span className="text-xs font-mono text-gray-500">
-                                {article.source}
-                              </span>
+                              <span className="text-xs font-mono text-gray-500">{article.source}</span>
                             </>
                           )}
                         </div>
-                        <h4 className="text-sm text-white leading-snug">
-                          {article.title}
-                        </h4>
+                        <h4 className="text-sm text-white leading-snug">{article.title}</h4>
 
-                        {/* Bullet Points */}
                         {hasBullets && (
                           <div className="mt-2 pt-2 border-t border-[#FF6B35]/10">
                             <button
                               type="button"
                               onClick={() => toggleBullets(article.id)}
-                              className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                              className="flex items-center gap-1 text-xs text-gray-500 active:text-gray-300 md:hover:text-gray-300 transition-colors"
                             >
                               <ChevronDown
                                 size={12}
-                                className={`transition-transform ${
-                                  isBulletsExpanded ? 'rotate-180' : ''
-                                }`}
+                                className={`transition-transform ${isBulletsExpanded ? 'rotate-180' : ''}`}
                               />
                               <span>Key Points</span>
                             </button>
@@ -319,10 +305,7 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
                             {isBulletsExpanded && (
                               <ul className="mt-1.5 space-y-1 ml-1">
                                 {(article.bullet_points ?? []).map((bullet, bulletIdx) => (
-                                  <li
-                                    key={bulletIdx}
-                                    className="text-[10px] text-gray-400 leading-snug flex gap-2"
-                                  >
+                                  <li key={bulletIdx} className="text-xs text-gray-400 leading-snug flex gap-2">
                                     <span className="text-gray-600 flex-shrink-0">•</span>
                                     <span>{bullet}</span>
                                   </li>
@@ -342,11 +325,43 @@ export default function StorylineDossier({ storylineId, onClose, onNavigate }: S
       </div>
 
       {/* Footer */}
-      <div className="border-t-2 border-[#FF6B35]/30 bg-gray-900/50 px-4 py-3">
+      <div className="border-t-2 border-[#FF6B35]/30 bg-gray-900/50 px-4 py-3 flex-shrink-0">
         <div className="text-xs text-gray-500 font-mono text-center">
           CLASSIFIED | NARRATIVE ENGINE | {new Date().toISOString().split('T')[0]}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function StorylineDossier({ storylineId, onClose, onNavigate }: StorylineDossierProps) {
+  if (!storylineId) return null;
+
+  return (
+    <>
+      {/* Desktop: fixed right panel (md+) */}
+      <div className="hidden md:flex fixed right-4 top-4 bottom-4 w-[450px] bg-gray-900/95 backdrop-blur-sm border-2 border-[#FF6B35]/30 shadow-2xl z-50 flex-col">
+        <DossierContent
+          storylineId={storylineId}
+          onClose={onClose}
+          onNavigate={onNavigate}
+          showCloseButton
+        />
+      </div>
+
+      {/* Mobile: bottom sheet */}
+      <BottomSheet
+        open={!!storylineId}
+        onClose={onClose}
+        heightClass="h-[82vh]"
+        className="border-t-2 border-[#FF6B35]/30 bg-gray-900/95"
+      >
+        <DossierContent
+          storylineId={storylineId}
+          onClose={onClose}
+          onNavigate={onNavigate}
+        />
+      </BottomSheet>
+    </>
   );
 }

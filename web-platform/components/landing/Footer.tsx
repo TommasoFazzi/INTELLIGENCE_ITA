@@ -6,9 +6,9 @@ export default function Footer() {
   return (
     <footer id="contact" className="py-16 border-t border-white/5">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 mb-12">
           {/* Brand */}
-          <div className="md:col-span-2">
+          <div className="sm:col-span-2">
             <Link href="/" className="flex items-center gap-3 mb-4">
               <div className="relative w-10 h-10">
                 <svg viewBox="0 0 40 40" fill="none" className="w-full h-full">
@@ -40,7 +40,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/dashboard"
-                  className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
+                  className="text-gray-400 hover:text-[#FF6B35] active:text-[#FF6B35] transition-colors text-sm py-1 inline-block"
                 >
                   Dashboard
                 </Link>
@@ -48,7 +48,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/stories"
-                  className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
+                  className="text-gray-400 hover:text-[#FF6B35] active:text-[#FF6B35] transition-colors text-sm py-1 inline-block"
                 >
                   Narrative Graph
                 </Link>
@@ -56,7 +56,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/map"
-                  className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
+                  className="text-gray-400 hover:text-[#FF6B35] active:text-[#FF6B35] transition-colors text-sm py-1 inline-block"
                 >
                   Intelligence Map
                 </Link>
@@ -64,7 +64,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/oracle"
-                  className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
+                  className="text-gray-400 hover:text-[#FF6B35] active:text-[#FF6B35] transition-colors text-sm py-1 inline-block"
                 >
                   Oracle AI
                 </Link>
@@ -79,7 +79,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/insights"
-                  className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
+                  className="text-gray-400 hover:text-[#FF6B35] active:text-[#FF6B35] transition-colors text-sm py-1 inline-block"
                 >
                   Intelligence Briefings
                 </Link>
@@ -88,7 +88,7 @@ export default function Footer() {
                 <button
                   type="button"
                   onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
+                  className="text-gray-400 hover:text-[#FF6B35] active:text-[#FF6B35] transition-colors text-sm py-1 inline-block"
                 >
                   Features
                 </button>
@@ -97,7 +97,7 @@ export default function Footer() {
                 <button
                   type="button"
                   onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="text-gray-400 hover:text-[#FF6B35] transition-colors text-sm"
+                  className="text-gray-400 hover:text-[#FF6B35] active:text-[#FF6B35] transition-colors text-sm py-1 inline-block"
                 >
                   About
                 </button>

@@ -2,6 +2,7 @@
 
 import { X, MapPin, Calendar, FileText, ExternalLink, GitBranch, TrendingUp } from 'lucide-react';
 import { ENTITY_TYPE_COLORS, ENTITY_TYPE_LABELS } from '@/types/entities';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 
 interface Article {
   id: number;
@@ -45,16 +46,17 @@ const STATUS_COLORS: Record<string, string> = {
   stabilized: 'text-blue-400 bg-blue-400/10 border-blue-400/30',
 };
 
-export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
-  if (!entity) return null;
-
+function DossierContent({ entity, onClose, showCloseButton = false }: {
+  entity: EntityData;
+  onClose: () => void;
+  showCloseButton?: boolean;
+}) {
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('it-IT', {
+    return new Date(dateString).toLocaleDateString('it-IT', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -62,19 +64,19 @@ export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
   const typeLabel = ENTITY_TYPE_LABELS[entity.entity_type] || entity.entity_type;
 
   return (
-    <div className="fixed right-4 top-4 bottom-4 w-[450px] bg-gray-900/95 backdrop-blur-sm border-2 border-cyan-500/30 shadow-2xl z-50 flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="bg-gradient-to-r from-cyan-900/50 to-gray-900/50 border-b-2 border-cyan-500/30 p-4">
+      <div className="bg-gradient-to-r from-cyan-900/50 to-gray-900/50 border-b-2 border-cyan-500/30 p-4 flex-shrink-0">
         <div className="flex items-start justify-between">
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: typeColor }}></div>
+              <div className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: typeColor }} />
               <span className="text-xs font-mono text-cyan-400 uppercase tracking-wider">
                 Entity Dossier
               </span>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-1">{entity.name}</h2>
-            <div className="flex items-center gap-2">
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-1 truncate">{entity.name}</h2>
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-mono" style={{ color: typeColor }}>
                 {typeLabel}
               </span>
@@ -84,13 +86,16 @@ export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
               </span>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors p-1"
-            aria-label="Close dossier"
-          >
-            <X size={24} />
-          </button>
+          {showCloseButton && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-gray-400 active:text-white transition-colors p-1 flex-shrink-0 ml-2"
+              aria-label="Close dossier"
+            >
+              <X size={24} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -105,7 +110,7 @@ export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <div className="text-gray-500 text-xs mb-1">Coordinates</div>
-              <div className="font-mono text-white">
+              <div className="font-mono text-white text-xs">
                 {entity.latitude?.toFixed(4)}°N<br />
                 {entity.longitude?.toFixed(4)}°E
               </div>
@@ -118,20 +123,16 @@ export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
             </div>
             <div>
               <div className="text-gray-500 text-xs mb-1">First Seen</div>
-              <div className="font-mono text-white text-xs">
-                {formatDate(entity.first_seen)}
-              </div>
+              <div className="font-mono text-white text-xs">{formatDate(entity.first_seen)}</div>
             </div>
             <div>
               <div className="text-gray-500 text-xs mb-1">Last Seen</div>
-              <div className="font-mono text-white text-xs">
-                {formatDate(entity.last_seen)}
-              </div>
+              <div className="font-mono text-white text-xs">{formatDate(entity.last_seen)}</div>
             </div>
           </div>
         </div>
 
-        {/* Related Storylines — the intelligence layer */}
+        {/* Related Storylines */}
         {entity.related_storylines && entity.related_storylines.length > 0 && (
           <div className="border border-orange-500/20 bg-gray-800/50 p-4 rounded">
             <h3 className="text-sm font-mono text-orange-400 uppercase mb-3 flex items-center gap-2">
@@ -143,10 +144,10 @@ export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
                 <a
                   key={storyline.id}
                   href={`/stories?highlight=${storyline.id}`}
-                  className="block border-l-2 border-orange-500/30 pl-3 py-2 hover:border-orange-500 hover:bg-gray-700/30 transition-all group rounded-r"
+                  className="block border-l-2 border-orange-500/30 pl-3 py-2 active:border-orange-500 active:bg-gray-700/30 md:hover:border-orange-500 md:hover:bg-gray-700/30 transition-all group rounded-r"
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${STATUS_COLORS[storyline.narrative_status] || 'text-gray-400'}`}>
+                    <span className={`text-xs font-mono px-1.5 py-0.5 rounded border ${STATUS_COLORS[storyline.narrative_status] || 'text-gray-400'}`}>
                       {storyline.narrative_status.toUpperCase()}
                     </span>
                     <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -154,10 +155,10 @@ export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
                       <span className="font-mono">{(storyline.momentum_score * 100).toFixed(0)}%</span>
                     </div>
                   </div>
-                  <h4 className="text-sm text-white group-hover:text-orange-400 transition-colors leading-snug">
+                  <h4 className="text-sm text-white group-active:text-orange-400 md:group-hover:text-orange-400 transition-colors leading-snug">
                     {storyline.title}
                   </h4>
-                  <div className="text-[10px] text-gray-500 font-mono mt-1">
+                  <div className="text-xs text-gray-500 font-mono mt-1">
                     {storyline.article_count} articles
                     {storyline.community_id != null && ` • Community ${storyline.community_id}`}
                   </div>
@@ -179,7 +180,7 @@ export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
               {entity.related_articles.map((article) => (
                 <div
                   key={article.id}
-                  className="border-l-2 border-cyan-500/30 pl-3 py-2 hover:border-cyan-500 transition-colors group"
+                  className="border-l-2 border-cyan-500/30 pl-3 py-2 active:border-cyan-500 md:hover:border-cyan-500 transition-colors group"
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="text-xs font-mono text-gray-500 flex items-center gap-2">
@@ -190,13 +191,13 @@ export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
                       href={article.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                      className="text-cyan-400 active:text-cyan-300 md:hover:text-cyan-300 transition-colors"
                       aria-label="Open article"
                     >
                       <ExternalLink size={14} />
                     </a>
                   </div>
-                  <h4 className="text-sm text-white group-hover:text-cyan-400 transition-colors leading-snug mb-1">
+                  <h4 className="text-sm text-white group-active:text-cyan-400 md:group-hover:text-cyan-400 transition-colors leading-snug mb-1">
                     {article.title}
                   </h4>
                   <div className="text-xs text-gray-500 font-mono">
@@ -212,7 +213,7 @@ export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
           )}
         </div>
 
-        {/* Metadata (if available) */}
+        {/* Metadata */}
         {entity.metadata && Object.keys(entity.metadata).length > 0 && (
           <div className="border border-cyan-500/20 bg-gray-800/50 p-4 rounded">
             <h3 className="text-sm font-mono text-cyan-400 uppercase mb-3">
@@ -226,11 +227,35 @@ export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
       </div>
 
       {/* Footer */}
-      <div className="border-t-2 border-cyan-500/30 bg-gray-900/50 px-4 py-3">
+      <div className="border-t-2 border-cyan-500/30 bg-gray-900/50 px-4 py-3 flex-shrink-0">
         <div className="text-xs text-gray-500 font-mono text-center">
           CLASSIFIED • INTELLIGENCE_ITA • {new Date().toISOString().split('T')[0]}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function EntityDossier({ entity, onClose }: EntityDossierProps) {
+  if (!entity) return null;
+
+  return (
+    <>
+      {/* Desktop: fixed right panel (md+) */}
+      <div className="hidden md:flex fixed right-4 top-4 bottom-4 w-[450px] bg-gray-900/95 backdrop-blur-sm border-2 border-cyan-500/30 shadow-2xl z-50 flex-col">
+        <DossierContent entity={entity} onClose={onClose} showCloseButton />
+      </div>
+
+      {/* Mobile: bottom sheet */}
+      <BottomSheet
+        open={!!entity}
+        onClose={onClose}
+        title={entity.name}
+        heightClass="h-[78vh]"
+        className="border-t-2 border-cyan-500/30 bg-gray-900/95"
+      >
+        <DossierContent entity={entity} onClose={onClose} />
+      </BottomSheet>
+    </>
   );
 }

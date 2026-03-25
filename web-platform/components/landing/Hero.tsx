@@ -35,15 +35,15 @@ export default function Hero() {
           />
         </div>
 
-        {/* Glow orbs */}
+        {/* Glow orbs — scaled down on mobile, hidden on very small screens */}
         <div
-          className="absolute w-[500px] h-[500px] rounded-full blur-[80px] opacity-30 animate-float top-[10%] right-[10%]"
+          className="absolute w-[200px] h-[200px] sm:w-[350px] sm:h-[350px] md:w-[500px] md:h-[500px] rounded-full blur-[60px] md:blur-[80px] opacity-20 sm:opacity-25 md:opacity-30 animate-float top-[10%] right-[5%] md:right-[10%]"
           style={{
             background: 'radial-gradient(circle, #FF6B35 0%, transparent 70%)',
           }}
         />
         <div
-          className="absolute w-[400px] h-[400px] rounded-full blur-[80px] opacity-30 animate-float-delayed bottom-[20%] left-[10%]"
+          className="hidden sm:block absolute w-[280px] h-[280px] md:w-[400px] md:h-[400px] rounded-full blur-[60px] md:blur-[80px] opacity-20 md:opacity-30 animate-float-delayed bottom-[20%] left-[5%] md:left-[10%]"
           style={{
             background: 'radial-gradient(circle, #00A8E8 0%, transparent 70%)',
           }}
@@ -64,7 +64,7 @@ export default function Hero() {
           </div>
 
           {/* Title */}
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight mb-6 tracking-tight animate-fadeInUp animation-delay-100">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight mb-6 tracking-tight animate-fadeInUp animation-delay-100">
             Global Intelligence
             <span className="block gradient-text">
               In Real Time
@@ -72,7 +72,7 @@ export default function Hero() {
           </h1>
 
           {/* Description */}
-          <p className="text-xl text-gray-400 mb-8 leading-relaxed animate-fadeInUp animation-delay-200">
+          <p className="text-base sm:text-xl text-gray-400 mb-8 leading-relaxed animate-fadeInUp animation-delay-200">
             Geopolitical analysis, cybersecurity monitoring, and macro-economic trends
             powered by AI. Thousands of sources distilled into actionable intelligence.
           </p>
@@ -94,7 +94,7 @@ export default function Hero() {
           </div>
 
           {/* Stats */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-8 p-8 glass-light rounded-xl animate-fadeInUp animation-delay-400">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 p-5 sm:p-8 glass-light rounded-xl animate-fadeInUp animation-delay-400">
             <StatItem value="33+" label="RSS Sources" />
             <div className="hidden sm:block w-px h-10 bg-white/10" />
             <StatItem value="24/7" label="Monitoring" />

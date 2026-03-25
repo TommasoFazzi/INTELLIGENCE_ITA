@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
  */
 export default function MapSkeleton() {
   return (
-    <div className="relative w-full h-screen bg-[#0A1628] overflow-hidden">
+    <div className="relative w-full h-[100dvh] bg-[#0A1628] overflow-hidden">
       {/* Map placeholder with pulse animation */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center space-y-4">

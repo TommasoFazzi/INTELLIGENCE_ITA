@@ -456,7 +456,7 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
     // ── Render ───────────────────────────────────────────────────────────────
 
     return (
-        <div className="relative w-full h-screen bg-black overflow-hidden">
+        <div className="relative w-full h-[100dvh] bg-black overflow-hidden">
             <div ref={mapContainer} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
 
             <GridOverlay />
@@ -489,7 +489,7 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
             )}
 
             {/* Layer toggle controls */}
-            <div className="absolute top-44 left-6 z-30 pointer-events-auto font-mono text-[10px] space-y-1">
+            <div className="absolute top-44 left-6 z-30 pointer-events-auto font-mono text-xs space-y-1">
                 <LayerToggleBtn label="HEATMAP"  active={layers.heatmap}                      color="#FF6B35" onClick={() => toggleLayer('heatmap')} />
                 <LayerToggleBtn label="ARCS"     active={layers.arcs}                         color="#00A8E8" onClick={() => toggleLayer('arcs')} />
                 <LayerToggleBtn label="PULSE"    active={layers.pulse}                        color="#39D353" onClick={() => toggleLayer('pulse')} />

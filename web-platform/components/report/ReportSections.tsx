@@ -17,7 +17,7 @@ interface TOCProps {
 export function TableOfContents({ entries, activeId, onNavigate }: TOCProps) {
   return (
     <nav className="sticky top-28 space-y-1">
-      <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
         Contents
       </h3>
       {entries.map((entry) => (
@@ -127,7 +127,7 @@ function processArticleRefs(
         return (
           <span
             key={i}
-            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#00A8E8]/10 text-[#00A8E8] cursor-pointer hover:bg-[#00A8E8]/20 transition-colors"
+            className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono bg-[#00A8E8]/10 text-[#00A8E8] cursor-pointer hover:bg-[#00A8E8]/20 transition-colors"
             onMouseEnter={() => onHover(idx)}
             onMouseLeave={() => onHover(null)}
           >
@@ -235,7 +235,7 @@ export function SourcesSidebar({ sources, highlightedIdx }: SourcesSidebarProps)
 
   return (
     <div className="sticky top-28 rounded-xl border border-white/5 bg-white/[0.02] p-4 max-h-[calc(100vh-8rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
-      <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
         Sources ({sources.length})
       </h3>
       <ul className="space-y-2">
@@ -254,7 +254,7 @@ export function SourcesSidebar({ sources, highlightedIdx }: SourcesSidebarProps)
                   : 'border-white/5 bg-white/[0.01] hover:border-white/10'
               }`}
             >
-              <span className="text-[10px] font-mono text-gray-600 mb-1 block">
+              <span className="text-xs font-mono text-gray-600 mb-1 block">
                 [{idx + 1}]
               </span>
               <p className="text-gray-300 line-clamp-2 leading-snug">{source.title}</p>
@@ -284,7 +284,7 @@ export function SourcesSidebar({ sources, highlightedIdx }: SourcesSidebarProps)
                   <button
                     type="button"
                     onClick={() => toggleBullets(idx)}
-                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
                   >
                     <ChevronDown
                       size={12}
@@ -300,7 +300,7 @@ export function SourcesSidebar({ sources, highlightedIdx }: SourcesSidebarProps)
                       {(source.bullet_points ?? []).map((bullet, bulletIdx) => (
                         <li
                           key={bulletIdx}
-                          className="text-[10px] text-gray-400 leading-snug flex gap-2"
+                          className="text-xs text-gray-400 leading-snug flex gap-2"
                         >
                           <span className="text-gray-600 flex-shrink-0">•</span>
                           <span>{bullet}</span>

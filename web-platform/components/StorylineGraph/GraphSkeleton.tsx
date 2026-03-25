@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function GraphSkeleton() {
   return (
-    <div className="relative w-full h-screen bg-[#0A1628] overflow-hidden">
+    <div className="relative w-full h-[100dvh] bg-[#0A1628] overflow-hidden">
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border-2 border-[#FF6B35]/30 bg-[#FF6B35]/5">

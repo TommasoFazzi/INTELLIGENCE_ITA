@@ -31,7 +31,7 @@ function TickerCard({ ticker }: { ticker: MarketTicker }) {
       <span className="font-semibold">{ticker.symbol}</span>
       <span className="text-white/80">{ticker.value}</span>
       <Icon className="w-3 h-3" />
-      <span className="text-[10px] opacity-70">{ticker.label}</span>
+      <span className="text-xs opacity-70">{ticker.label}</span>
     </div>
   );
 }
@@ -53,7 +53,7 @@ export function MarketTickers({ macro }: { macro: MacroDashboard }) {
           Macro Dashboard {macro.date && `- ${macro.date}`}
         </h2>
         <span
-          className={`text-[10px] font-mono px-2 py-0.5 rounded border ${riskRegimeStyles[macro.riskRegime] || riskRegimeStyles.MIXED}`}
+          className={`text-xs font-mono px-2 py-0.5 rounded border ${riskRegimeStyles[macro.riskRegime] || riskRegimeStyles.MIXED}`}
         >
           {macro.riskRegime.replace('_', ' ')}
         </span>
@@ -73,7 +73,7 @@ export function MarketTickers({ macro }: { macro: MacroDashboard }) {
 
       {/* Divergences & Watch */}
       {(macro.keyDivergences.length > 0 || macro.watchItems.length > 0) && (
-        <div className="flex gap-6 mt-3 text-[11px]">
+        <div className="flex gap-6 mt-3 text-xs">
           {macro.keyDivergences.length > 0 && (
             <div>
               <span className="text-yellow-400 font-medium">Divergences: </span>

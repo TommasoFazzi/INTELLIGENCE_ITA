@@ -23,7 +23,7 @@ export const metadata: Metadata = {
  */
 export default function StoriesPage() {
   return (
-    <main className="w-full h-screen">
+    <main className="w-full h-[100dvh]">
       <Suspense fallback={<GraphSkeleton />}>
         <GraphLoader />
       </Suspense>

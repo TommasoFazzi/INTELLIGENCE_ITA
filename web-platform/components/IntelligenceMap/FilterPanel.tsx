@@ -25,49 +25,37 @@ export default function FilterPanel({ onFilterChange, entityCount }: FilterPanel
   const [activeTypes, setActiveTypes] = useState<Set<string>>(new Set());
   const [days, setDays] = useState(0);
   const [minMentions, setMinMentions] = useState(1);
-  const [minScore, setMinScore] = useState(0); // 0–100, divided by 100 before sending
+  const [minScore, setMinScore] = useState(0);
   const [search, setSearch] = useState('');
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Emit filters on change (debounced for search)
   const emitFilters = useCallback(() => {
     const filters: EntityFilters = {};
-
     if (activeTypes.size > 0 && activeTypes.size < ENTITY_TYPES.length) {
       filters.entity_type = Array.from(activeTypes).join(',');
     }
     if (days > 0) filters.days = days;
     if (minMentions > 1) filters.min_mentions = minMentions;
-    if (minScore > 0) filters.min_score = minScore / 100; // slider 0–100 → 0.0–1.0
+    if (minScore > 0) filters.min_score = minScore / 100;
     if (search.trim()) filters.search = search.trim();
-
     onFilterChange(filters);
   }, [activeTypes, days, minMentions, minScore, search, onFilterChange]);
 
-  // Trigger immediately for non-search changes
   useEffect(() => {
     emitFilters();
   }, [activeTypes, days, minMentions, minScore]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounce search input (300ms)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      emitFilters();
-    }, 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    debounceRef.current = setTimeout(() => { emitFilters(); }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleType = (type: string) => {
     setActiveTypes(prev => {
       const next = new Set(prev);
-      if (next.has(type)) {
-        next.delete(type);
-      } else {
-        next.add(type);
-      }
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
       return next;
     });
   };
@@ -83,35 +71,38 @@ export default function FilterPanel({ onFilterChange, entityCount }: FilterPanel
   };
 
   return (
-    <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+    /* Anchored center-bottom; full width on mobile, auto-width on desktop */
+    <div className="filter-panel-bottom absolute left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 z-30 pointer-events-auto px-3 md:px-0">
       {/* Collapsed toggle bar */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 px-4 py-2 rounded-t-lg font-mono text-xs
+        className="flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-mono text-xs w-full md:w-auto
                    bg-slate-900/90 backdrop-blur-md border border-cyan-500/20 border-b-0
-                   text-cyan-400 hover:text-cyan-300 transition-colors"
+                   text-cyan-400 active:text-cyan-300 md:hover:text-cyan-300 transition-colors"
       >
         <Filter size={14} />
         <span>FILTERS</span>
         {hasActiveFilters && (
-          <span className="ml-1 px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px]">
+          <span className="ml-1 px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-xs">
             ACTIVE
           </span>
         )}
-        {expanded ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+        <span className="ml-auto md:ml-1">
+          {expanded ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+        </span>
       </button>
 
       {/* Expanded panel */}
       {expanded && (
         <div className="bg-slate-900/95 backdrop-blur-md border border-cyan-500/20
                         rounded-lg rounded-tl-none p-4 font-mono text-xs
-                        min-w-[480px] max-w-[600px] shadow-2xl shadow-cyan-500/5">
+                        w-full md:min-w-[480px] md:max-w-[600px] shadow-2xl shadow-cyan-500/5">
 
           {/* Row 1: Entity type toggles */}
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-gray-500 w-12 shrink-0">TYPE</span>
-            <div className="flex gap-1.5 flex-wrap">
+          <div className="flex items-start gap-2 mb-3">
+            <span className="text-gray-500 w-12 shrink-0 pt-1">TYPE</span>
+            <div className="flex gap-1.5 flex-wrap flex-1">
               {ENTITY_TYPES.map(type => {
                 const isActive = activeTypes.has(type);
                 const color = ENTITY_TYPE_COLORS[type];
@@ -120,10 +111,10 @@ export default function FilterPanel({ onFilterChange, entityCount }: FilterPanel
                     type="button"
                     key={type}
                     onClick={() => toggleType(type)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded border transition-all ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded border transition-all ${
                       isActive
                         ? 'border-current bg-current/10'
-                        : 'border-gray-700 hover:border-gray-500 text-gray-500 hover:text-gray-300'
+                        : 'border-gray-700 active:border-gray-500 md:hover:border-gray-500 text-gray-500 active:text-gray-300 md:hover:text-gray-300'
                     }`}
                     style={isActive ? { color, borderColor: color } : undefined}
                     title={ENTITY_TYPE_LABELS[type]}
@@ -139,20 +130,20 @@ export default function FilterPanel({ onFilterChange, entityCount }: FilterPanel
             </div>
           </div>
 
-          {/* Row 2: Time window + Min mentions */}
-          <div className="flex items-center gap-4 mb-3">
+          {/* Row 2: Time window + Min mentions — stacks on mobile */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
             <div className="flex items-center gap-2">
               <span className="text-gray-500 w-12 shrink-0">TIME</span>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
                 {DAYS_OPTIONS.map(opt => (
                   <button
                     type="button"
                     key={opt.value}
                     onClick={() => setDays(opt.value)}
-                    className={`px-2 py-1 rounded text-[10px] transition-all ${
+                    className={`px-2.5 py-1.5 rounded text-xs transition-all ${
                       days === opt.value
                         ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                        : 'text-gray-500 hover:text-gray-300 border border-transparent'
+                        : 'text-gray-500 active:text-gray-300 md:hover:text-gray-300 border border-transparent'
                     }`}
                   >
                     {opt.label}
@@ -162,7 +153,7 @@ export default function FilterPanel({ onFilterChange, entityCount }: FilterPanel
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-gray-500 shrink-0">MIN</span>
+              <span className="text-gray-500 shrink-0 sm:ml-2">MIN</span>
               <input
                 type="number"
                 min={1}
@@ -171,7 +162,7 @@ export default function FilterPanel({ onFilterChange, entityCount }: FilterPanel
                 onChange={e => setMinMentions(Math.max(1, parseInt(e.target.value) || 1))}
                 title="Minimum mentions"
                 placeholder="1"
-                className="w-14 px-2 py-1 rounded bg-slate-800 border border-gray-700
+                className="w-16 px-2 py-1.5 rounded bg-slate-800 border border-gray-700
                            text-cyan-300 text-center focus:border-cyan-500 focus:outline-none"
               />
               <span className="text-gray-600">mentions</span>
@@ -188,10 +179,10 @@ export default function FilterPanel({ onFilterChange, entityCount }: FilterPanel
               step={5}
               value={minScore}
               onChange={e => setMinScore(parseInt(e.target.value))}
-              className="flex-1 h-1 accent-cyan-400 cursor-pointer"
+              className="flex-1 h-2 accent-cyan-400 cursor-pointer"
               title="Minimum intelligence score"
             />
-            <span className={`w-10 text-right tabular-nums ${minScore > 0 ? 'text-cyan-300' : 'text-gray-600'}`}>
+            <span className={`w-12 text-right tabular-nums ${minScore > 0 ? 'text-cyan-300' : 'text-gray-600'}`}>
               {minScore > 0 ? `≥${(minScore / 100).toFixed(2)}` : 'OFF'}
             </span>
           </div>
@@ -207,29 +198,29 @@ export default function FilterPanel({ onFilterChange, entityCount }: FilterPanel
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search entities..."
-                className="w-full px-3 py-1.5 rounded bg-slate-800 border border-gray-700
+                className="w-full px-3 py-2 rounded bg-slate-800 border border-gray-700
                            text-cyan-300 placeholder-gray-600 focus:border-cyan-500
-                           focus:outline-none pr-8"
+                           focus:outline-none pr-8 text-sm"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
                   title="Clear search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 active:text-gray-300 md:hover:text-gray-300"
                 >
-                  <X size={12} />
+                  <X size={14} />
                 </button>
               )}
             </div>
 
-            {/* Clear all button */}
             {hasActiveFilters && (
               <button
                 type="button"
                 onClick={clearAll}
-                className="px-2 py-1 rounded text-red-400/70 hover:text-red-400
-                           border border-red-500/20 hover:border-red-500/40 transition-all text-[10px]"
+                className="px-3 py-2 rounded text-red-400/70 active:text-red-400 md:hover:text-red-400
+                           border border-red-500/20 active:border-red-500/40 md:hover:border-red-500/40
+                           transition-all text-xs whitespace-nowrap"
               >
                 CLEAR
               </button>
@@ -238,7 +229,7 @@ export default function FilterPanel({ onFilterChange, entityCount }: FilterPanel
 
           {/* Filter result count */}
           {entityCount && entityCount.total > 0 && (
-            <div className="mt-2 pt-2 border-t border-gray-800 text-gray-500 text-[10px]">
+            <div className="mt-2 pt-2 border-t border-gray-800 text-gray-500 text-xs">
               SHOWING {entityCount.filtered.toLocaleString()} OF {entityCount.total.toLocaleString()} ENTITIES
             </div>
           )}

@@ -330,10 +330,83 @@
 }
 
 /* ============================================
+   Safe Area Insets (iPhone notch / Dynamic Island)
+   ============================================ */
+
+/* Utility classes for safe-area-aware padding */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.pt-safe {
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+
+/* Bottom sheet gets extra space above home indicator */
+.bottom-sheet-safe {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+/* FilterPanel: sits above the map nav bar + home indicator */
+.filter-panel-bottom {
+  bottom: max(5rem, calc(4rem + env(safe-area-inset-bottom)));
+}
+
+/* ============================================
+   Touch / Pointer Device Optimizations
+   ============================================ */
+
+/* Disable scale/translate hover effects on touch-only devices
+   (hover:scale-*, hover:-translate-y-*, etc.) */
+@media (hover: none) {
+  .hover\:scale-105:hover,
+  .hover\:-translate-y-1:hover,
+  .hover\:scale-110:hover {
+    transform: none !important;
+  }
+}
+
+/* Active feedback for interactive elements on touch devices */
+@media (hover: none) {
+  button:active,
+  [role="button"]:active,
+  a:active {
+    opacity: 0.75;
+  }
+}
+
+/* ============================================
+   Reduced Motion
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-scanline,
+  .animate-float,
+  .animate-float-delayed,
+  .animate-pulse-custom,
+  .animate-border-rotate,
+  .animate-fadeInUp,
+  .animate-gradient {
+    animation: none !important;
+  }
+
+  /* Keep pulse on critical indicators but slow them down */
+  .animate-pulse {
+    animation-duration: 3s !important;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ============================================
    Intelligence Map — Tooltip styling
    ============================================ */
 .entity-tooltip .mapboxgl-popup-content {
   background: rgba(15, 23, 42, 0.95);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(0, 168, 232, 0.3);
   border-radius: 6px;
