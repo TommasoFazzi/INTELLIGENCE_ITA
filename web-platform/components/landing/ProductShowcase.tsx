@@ -76,7 +76,6 @@ function ScreenshotPlaceholder({ tab }: { tab: typeof tabs[0] }) {
         alt={`${tab.label} screenshot`}
         width={1200}
         height={700}
-        unoptimized
         className="w-full h-full object-cover object-top rounded-lg"
         onError={() => setImgError(true)}
       />
