@@ -144,7 +144,7 @@ export default function ProductShowcase() {
             >
               {/* Orange glow border on top */}
               <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#FF6B35]/80 to-transparent" />
-              <ScreenshotPlaceholder tab={tab} />
+              <ScreenshotPlaceholder key={tab.id} tab={tab} />
             </div>
           </div>
 
