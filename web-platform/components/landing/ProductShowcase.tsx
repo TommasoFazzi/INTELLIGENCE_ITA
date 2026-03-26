@@ -76,6 +76,7 @@ function ScreenshotPlaceholder({ tab }: { tab: typeof tabs[0] }) {
         alt={`${tab.label} screenshot`}
         width={1200}
         height={700}
+        unoptimized
         className="w-full h-full object-cover object-top rounded-lg"
         onError={() => setImgError(true)}
       />
@@ -139,8 +140,7 @@ export default function ProductShowcase() {
           {/* Screenshot — 3/5 width on desktop */}
           <div className="lg:col-span-3 order-2 lg:order-1">
             <div
-              className="relative rounded-xl overflow-hidden border border-white/10 bg-[#0f1a2b]"
-              style={{ aspectRatio: '16/9' }}
+              className="relative rounded-xl overflow-hidden border border-white/10 bg-[#0f1a2b] aspect-video"
             >
               {/* Orange glow border on top */}
               <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#FF6B35]/80 to-transparent" />
