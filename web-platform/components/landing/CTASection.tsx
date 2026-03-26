@@ -47,7 +47,7 @@ export default function CTASection() {
   };
 
   return (
-    <section id="about" className="py-24 relative">
+    <section id="contact" className="py-24 relative">
       <div className="max-w-4xl mx-auto px-6">
         <div className="relative p-12 rounded-2xl overflow-hidden">
           {/* Gradient border */}
@@ -58,11 +58,11 @@ export default function CTASection() {
             {/* Waitlist form — ID #waitlist for navbar anchor scroll */}
             <div id="waitlist" className="text-center">
               <h2 className="text-3xl md:text-4xl font-extrabold mb-3 text-white">
-                Ready to get access?
+                Request Access & Enterprise Inquiries
               </h2>
               <p className="text-lg text-gray-400 mb-8 max-w-xl mx-auto">
-                MACROINTEL is currently invite-only. Join the waitlist — we&apos;ll send you an
-                access code within 24 hours.
+                MACROINTEL is currently invite-only. Join the waitlist for individual access, or
+                reach out for enterprise and team licensing — we&apos;ll respond within 24 hours.
               </p>
 
               {state === 'success' ? (

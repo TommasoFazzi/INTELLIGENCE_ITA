@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { GitBranch, Map, FileText, Check } from 'lucide-react';
+import { GitBranch, Map, FileText, Check, LayoutDashboard } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,20 @@ const tabs = [
     description:
       'Ask Oracle anything: "What happened in the South China Sea this week?" It answers with sources, not guesses.',
   },
+  {
+    id: 'reports',
+    label: 'Intelligence Reports',
+    icon: <LayoutDashboard className="w-4 h-4" />,
+    href: '/dashboard',
+    screenshot: '/screenshots/dashboard-report.png',
+    benefits: [
+      'AI-generated intelligence reports delivered daily at 08:00 UTC',
+      'Trade signals with market implications extracted from geopolitical events',
+      'Full traceability: every claim links back to its source articles',
+    ],
+    description:
+      'Every morning, MACROINTEL synthesizes the previous 24 hours into a structured intelligence brief — executive summary, key developments, trend analysis, and trade signals.',
+  },
 ];
 
 function ScreenshotPlaceholder({ tab }: { tab: typeof tabs[0] }) {
@@ -97,7 +111,7 @@ export default function ProductShowcase() {
             The Intelligence Platform in Action
           </h2>
           <p className="text-gray-400 text-lg">
-            Three tools, one mission: turn geopolitical complexity into actionable clarity.
+            Four tools, one mission: turn geopolitical complexity into actionable clarity.
           </p>
         </div>
 

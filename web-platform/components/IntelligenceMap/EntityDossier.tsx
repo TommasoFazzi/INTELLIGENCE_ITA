@@ -229,7 +229,7 @@ function DossierContent({ entity, onClose, showCloseButton = false }: {
       {/* Footer */}
       <div className="border-t-2 border-cyan-500/30 bg-gray-900/50 px-4 py-3 flex-shrink-0">
         <div className="text-xs text-gray-500 font-mono text-center">
-          CLASSIFIED • INTELLIGENCE_ITA • {new Date().toISOString().split('T')[0]}
+          CLASSIFIED • MACROINTEL • {new Date().toISOString().split('T')[0]}
         </div>
       </div>
     </div>

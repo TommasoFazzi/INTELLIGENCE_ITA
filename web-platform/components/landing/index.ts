@@ -5,6 +5,7 @@ export { default as ICPSection } from './ICPSection';
 export { default as ProductShowcase } from './ProductShowcase';
 export { default as Features } from './Features';
 export { default as FeatureCard } from './FeatureCard';
+export { default as AboutSection } from './AboutSection';
 export { default as CTASection } from './CTASection';
 export { default as Footer } from './Footer';
 export { default as ParticleCanvas } from './ParticleCanvas';

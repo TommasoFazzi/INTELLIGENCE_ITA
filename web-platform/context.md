@@ -11,7 +11,7 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
 ### App Structure
 - `app/layout.tsx` - Root Next.js layout (Google Analytics, GSC verification)
 - `app/globals.css` - Global styles with animations
-- `app/page.tsx` - Landing page (Hero, Features, ProductShowcase, ICPSection, StatsCounter, CTASection, waitlist)
+- `app/page.tsx` - Landing page (Hero, Features, ProductShowcase, ICPSection, StatsCounter, AboutSection, CTASection, waitlist). Exports canonical metadata.
 - `app/map/page.tsx` - Tactical map route (SSR metadata + dynamic import)
 - `app/dashboard/page.tsx` - Dashboard route (SWR data fetching)
 - `app/dashboard/report/[id]/page.tsx` - **Report detail route (updated with comparison UI)**
@@ -29,7 +29,7 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
   - `ComparisonDelta` banner above split layout, visible with skeleton loader while Gemini processes (10–20s)
   - "Close ×" button to exit comparison mode
 - **`app/stories/page.tsx`** - Storyline graph route (SSR metadata + dynamic import)
-- `app/sitemap.ts` - Sitemap XML generata server-side (/, /dashboard, /stories, /map, /oracle, /insights, /insights/[slug])
+- `app/sitemap.ts` - Sitemap XML server-side: `/` (priority 1.0), `/insights` (0.9), dynamic insight slugs. Protected routes excluded to avoid redirect signals to Google.
 - `app/robots.ts` - robots.txt con riferimento a sitemap.xml
 
 ### Components
@@ -108,20 +108,21 @@ Oracle 2.0 UI fully decomposed into separate components. `app/oracle/page.tsx` i
 - `WaitlistInline.tsx` - Email waitlist signup form embedded in insights pages
 
 #### Landing Components (`components/landing/`)
-- `Navbar.tsx` - Navigation with links to Dashboard, Storylines, Intelligence Map, Oracle
+- `Navbar.tsx` - Navigation with links to Insights, Features, About, Contact, Client Login, Get Access
 - `Hero.tsx` - Hero section with CTA
-- `Features.tsx` - Feature list
-- `ProductShowcase.tsx` - Interactive product screenshots showcase
-- `ICPSection.tsx` - Ideal customer profile section
+- `Features.tsx` - Feature list (6 capability cards)
+- `ProductShowcase.tsx` - **4-tab** interactive product showcase: Narrative Graph, Intelligence Map, Oracle AI, Intelligence Reports
+- `AboutSection.tsx` - About section (`id="about"`) with mission text + 4 business-value pillars (OSINT Ingestion, Neural Search, LLM Synthesis, Pattern Recognition)
+- `ICPSection.tsx` - Ideal customer profile section (4 persona cards)
 - `StatsCounter.tsx` - Live dashboard statistics counter (total articles, reports, entities)
-- `CTASection.tsx` - Call-to-action section with waitlist
+- `CTASection.tsx` - Contact + waitlist section (`id="contact"`, inner `id="waitlist"`): "Request Access & Enterprise Inquiries"
 - `Footer.tsx` - Footer with links
 
 #### UI Components (`components/ui/`)
 - Shadcn components: Button, Card, Skeleton, Table, Badge
 
 ### Configuration
-- `app/layout.tsx` - Root layout con Google Analytics (`G-MBHW2XG1Q3`) e meta tag Google Search Console (`verification.google`)
+- `app/layout.tsx` - Root layout con Google Analytics (`G-MBHW2XG1Q3`), meta tag Google Search Console (`verification.google`), **JSON-LD Organization + WebSite structured data**
 - `.env.local` - Environment variables:
   - `NEXT_PUBLIC_MAPBOX_TOKEN` - Mapbox API token (client-side, restrict by domain)
   - `INTELLIGENCE_API_URL` - Backend API URL (server-side only)

@@ -94,6 +94,24 @@ export default function RootLayout({
             gtag('config', 'G-MBHW2XG1Q3');
           `}
         </Script>
+        <Script id="json-ld-org" type="application/ld+json" strategy="afterInteractive">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "Organization",
+                "name": "MACROINTEL",
+                "url": "https://macrointel.net",
+                "description": "AI-powered OSINT & geopolitical intelligence platform processing 40+ sources daily into actionable intelligence."
+              },
+              {
+                "@type": "WebSite",
+                "name": "MACROINTEL",
+                "url": "https://macrointel.net"
+              }
+            ]
+          })}
+        </Script>
         {children}
       </body>
     </html>
