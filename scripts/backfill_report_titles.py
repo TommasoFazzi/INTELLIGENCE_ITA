@@ -23,28 +23,38 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 
-def extract_bluf(text: str) -> str:
+def extract_intelligence_content(text: str) -> str:
     """
-    Extract a large chunk of report text for title generation.
-    Skips the H1 header line and collects up to 1800 chars of meaningful content.
+    Extract intelligence content from report text for title generation.
+    Skips the macro dashboard section (everything before the first '---' separator).
+    Falls back to scanning from the start for older reports without a separator.
+    Returns the full intelligence section (no character cap — LLM context is large enough).
     """
     if not text:
         return ""
+    after_separator = False
     lines = []
-    total = 0
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith('# '):
+        if not after_separator:
+            if stripped.startswith('---'):
+                after_separator = True
             continue
-        if stripped.startswith('---'):
+        if stripped.startswith('# ') or stripped.startswith('| ') or stripped.startswith('|--'):
             continue
         clean = stripped.replace('**', '').replace('*', '').strip()
         if not clean:
             continue
         lines.append(clean)
-        total += len(clean)
-        if total >= 1800:
-            break
+    # Fallback for older reports without a macro dashboard separator
+    if not lines:
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith('# ') or stripped.startswith('---') or stripped.startswith('|'):
+                continue
+            clean = stripped.replace('**', '').replace('*', '').strip()
+            if len(clean) > 40:
+                return text  # return full text for fallback reports
     return '\n'.join(lines)
 
 
@@ -53,7 +63,7 @@ def generate_title(model: genai.GenerativeModel, report_date: str, focus_areas: 
     prompt = (
         "You are an intelligence editor writing a headline for a daily geopolitical briefing.\n"
         f"Date: {report_date}\n"
-        f"Report excerpt:\n{bluf[:1500]}\n\n"
+        f"Full report content:\n{bluf}\n\n"
         "Task: Write a headline of maximum 80 characters that captures the MOST SPECIFIC event or development "
         "in the excerpt — name actual countries, leaders, organizations, or conflicts involved.\n"
         "AVOID generic phrases like 'Global Instability', 'Cyberwar', 'AI Race', 'Shifting Alliances', "
@@ -66,7 +76,7 @@ def generate_title(model: genai.GenerativeModel, report_date: str, focus_areas: 
         resp = model.generate_content(
             prompt,
             generation_config=genai.types.GenerationConfig(temperature=0.3, max_output_tokens=80),
-            request_options={"timeout": 30},
+            request_options={"timeout": 60},
         )
         raw = resp.text.strip().strip('"').strip("'")
         if raw.endswith('.'):
@@ -100,7 +110,7 @@ def main():
                 SELECT id, report_date, report_type,
                        metadata->>'title' as existing_title,
                        metadata->'focus_areas' as focus_areas,
-                       LEFT(COALESCE(final_content, draft_content), 3000) as content_preview
+                       COALESCE(final_content, draft_content) as content_preview
                 FROM reports
                 WHERE metadata->>'title' IS NULL OR TRIM(metadata->>'title') = ''
                 ORDER BY report_date DESC
@@ -127,7 +137,7 @@ def main():
         else:
             focus_areas = []
 
-        bluf = extract_bluf(content_preview or "")
+        bluf = extract_intelligence_content(content_preview or "")
         date_str = str(report_date)
 
         logger.info(f"  [{report_id}] {date_str} ({report_type}) — generating title...")

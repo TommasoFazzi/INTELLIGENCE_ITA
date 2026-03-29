@@ -1363,28 +1363,36 @@ Respond with JSON only:"""
 
     def _extract_bluf_from_text(self, text: str) -> str:
         """
-        Extract a large chunk of report text for title generation.
-        Skips the H1 title line and collects up to 1800 chars of meaningful content
-        so the LLM has enough context to identify specific named events.
+        Extract intelligence content for title generation, skipping the macro dashboard.
+        The report structure is: H1 header → macro dashboard tables → '---' separator → intelligence text.
+        We skip everything up to and including the first '---' separator, then return
+        the full intelligence section (no char cap — LLM context window is large enough).
         """
         if not text:
             return ""
+        after_separator = False
         lines = []
-        total = 0
         for line in text.splitlines():
             stripped = line.strip()
-            # Skip H1 (always the generic "Daily Intelligence Briefing" header)
-            if stripped.startswith('# '):
+            if not after_separator:
+                if stripped.startswith('---'):
+                    after_separator = True
                 continue
-            if stripped.startswith('---'):
+            if stripped.startswith('# ') or stripped.startswith('| ') or stripped.startswith('|--'):
                 continue
             clean = stripped.replace('**', '').replace('*', '').strip()
             if not clean:
                 continue
             lines.append(clean)
-            total += len(clean)
-            if total >= 1800:
-                break
+        # If no separator found (older reports without macro dashboard), return full text
+        if not lines:
+            for line in text.splitlines():
+                stripped = line.strip()
+                if not stripped or stripped.startswith('# ') or stripped.startswith('---') or stripped.startswith('|'):
+                    continue
+                clean = stripped.replace('**', '').replace('*', '').strip()
+                if len(clean) > 40:
+                    return text
         return '\n'.join(lines)
 
     def _generate_report_title(self, report_date: str, focus_areas: list, bluf: str) -> str:
@@ -1394,7 +1402,7 @@ Respond with JSON only:"""
         prompt = (
             "You are an intelligence editor writing a headline for a daily geopolitical briefing.\n"
             f"Date: {report_date}\n"
-            f"Report excerpt:\n{bluf[:1500]}\n\n"
+            f"Full report content:\n{bluf}\n\n"
             "Task: Write a headline of maximum 80 characters that captures the MOST SPECIFIC event or development "
             "in the excerpt — name actual countries, leaders, organizations, or conflicts involved.\n"
             "AVOID generic phrases like 'Global Instability', 'Cyberwar', 'AI Race', 'Shifting Alliances', "
