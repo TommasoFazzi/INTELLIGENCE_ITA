@@ -77,6 +77,7 @@ Operational layer that orchestrates the core modules. Scripts tie together inges
 
 ### Embeddings & Search
 - `backfill_report_embeddings.py` - Generate embeddings for existing reports
+- `backfill_report_titles.py` - **One-time backfill**: generates LLM titles (via `gemini-2.0-flash`) for reports where `metadata->>'title'` is NULL. CLI flag: `--dry-run`. Updates `metadata` JSONB in-place. New reports get titles automatically from `report_generator.py`.
 
 ### Storylines / Narrative Engine
 - `process_narratives.py` - **Primary**: Run NarrativeProcessor daily batch (HDBSCAN + LLM evolution + graph)

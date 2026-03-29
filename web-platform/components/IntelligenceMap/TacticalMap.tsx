@@ -12,12 +12,62 @@ import { useMapPosition } from '@/hooks/useMapPosition';
 import { useMapLayers, ENTITY_COLOR_MATCH } from '@/hooks/useMapLayers';
 import { useMapData } from '@/hooks/useMapData';
 import type { EntityCollection } from '@/types/entities';
+import { HelpModal } from '@/components/HelpModal';
+import type { HelpSection } from '@/components/HelpModal';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface TacticalMapProps {
     storylineId?: number | null;
 }
+
+// ── Map Guide Content ─────────────────────────────────────────────────────────
+
+const MAP_GUIDE_SECTIONS: HelpSection[] = [
+    {
+        key: 'entities',
+        label: 'Entity Markers',
+        labelColor: 'text-orange-300',
+        bgColor: 'bg-orange-500/8 border-orange-500/15',
+        content: 'Each marker represents a tracked geopolitical entity (country, organization, person, location). Size and colour reflect entity type or community membership. Scroll to zoom; click a marker to open its dossier.',
+    },
+    {
+        key: 'heatmap',
+        label: 'Heatmap Layer',
+        labelColor: 'text-red-300',
+        bgColor: 'bg-red-500/8 border-red-500/15',
+        content: 'Orange heat density weighted by intelligence score — darker areas have higher narrative activity. Toggle with the HEATMAP button on the left.',
+    },
+    {
+        key: 'arcs',
+        label: 'Arc Lines',
+        labelColor: 'text-cyan-300',
+        bgColor: 'bg-cyan-500/8 border-cyan-500/15',
+        content: 'Cyan arcs connect entities that share active storylines. Arc width and opacity scale with the shared narrative weight. Toggle with ARCS.',
+        tip: 'Thick arcs indicate strong narrative overlap between two entities.',
+    },
+    {
+        key: 'pulse',
+        label: 'Pulse Indicator',
+        labelColor: 'text-green-300',
+        bgColor: 'bg-green-500/8 border-green-500/15',
+        content: 'Green pulsing animation marks entities mentioned in articles published within the last 48 hours — confirming recent activity. Toggle with PULSE.',
+    },
+    {
+        key: 'color',
+        label: 'Color Mode',
+        labelColor: 'text-purple-300',
+        bgColor: 'bg-purple-500/8 border-purple-500/15',
+        content: 'Toggle between COLOR: TYPE (entity category — country, org, person) and COLOR: COMM (Louvain community clusters from the narrative graph). Community colors match the Stories graph.',
+    },
+    {
+        key: 'storyline',
+        label: 'Storyline Highlight',
+        labelColor: 'text-yellow-300',
+        bgColor: 'bg-yellow-500/8 border-yellow-500/15',
+        content: 'Navigate to a storyline in the Stories graph and click "View on Map" to highlight all entities in that storyline. A gold banner appears at the top. Click CLEAR to remove the highlight.',
+    },
+];
 
 interface StorylineBanner {
     title: string;
@@ -46,6 +96,7 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
         useMapData({ mapRef: map, addSourceAndLayers: addSourceAndLayersStable });
 
     const [storylineBanner, setStorylineBanner] = useState<StorylineBanner | null>(null);
+    const [showHelp, setShowHelp] = useState(false);
 
     // ── Build all map layers ─────────────────────────────────────────────────
 
@@ -499,11 +550,27 @@ export default function TacticalMap({ storylineId = null }: TacticalMapProps) {
                     color="#7B61FF"
                     onClick={() => toggleLayer('colorMode')}
                 />
+                <button
+                    type="button"
+                    onClick={() => setShowHelp(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded border border-white/10 bg-black/60 text-gray-400 hover:text-white hover:border-white/30 transition-all backdrop-blur-sm mt-2"
+                >
+                    <span className="text-[10px] font-bold tracking-wider uppercase">? Guide</span>
+                </button>
             </div>
 
             <FilterPanel onFilterChange={loadEntities} entityCount={entityCount} />
 
             <EntityDossier entity={selectedEntity} onClose={() => setSelectedEntity(null)} />
+
+            <HelpModal
+                open={showHelp}
+                onClose={() => setShowHelp(false)}
+                title="Intelligence Map Guide"
+                subtitle="How to navigate the geospatial layer"
+                intro="The Intelligence Map shows all tracked geopolitical entities on a dark Mapbox canvas. Entities are clustered at low zoom and reveal individual markers as you zoom in."
+                sections={MAP_GUIDE_SECTIONS}
+            />
         </div>
     );
 }

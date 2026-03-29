@@ -40,6 +40,9 @@ async def get_dashboard_stats(api_key: str = Depends(verify_api_key)):
         # Get date range
         date_range = _get_date_range(db)
 
+        # Get today's article count
+        articles_today = _count_articles_today(db)
+
         # Build response
         stats = DashboardStats(
             overview=OverviewStats(
@@ -59,6 +62,7 @@ async def get_dashboard_stats(api_key: str = Depends(verify_api_key)):
                     for k, v in base_stats.get('top_sources', {}).items()
                 ],
                 recent_7d=base_stats.get('recent_articles', 0),
+                articles_today=articles_today,
                 date_range=date_range
             ),
             entities=EntityStats(
@@ -190,3 +194,18 @@ def _calc_coverage(geocoded: int, total: int) -> float:
     if total == 0:
         return 0.0
     return round((geocoded / total) * 100, 1)
+
+
+def _count_articles_today(db: DatabaseManager) -> int:
+    """Count articles published or ingested today (UTC)."""
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT COUNT(*) FROM articles
+                    WHERE date_trunc('day', COALESCE(published_date, created_at)) = CURRENT_DATE
+                """)
+                row = cur.fetchone()
+        return row[0] if row else 0
+    except Exception:
+        return 0

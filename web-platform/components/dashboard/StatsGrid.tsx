@@ -19,7 +19,11 @@ export default function StatsGrid({ stats, storiesCount }: StatsGridProps) {
       icon: <FileText className="w-6 h-6" />,
       value: overview.total_articles,
       label: 'Total Articles',
-      trend: articles.recent_7d > 0 ? { value: articles.recent_7d, isPositive: true } : undefined,
+      trend: (articles.articles_today ?? 0) > 0
+        ? { value: articles.articles_today!, isPositive: true, label: 'today' }
+        : articles.recent_7d > 0
+          ? { value: articles.recent_7d, isPositive: true, label: '7d' }
+          : undefined,
     },
     {
       icon: <BookOpen className="w-6 h-6" />,

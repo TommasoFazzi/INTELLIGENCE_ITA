@@ -1361,6 +1361,53 @@ Respond with JSON only:"""
         lines.append('</strategic_storylines>')
         return '\n'.join(lines)
 
+    def _extract_bluf_from_text(self, text: str) -> str:
+        """Extract the first real prose paragraph from report text (for title generation)."""
+        if not text:
+            return ""
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith('#') or stripped.startswith('---') or stripped.startswith('|') or stripped.startswith('*'):
+                continue
+            # Remove markdown bold/italic markers
+            clean = stripped.replace('**', '').replace('*', '').strip()
+            if len(clean) > 40:
+                return clean[:300]
+        return ""
+
+    def _generate_report_title(self, report_date: str, focus_areas: list, bluf: str) -> str:
+        """Generate a concise descriptive headline for the report using Gemini 2.0 Flash."""
+        if not bluf and not focus_areas:
+            return ""
+        themes = ", ".join(focus_areas[:3]) if focus_areas else "geopolitics"
+        prompt = (
+            "You are an intelligence editor. Generate a concise, descriptive headline "
+            f"(maximum 80 characters) for a geopolitical intelligence briefing dated {report_date}.\n"
+            f"Key themes: {themes}\n"
+            f"Opening paragraph: {bluf[:250]}\n"
+            "Rules: return ONLY the headline text. No quotes, no trailing punctuation, no prefixes like 'Headline:'."
+        )
+        try:
+            title_model = genai.GenerativeModel('gemini-2.0-flash')
+            resp = title_model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.3,
+                    max_output_tokens=80
+                ),
+                request_options={"timeout": 30}
+            )
+            raw = resp.text.strip().strip('"').strip("'")
+            # Strip any trailing period
+            if raw.endswith('.'):
+                raw = raw[:-1]
+            return raw[:80]
+        except Exception as e:
+            logger.warning(f"Title generation failed (non-critical): {e}")
+            return ""
+
     def generate_report(
         self,
         focus_areas: Optional[List[str]] = None,
@@ -1708,11 +1755,16 @@ Se fonti di tier diverso riportano posizioni divergenti sullo stesso evento, seg
             }
 
         # Step 6: Compile results
+        # Generate a descriptive title for the report (non-critical, falls back to "")
+        bluf = self._extract_bluf_from_text(report_text)
+        report_title = self._generate_report_title(report_date, focus_areas or [], bluf)
+
         report = {
             'success': True,
             'timestamp': datetime.now().isoformat(),
             'report_text': report_text,
             'metadata': {
+                'title': report_title,
                 'focus_areas': focus_areas,
                 'recent_articles_count': len(recent_articles),
                 'historical_chunks_count': len(unique_rag_results),

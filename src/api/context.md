@@ -27,7 +27,7 @@ Key database objects consumed:
 | `main.py` | FastAPI application entry point. Configures the app, CORS middleware, rate limiter, and includes all sub-routers (dashboard, reports, stories, map, oracle). |
 | `routers/map.py` | Dedicated map router. Handles all `/api/v1/map/` endpoints with in-memory TTL cache (5 min). Uses `JSONResponse` (not ORJSONResponse). Endpoints: `GET /entities` (GeoJSON FeatureCollection with filters), `GET /entities/{id}` (entity detail + storylines), `GET /arcs` (co-occurrence LineStrings), `GET /stats` (HUD stats), `POST /cache/invalidate`. |
 | `auth.py` | Shared authentication module. Implements `verify_api_key` as a FastAPI dependency using `APIKeyHeader`. Uses `secrets.compare_digest` for timing-safe comparison. Supports a dev-mode bypass when `INTELLIGENCE_API_KEY` is unset and `ENVIRONMENT != "production"`. |
-| `routers/dashboard.py` | Dashboard statistics router. Aggregates article counts, entity counts, geocoding coverage, top sources, top mentioned entities, and report quality metrics into a single `DashboardStats` response. Uses multiple private helper functions (`_get_entity_stats`, `_get_quality_stats`, `_get_date_range`, `_count_reports`, `_calc_coverage`), each opening its own DB connection. |
+| `routers/dashboard.py` | Dashboard statistics router. Aggregates article counts, entity counts, geocoding coverage, top sources, top mentioned entities, and report quality metrics into a single `DashboardStats` response. Uses multiple private helper functions (`_get_entity_stats`, `_get_quality_stats`, `_get_date_range`, `_count_reports`, `_calc_coverage`, `_count_articles_today`), each opening its own DB connection. |
 | `routers/reports.py` | Reports router. Supports paginated listing with filters (status, type, date range), detailed retrieval by ID including sources and per-section feedback. Handles two source JSON shapes (flat list vs. dict with `recent_articles`/`historical_context` keys). **`compare_two_reports()` endpoint** invokes `report_compare_service.compare_reports()` with two report IDs to generate Gemini-synthesized delta (new_developments, resolved_topics, trend_shifts, persistent_themes). Derives the report title from metadata, the first content line, or a fallback. |
 | `routers/stories.py` | Storyline and graph router (~525 lines). Exposes the force-graph network (nodes from `v_active_storylines`, edges from `v_storyline_graph`, cached 1h), **community listing** (Louvain communities with key entities), **ego network** (per-node subgraph with min_weight=0.05), a paginated storyline list (default: `emerging` + `active` only), and a storyline detail endpoint with related storylines (via `storyline_edges`, traversed in both directions) and the 10 most recent linked articles. Filters isolated nodes (0 edges) from the graph endpoint. Handles `key_entities` JSON parsing defensively. |
 | `schemas/common.py` | Generic `APIResponse[T]` wrapper (success, data, error, generated_at) and `PaginationMeta` with a `calculate()` class method. |
@@ -80,7 +80,7 @@ Key database objects consumed:
 
 **`SourceCount`**: `source: str`, `count: int`.
 
-**`ArticleStats`**: `by_category: dict[str, int]`, `by_source: list[SourceCount]`, `recent_7d: int`, `date_range: DateRange`.
+**`ArticleStats`**: `by_category: dict[str, int]`, `by_source: list[SourceCount]`, `recent_7d: int`, `articles_today: int` (count of articles published/ingested today, UTC), `date_range: DateRange`.
 
 **`EntityMention`**: `name: str`, `type: str` (default `"UNKNOWN"`), `mentions: int`.
 

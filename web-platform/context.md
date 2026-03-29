@@ -83,9 +83,12 @@ See `components/StorylineGraph/context.md` for full detail.
   - Collapsible design with default expanded state
 
 #### Dashboard Components (`components/dashboard/`)
-- `StatsCard.tsx` - Individual KPI card (accepts `string | number` value)
-- `StatsGrid.tsx` - 4-card grid: Total Articles (7d trend), Intelligence Briefs, Active Storylines (from `useStoriesCount()`), Sources Monitored (static 33). Accepts `storiesCount: number | null` prop.
+- `StatsCard.tsx` - Individual KPI card. `trend` object accepts optional `label?: string` (e.g. "today", "7d") rendered as `+N today`.
+- `StatsGrid.tsx` - 4-card grid: Total Articles (+N today/7d trend from `articles.articles_today`), Intelligence Briefs, Active Storylines (from `useStoriesCount()`), Sources Monitored (static 33).
 - `ReportsTable.tsx` - Paginated reports table. Columns: Title (+ BLUF preview from `executive_summary`) | Type | Date | Articles. Status and Category columns removed. `recap` type has purple badge.
+
+#### Shared UI Components
+- `components/HelpModal.tsx` - Generic help modal (reuses OracleGuideModal UI pattern). Props: `open, onClose, title, subtitle, intro?, sections: HelpSection[]`. Used by Dashboard, TacticalMap, StorylineGraph. No Oracle-specific `onQuerySelect` prop.
 - `DashboardSkeleton.tsx` - Loading skeletons (4-col grid)
 - `ErrorState.tsx` - Error handling states
 

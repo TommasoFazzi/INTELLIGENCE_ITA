@@ -28,6 +28,7 @@ export interface ArticleStats {
   by_category: Record<string, number>;
   by_source: SourceCount[];
   recent_7d: number;
+  articles_today?: number;
   date_range: DateRange;
 }
 

@@ -10,6 +10,7 @@ interface StatsCardProps {
   trend?: {
     value: number;
     isPositive: boolean;
+    label?: string;
   };
 }
 
@@ -30,7 +31,7 @@ export default function StatsCard({ icon, value, label, trend }: StatsCardProps)
                 trend.isPositive ? 'text-green-400' : 'text-red-400'
               }`}
             >
-              {trend.isPositive ? '+' : ''}{trend.value}%
+              {trend.isPositive ? '+' : ''}{trend.value.toLocaleString('it-IT')}{trend.label ? ` ${trend.label}` : ''}
             </span>
           )}
         </div>

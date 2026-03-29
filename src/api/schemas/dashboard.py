@@ -30,6 +30,7 @@ class ArticleStats(BaseModel):
     by_category: dict[str, int] = Field(default_factory=dict)
     by_source: list[SourceCount] = Field(default_factory=list)
     recent_7d: int = 0
+    articles_today: int = 0
     date_range: DateRange = Field(default_factory=DateRange)
 
 
