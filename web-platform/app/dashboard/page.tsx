@@ -24,7 +24,7 @@ const DASHBOARD_GUIDE_SECTIONS: HelpSection[] = [
     labelColor: 'text-orange-300',
     bgColor: 'bg-orange-500/8 border-orange-500/15',
     content:
-      'The four cards at the top show live platform metrics: total articles ingested, intelligence briefs generated, active narrative storylines being tracked, and feeds monitored. The "+N today" badge on articles confirms the daily pipeline ran successfully.',
+      'The four cards at the top show live platform metrics: total articles ingested, intelligence briefs generated, active narrative storylines being tracked, and 47 sources monitored. The "+N today" badge on articles confirms the daily pipeline ran successfully.',
   },
   {
     key: 'reports',

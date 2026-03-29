@@ -37,7 +37,7 @@ export default function StatsGrid({ stats, storiesCount }: StatsGridProps) {
     },
     {
       icon: <Radio className="w-6 h-6" />,
-      value: 33,
+      value: 47,
       label: 'Sources Monitored',
     },
   ];

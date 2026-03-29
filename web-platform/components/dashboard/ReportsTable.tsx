@@ -106,12 +106,11 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
                 {report.report_type}
               </Badge>
             </div>
-            <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+            <div className="flex items-center mt-2 text-xs text-gray-500">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" />
                 {formatDate(report.report_date)}
               </div>
-              <span>{report.article_count} articles</span>
             </div>
           </Link>
         ))}
@@ -125,7 +124,6 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
               <TableHead className="text-gray-400 font-medium">Title</TableHead>
               <TableHead className="text-gray-400 font-medium w-[100px]">Type</TableHead>
               <TableHead className="text-gray-400 font-medium w-[130px]">Date</TableHead>
-              <TableHead className="text-gray-400 font-medium text-right w-[90px]">Articles</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -160,9 +158,6 @@ export default function ReportsTable({ reports, pagination, currentPage, onPageC
                     <Calendar className="w-4 h-4" />
                     {formatDate(report.report_date)}
                   </div>
-                </TableCell>
-                <TableCell className="text-right text-gray-400 tabular-nums">
-                  {report.article_count}
                 </TableCell>
               </TableRow>
             ))}
