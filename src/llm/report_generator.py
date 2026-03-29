@@ -1362,16 +1362,35 @@ Respond with JSON only:"""
         return '\n'.join(lines)
 
     def _extract_bluf_from_text(self, text: str) -> str:
-        """Extract the first real prose paragraph from report text (for title generation)."""
+        """
+        Extract content for title generation: prefer H2/H3 section headings (specific to the day)
+        over the opening paragraph, which is usually boilerplate executive summary text.
+        Returns up to 5 H2/H3 headings joined, or falls back to the first real prose paragraph.
+        """
         if not text:
             return ""
+        # Pass 1: collect H2/H3 headings (most specific, day-unique content)
+        headings = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith('## ') or stripped.startswith('### '):
+                heading = stripped.lstrip('#').strip()
+                # Skip generic boilerplate headings
+                lower = heading.lower()
+                if any(skip in lower for skip in ('executive summary', 'strategic', 'investment', 'trade signal', 'macro', 'overview', 'key development', 'conclusion')):
+                    continue
+                headings.append(heading)
+                if len(headings) >= 5:
+                    break
+        if headings:
+            return ' | '.join(headings)[:400]
+        # Pass 2: fallback to first real prose paragraph
         for line in text.splitlines():
             stripped = line.strip()
             if not stripped:
                 continue
             if stripped.startswith('#') or stripped.startswith('---') or stripped.startswith('|') or stripped.startswith('*'):
                 continue
-            # Remove markdown bold/italic markers
             clean = stripped.replace('**', '').replace('*', '').strip()
             if len(clean) > 40:
                 return clean[:300]

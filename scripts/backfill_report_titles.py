@@ -24,9 +24,27 @@ logger = logging.getLogger(__name__)
 
 
 def extract_bluf(text: str) -> str:
-    """Return first real prose paragraph from report markdown."""
+    """
+    Extract content for title generation: prefer H2/H3 headings (day-specific)
+    over the boilerplate executive summary opening paragraph.
+    """
     if not text:
         return ""
+    # Pass 1: collect H2/H3 headings (most specific content)
+    headings = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('## ') or stripped.startswith('### '):
+            heading = stripped.lstrip('#').strip()
+            lower = heading.lower()
+            if any(skip in lower for skip in ('executive summary', 'strategic', 'investment', 'trade signal', 'macro', 'overview', 'key development', 'conclusion')):
+                continue
+            headings.append(heading)
+            if len(headings) >= 5:
+                break
+    if headings:
+        return ' | '.join(headings)[:400]
+    # Pass 2: fallback to first real prose paragraph
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped:
@@ -87,7 +105,7 @@ def main():
                 SELECT id, report_date, report_type,
                        metadata->>'title' as existing_title,
                        metadata->'focus_areas' as focus_areas,
-                       LEFT(COALESCE(final_content, draft_content), 600) as content_preview
+                       LEFT(COALESCE(final_content, draft_content), 3000) as content_preview
                 FROM reports
                 WHERE metadata->>'title' IS NULL OR TRIM(metadata->>'title') = ''
                 ORDER BY report_date DESC
