@@ -458,6 +458,8 @@ class QueryIntent(str, Enum):
     COMPARATIVE = "comparative"
     TICKER = "ticker"
     OVERVIEW = "overview"
+    REFERENCE = "reference"
+    SPATIAL = "spatial"
 
 
 class QueryComplexity(str, Enum):

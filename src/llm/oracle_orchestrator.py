@@ -43,6 +43,8 @@ from .tools.graph_tool import GraphTool
 from .tools.market_tool import MarketTool
 from .tools.ticker_themes_tool import TickerThemesTool
 from .tools.report_compare_tool import ReportCompareTool
+from .tools.reference_tool import ReferenceTool
+from .tools.spatial_tool import SpatialTool
 from .tools.base import ToolResult
 from ..storage.database import DatabaseManager
 from ..utils.logger import get_logger
@@ -101,7 +103,7 @@ class OracleOrchestrator:
     # ── Tool registration ──────────────────────────────────────────────────────
 
     def _register_tools(self):
-        for tool_class in (RAGTool, SQLTool, AggregationTool, GraphTool, MarketTool, TickerThemesTool, ReportCompareTool):
+        for tool_class in (RAGTool, SQLTool, AggregationTool, GraphTool, MarketTool, TickerThemesTool, ReportCompareTool, ReferenceTool, SpatialTool):
             self.tool_registry.register(tool_class, db=self.db, llm=self.llm)
         logger.info(f"Registered tools: {self.tool_registry.registered_names()}")
 
@@ -259,6 +261,8 @@ class OracleOrchestrator:
             QueryIntent.COMPARATIVE: 0.015,  # comparisons need history
             QueryIntent.TICKER: 0.03,        # ticker = recent
             QueryIntent.OVERVIEW: 0.005,     # panoramic — needs full history, half-life ~140 days
+            QueryIntent.REFERENCE: 0.001,    # reference data is static — minimal decay
+            QueryIntent.SPATIAL: 0.005,      # spatial data combined with recent events
         }
         if "time_decay_k" not in filters:
             filters["time_decay_k"] = _INTENT_DECAY_K.get(

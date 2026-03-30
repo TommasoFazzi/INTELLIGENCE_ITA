@@ -394,6 +394,85 @@ Respond ONLY with valid JSON:
                 ),
             ]
 
+        elif intent == QueryIntent.REFERENCE:
+            # Detect lookup type from query context
+            query_lower = query.lower()
+            sanctions_keywords = ("sanzion", "sanction", "blacklist", "embargo", "sanctioned")
+            is_sanctions = any(k in query_lower for k in sanctions_keywords)
+
+            if is_sanctions:
+                lookup_type = "sanctions_search"
+                # Extract entity name from query (heuristic: longest capitalized word sequence)
+                ref_query = query  # Let ReferenceTool handle fuzzy matching
+            else:
+                lookup_type = "country_by_name"
+                ref_query = query
+
+            # Extract ISO3 if present (3 uppercase letters)
+            import re
+            iso3_match = re.search(r'\b([A-Z]{3})\b', query)
+            if iso3_match and not is_sanctions:
+                lookup_type = "country_profile"
+                ref_query = iso3_match.group(1)
+
+            tool_names = ["reference_lookup", "rag_search"]
+            steps = [
+                ExecutionStep(
+                    tool_name="reference_lookup",
+                    parameters={"lookup_type": lookup_type, "query": ref_query},
+                    description=f"Reference data lookup ({lookup_type})",
+                ),
+                ExecutionStep(
+                    tool_name="rag_search",
+                    parameters={"query": query, "mode": "both", "top_k": 5},
+                    description="Contextual RAG enrichment for reference data",
+                    is_critical=False,
+                ),
+            ]
+
+        elif intent == QueryIntent.SPATIAL:
+            # Build SpatialQuerySpec from query analysis
+            import re
+            query_lower = query.lower()
+
+            spec = {"include_infrastructure": True, "include_conflicts": True}
+
+            # Extract ISO3 from query
+            iso3_match = re.search(r'\b([A-Z]{3})\b', query)
+            if iso3_match:
+                spec["center_iso3"] = iso3_match.group(1)
+
+            # Extract radius if mentioned
+            radius_match = re.search(r'(\d+)\s*km', query_lower)
+            if radius_match:
+                spec["radius_km"] = min(int(radius_match.group(1)), 2000)
+
+            # Detect infrastructure-only or conflict-only
+            conflict_keywords = ("conflitt", "conflict", "guerra", "war", "violenz", "battle", "scontr")
+            infra_keywords = ("cav", "cable", "aeroporto", "airport", "porto", "port", "pipeline",
+                            "raffineria", "refinery", "central", "power", "base militar", "military")
+            has_conflict = any(k in query_lower for k in conflict_keywords)
+            has_infra = any(k in query_lower for k in infra_keywords)
+            if has_conflict and not has_infra:
+                spec["include_infrastructure"] = False
+            if has_infra and not has_conflict:
+                spec["include_conflicts"] = False
+
+            tool_names = ["spatial_query", "rag_search"]
+            steps = [
+                ExecutionStep(
+                    tool_name="spatial_query",
+                    parameters={"spec": spec},
+                    description="Composable spatial analysis",
+                ),
+                ExecutionStep(
+                    tool_name="rag_search",
+                    parameters={"query": query, "mode": "both", "top_k": 5},
+                    description="RAG narrative enrichment for spatial context",
+                    is_critical=False,
+                ),
+            ]
+
         return tool_names, steps
 
     # ── SQL generation (for ANALYTICAL/MARKET) with injection sanitization ────

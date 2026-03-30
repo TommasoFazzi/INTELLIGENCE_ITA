@@ -998,6 +998,40 @@ Respond with JSON analysis following the full schema above:"""
             }
 
     # ========================================================================
+    # Macro Indicator Data Access (for Anomaly Screening)
+    # ========================================================================
+
+    def _get_macro_indicators_for_screening(self, target_date) -> List[Dict[str, Any]]:
+        """
+        Fetch macro indicator rows from DB for anomaly screening.
+
+        Returns list of dicts with: indicator_key, value, previous_value, category.
+        """
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT indicator_key, value, previous_value, category
+                        FROM macro_indicators
+                        WHERE date = %s
+                    """, (target_date,))
+                    rows = cur.fetchall()
+                    conn.rollback()
+
+            return [
+                {
+                    'indicator_key': row[0],
+                    'value': row[1],
+                    'previous_value': row[2],
+                    'category': row[3],
+                }
+                for row in rows
+            ]
+        except Exception as e:
+            logger.warning(f"Failed to fetch macro indicators for screening: {e}")
+            return []
+
+    # ========================================================================
     # MACRO DASHBOARD GENERATION (Two-Step Pipeline)
     # ========================================================================
 
@@ -1009,10 +1043,10 @@ Respond with JSON analysis following the full schema above:"""
         """
         Step 1: LLM interprets raw macro data to generate interpretive analysis.
 
-        Analyzes all 16 OpenBB indicators and generates:
-        - Dashboard items with interpretive labels (e.g., VIX 14.2 -> "Calm")
-        - Risk regime classification (RISK_ON, RISK_OFF, MIXED, TRANSITION)
-        - Narrative explaining the macro environment
+        Now with JIT Ontological Context:
+        1. Anomaly screener identifies top 4 movers by delta %
+        2. OntologyManager fetches theory + correlations only for top movers
+        3. Focused theoretical context injected into LLM prompt
 
         Args:
             macro_context_raw: Raw macro data text from OpenBB get_macro_context_text()
@@ -1024,9 +1058,43 @@ Respond with JSON analysis following the full schema above:"""
             - result: MacroAnalysisResult dict if success
             - error: str if failure
         """
-        logger.info("[STEP 0.5] Generating macro interpretation (two-step pipeline)...")
+        logger.info("[STEP 0.5] Generating macro interpretation (JIT ontological pipeline)...")
 
         date_str = target_date.strftime('%Y-%m-%d') if hasattr(target_date, 'strftime') else str(target_date)
+
+        # ── JIT Ontological Context (Phase 1: Screener + Phase 2: Context) ──
+        jit_context_block = ""
+        try:
+            from src.knowledge.ontology_manager import OntologyManager
+            ontology_mgr = OntologyManager()
+
+            # Fetch indicator data from DB for anomaly screening
+            from datetime import timedelta
+            yesterday = target_date - timedelta(days=1)
+
+            indicators = self._get_macro_indicators_for_screening(target_date)
+            prev_indicators = self._get_macro_indicators_for_screening(yesterday)
+
+            if indicators:
+                # Phase 1: Screen anomalies (data-driven, no LLM)
+                top_movers = ontology_mgr.screen_anomalies(
+                    indicators, prev_indicators, top_n=4
+                )
+
+                if top_movers:
+                    # Phase 2: Build JIT context for only the top movers
+                    mover_keys = [m['key'] for m in top_movers]
+                    jit_context_block = ontology_mgr.build_jit_context(mover_keys)
+                    logger.info(f"✓ JIT context injected for {len(mover_keys)} top movers "
+                                f"({', '.join(mover_keys)})")
+                else:
+                    logger.info("  No significant anomalies detected, using standard analysis")
+            else:
+                logger.info("  No indicator data available for anomaly screening")
+
+        except Exception as e:
+            logger.warning(f"  JIT ontological context failed (non-blocking): {e}")
+            jit_context_block = ""
 
         # Construct prompt for macro interpretation
         macro_analysis_prompt = f"""You are a macro strategist interpreting today's market indicators.
@@ -1034,7 +1102,11 @@ Respond with JSON analysis following the full schema above:"""
 RAW DATA ({date_str}):
 {macro_context_raw}
 
+{jit_context_block}
+
 TASK: Analyze ALL indicators and generate an interpretive analysis.
+PRIORITY: Focus your narrative on the anomalous movements highlighted in the theoretical context above.
+Explain WHY they moved using the causal mechanisms described, and trace the correlation chains to identify second-order effects.
 
 === INTERPRETATION RULES ===
 

@@ -25,6 +25,14 @@ ALLOWED_TABLES: Set[str] = {
     "storyline_edges",
     "v_active_storylines",
     "v_storyline_graph",
+    # Knowledge Base expansion (Sprint 3-10)
+    "country_profiles",
+    "sanctions_registry",
+    "conflict_events",
+    "country_boundaries",
+    "strategic_infrastructure",
+    "macro_forecasts",
+    "trade_flow_indicators",
 }
 
 FORBIDDEN_KEYWORDS = {

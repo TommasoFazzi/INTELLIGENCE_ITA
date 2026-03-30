@@ -263,6 +263,138 @@ class OpenBBMarketService:
             'category': 'SHIPPING',
             'description': 'Cass Freight Shipments Index (US Logistics)'
         },
+        # ================================================================
+        # EXPANSION: 19 additional geopolitically relevant indicators
+        # ================================================================
+        # --- EXCHANGE RATES (FRED) ---
+        'USD_CNY': {
+            'fred_series': 'DEXCHUS',
+            'unit': 'Rate',
+            'category': 'FX',
+            'description': 'USD/CNY Exchange Rate (China trade proxy)'
+        },
+        'USD_GBP': {
+            'fred_series': 'DEXUSUK',
+            'unit': 'Rate',
+            'category': 'FX',
+            'description': 'USD/GBP Exchange Rate'
+        },
+        'USD_RUB': {
+            'symbol': 'RUBUSD=X',
+            'unit': 'Rate',
+            'category': 'FX',
+            'description': 'USD/RUB Exchange Rate (Sanctions proxy)'
+        },
+        # --- STRATEGIC COMMODITIES ---
+        'NATURAL_GAS': {
+            'symbol': 'NG=F',
+            'unit': 'USD',
+            'category': 'COMMODITIES',
+            'description': 'Natural Gas Futures (Energy security proxy)'
+        },
+        'WHEAT': {
+            'fred_series': 'PWHEAMTUSD',
+            'unit': 'USD',
+            'category': 'COMMODITIES',
+            'description': 'Global Wheat Price (Food security indicator)'
+        },
+        'NICKEL': {
+            'fred_series': 'PNICKUSDM',
+            'unit': 'USD',
+            'category': 'COMMODITIES',
+            'description': 'Nickel Price (EV battery / critical minerals)'
+        },
+        'ALUMINUM': {
+            'fred_series': 'PALUMUSDM',
+            'unit': 'USD',
+            'category': 'COMMODITIES',
+            'description': 'Aluminum Price (Industrial / defense production)'
+        },
+        'SILVER': {
+            'symbol': 'SI=F',
+            'unit': 'USD',
+            'category': 'COMMODITIES',
+            'description': 'Silver Futures (Industrial + safe haven)'
+        },
+        'URANIUM': {
+            'symbol': 'URA',
+            'unit': 'USD',
+            'category': 'COMMODITIES',
+            'description': 'Global X Uranium ETF (Nuclear energy proxy)'
+        },
+        # --- CREDIT RISK / FINANCIAL STRESS ---
+        'TED_SPREAD': {
+            'fred_series': 'TEDRATE',
+            'unit': '%',
+            'category': 'CREDIT_RISK',
+            'description': 'TED Spread (Interbank lending stress)'
+        },
+        'FIN_STRESS_INDEX': {
+            'fred_series': 'STLFSI4',
+            'unit': 'Index',
+            'category': 'CREDIT_RISK',
+            'description': 'St. Louis Financial Stress Index'
+        },
+        # --- REAL ECONOMY ---
+        'US_CPI': {
+            'fred_series': 'CPIAUCSL',
+            'unit': 'Index',
+            'category': 'INFLATION',
+            'description': 'US Consumer Price Index (All Items)'
+        },
+        'US_UNEMPLOYMENT': {
+            'fred_series': 'UNRATE',
+            'unit': '%',
+            'category': 'ECONOMY',
+            'description': 'US Unemployment Rate'
+        },
+        'US_INDUSTRIAL_PROD': {
+            'fred_series': 'INDPRO',
+            'unit': 'Index',
+            'category': 'ECONOMY',
+            'description': 'US Industrial Production Index'
+        },
+        # --- INFLATION EXPECTATIONS ---
+        'BREAKEVEN_10Y': {
+            'fred_series': 'T10YIE',
+            'unit': '%',
+            'category': 'INFLATION',
+            'description': '10-Year Breakeven Inflation Rate'
+        },
+        'REAL_RATE_10Y': {
+            'fred_series': 'DFII10',
+            'unit': '%',
+            'category': 'RATES',
+            'description': '10-Year Real Interest Rate (TIPS)'
+        },
+        # --- UNCERTAINTY ---
+        'EPU_GLOBAL': {
+            'fred_series': 'GEPUCURRENT',
+            'unit': 'Index',
+            'category': 'VOLATILITY',
+            'description': 'Global Economic Policy Uncertainty Index'
+        },
+        # --- ADDITIONAL INDICES ---
+        'NASDAQ': {
+            'symbol': '^IXIC',
+            'unit': 'Points',
+            'category': 'INDICES',
+            'description': 'NASDAQ Composite Index'
+        },
+        # --- CRYPTO (RISK PROXY) ---
+        'BITCOIN': {
+            'symbol': 'BTC-USD',
+            'unit': 'USD',
+            'category': 'CRYPTO',
+            'description': 'Bitcoin (Risk appetite / de-dollarization proxy)'
+        },
+        # --- OFFSHORE YUAN ---
+        'USD_CNH': {
+            'symbol': 'USDCNH=X',
+            'unit': 'Rate',
+            'category': 'FX',
+            'description': 'USD/CNH Exchange Rate (Offshore Yuan — free market rate)'
+        },
     }
 
     def __init__(self, db: Optional[DatabaseManager] = None):

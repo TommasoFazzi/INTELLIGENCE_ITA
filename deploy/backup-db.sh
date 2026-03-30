@@ -4,7 +4,7 @@ set -euo pipefail
 
 BACKUP_DIR="/opt/backups/intelligence-ita"
 DATE=$(date +%Y%m%d_%H%M%S)
-APP_DIR="/opt/intelligence-ita/app"
+APP_DIR="/opt/intelligence-ita/repo"
 COMPOSE_FILE="${APP_DIR}/docker-compose.yml"
 
 # Load env vars
@@ -24,7 +24,7 @@ echo "[$(date)] Starting backup..."
 # ------------------------------------------------------------------
 DB_BACKUP="${BACKUP_DIR}/postgres/intelligence_ita_${DATE}.sql.gz.enc"
 
-docker compose -f "${COMPOSE_FILE}" exec -T postgres \
+docker compose -p app -f "${COMPOSE_FILE}" --env-file "${APP_DIR}/.env.production" exec -T postgres \
     pg_dump -U "${POSTGRES_USER}" intelligence_ita \
     | gzip \
     | openssl enc -aes-256-cbc -salt -pbkdf2 -pass "pass:${BACKUP_PASSWORD}" \
@@ -43,7 +43,7 @@ echo "[$(date)] DB backup: $(basename "${DB_BACKUP}") (${DB_SIZE})"
 # ------------------------------------------------------------------
 REPORTS_BACKUP="${BACKUP_DIR}/reports/reports_${DATE}.tar.gz"
 
-docker compose -f "${COMPOSE_FILE}" exec -T backend \
+docker compose -p app -f "${COMPOSE_FILE}" --env-file "${APP_DIR}/.env.production" exec -T backend \
     tar -czf - /app/reports \
     > "${REPORTS_BACKUP}"
 

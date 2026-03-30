@@ -69,11 +69,23 @@ Schema evolution layer that extends the core database as new features are added.
 - `024_intelligence_sources.sql` — Creates `intelligence_sources` table (anagrafica fonti): `name`, `domain`, `source_type`, `authority_score` (1–5), `llm_context`, `feed_names[]`, `has_rss`. Adds `source_id` FK and `domain` denormalized text column to `articles`.
 - `025_chunks_source_id.sql` — Adds `source_id` FK column to `chunks` table (mirrors `articles.source_id` for source-aware RAG retrieval)
 
+### Knowledge Base Expansion (PostGIS & Reference Data)
+- `026_postgis.sql` — Enables PostGIS extension (`CREATE EXTENSION IF NOT EXISTS postgis`). Prerequisite for all spatial tables.
+  - `026_postgis_rollback.sql` — Drops PostGIS extension (CASCADE: drops all spatial tables)
+- `027_country_profiles.sql` — Creates `country_profiles` reference table (ISO3 PK, macro data, governance score). Populated by `scripts/load_world_bank.py`.
+- `028_country_boundaries.sql` — Creates `country_boundaries` table with `GEOMETRY(MultiPolygon, 4326)` + GIST index. Populated by `scripts/load_natural_earth.sh` (50m resolution via ephemeral GDAL container).
+- `029_conflict_events.sql` — Creates `conflict_events` table with `GEOMETRY(Point, 4326)` + GIST/temporal indexes. Populated by `scripts/load_ucdp.py` (UCDP GED API v24.1).
+- `030_sanctions_registry.sql` — Creates `sanctions_registry` table with GIN indexes on `countries[]` and `datasets[]`. Populated by `scripts/load_opensanctions.py` (FtM NDJSON).
+- `031_strategic_infra.sql` — Creates `strategic_infrastructure` table with `Point` + `LineString` geometries, GIST indexes, and `infra_type` CHECK constraint (11 types). Populated by TeleGeography data.
+- `032_macro_forecasts.sql` — Creates `macro_forecasts` table for IMF WEO forward-looking projections with vintage tracking. Populated by `scripts/load_imf_weo.py`.
+- `033_trade_flow_indicators.sql` — Creates `trade_flow_indicators` table for bilateral trade data with commodity classification.
+
 ## Applied in Production
 
 Migrations applied to the Hetzner production database (as of 2026-03-24):
 - 001 through 019: Applied
 - 020 through 025: Applied (confirmed via memory: 018, 019, 024)
+- 026 through 033: **NOT YET APPLIED** — requires PostGIS container rebuild first
 
 ## Execution Order
 
@@ -81,6 +93,11 @@ Migrations applied to the Hetzner production database (as of 2026-03-24):
 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010
   → 011 → 012 → 013 → 014 → 015 → 016 → 017 → 018 → 019
   → 020 → 021 → 022 → 023 → 024 → 025
+  → 026 (PostGIS — MUST rebuild container first)
+  → 027 (no spatial dependency)
+  → 028 → 029 → 031 (require PostGIS)
+  → 030 (no spatial dependency)
+  → 032 → 033 (no spatial dependency)
 ```
 
 Run a single migration:
@@ -96,4 +113,5 @@ psql -d intelligence_ita -f migrations/XXX_migration_name_rollback.sql
 ## Dependencies
 
 - **Internal**: `src/storage/database.py` (base schema)
-- **External**: PostgreSQL 14+ (tested on 17 in production with pgvector:pg17), pgvector extension
+- **External**: PostgreSQL 14+ (tested on 17 in production with pgvector:pg17), pgvector extension, PostGIS 3 (required for migrations 026+)
+

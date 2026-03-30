@@ -1,0 +1,684 @@
+# =============================================================================
+# MACRO_INDICATORS — Asset Theory Library (Ontological Layer)
+# =============================================================================
+#
+# "Manuale di macroeconomia" dell'LLM Intelligence ITA.
+# Ogni indicatore ha:
+#   - ontology: descrizione strutturata (cosa è, da cosa è guidato, cosa influenza)
+#   - correlations: dict {indicatore: [direzione, razionale]}
+#
+# Convenzione correlazioni:
+#   +1 = correlazione positiva (salgono/scendono insieme)
+#   -1 = correlazione inversa
+#   Il valore stringa descrive il MECCANISMO CAUSALE, non solo la statistica.
+#
+# Caricato in RAM al boot da OntologyManager (singleton).
+# Human-readable, facile da aggiornare per un analista.
+# =============================================================================
+
+indicators:
+
+  # =========================================================================
+  # RATES
+  # =========================================================================
+
+  US_10Y_YIELD:
+    ontology: >
+      Tasso di riferimento globale per il costo del denaro a lungo termine.
+      Sintetizza tre componenti: aspettative sui tassi reali futuri, premio per l'inflazione attesa,
+      e premio per il rischio di duration (term premium).
+      Fissato dal mercato secondario dei Treasury, non direttamente dalla Fed —
+      la Fed controlla il breve termine (Fed Funds Rate), il 10Y riflette le aspettative di mercato
+      sull'intera traiettoria futura.
+      Guidato da: CPI, PCE, dati occupazione (NFP), dichiarazioni Fed, domanda estera di Treasury
+      (in particolare Cina e Giappone), fiscal deficit USA, e flight-to-safety in caso di crisi.
+      Influenza: valutazioni azionarie (via discount rate nel DDM/DCF), spread corporate e HY,
+      mercato immobiliare (mutui 30Y sono agganciati al 10Y), costo del debito sovrano globale,
+      carry trade in FX, e differenziali di tasso con i bond esteri che guidano EUR/USD e USD/JPY.
+    correlations:
+      US_2Y_YIELD:         [+1, "Entrambi guidati da aspettative Fed, ma 10Y ha più term premium"]
+      YIELD_CURVE_10Y_2Y:  [+1, "Il 10Y è il numeratore dello spread; sale → curva si irripidisce se 2Y stabile"]
+      REAL_RATE_10Y:       [+1, "10Y nominale = real rate + breakeven inflation; legame diretto"]
+      BREAKEVEN_10Y:       [+1, "L'altro componente del 10Y nominale; alta inflazione attesa → yield sale"]
+      SP500:               [-1, "Yield più alti comprimono i multipli azionari (P/E scende) e aumentano il costo capitale"]
+      NASDAQ:              [-1, "Più sensibile al 10Y del SP500: le growth stocks hanno duration lunga nei cash flow"]
+      GOLD:                [-1, "Oro non rende cedole; yield reale alto aumenta l'opportunity cost di tenerlo"]
+      EUR_USD:             [+1, "Yield USA più alti attraggono capitali in USD, ma dipende dal differenziale con Bund"]
+      USD_JPY:             [+1, "Il carry trade JPY si basa sul differenziale 10Y USA vs JGB; yield USA alto → USD/JPY sale"]
+      US_HY_SPREAD:        [-1, "In risk-off il 10Y scende (flight to safety) mentre gli spread HY si allargano"]
+      DOLLAR_INDEX:        [+1, "Yield più alti attraggono capitale estero → domanda di USD"]
+
+  US_2Y_YIELD:
+    ontology: >
+      Proxy più puro delle aspettative di mercato sui Fed Funds Rate nei prossimi 12-24 mesi.
+      A differenza del 10Y, il 2Y è quasi privo di term premium significativo —
+      ciò che prezza è essenzialmente la traiettoria attesa dei tassi ufficiali.
+      Reagisce quasi istantaneamente alle comunicazioni Fed (FOMC minutes, dot plot, discorsi Powell).
+      Guidato da: Fed Funds Rate corrente, CPI, PCE core, mercato del lavoro, forward guidance Fed.
+      Influenza: YIELD_CURVE_10Y_2Y (il denominatore), costo del credito a breve per banche e imprese,
+      tensioni bancarie (SVB 2023: inversione profonda della curva aveva già segnalato lo stress),
+      e aspettative di recessione quando supera il 10Y (curva invertita).
+    correlations:
+      US_10Y_YIELD:        [+1, "Stesso universo risk-free, ma 2Y guida il 10Y in fasi di cambio politica monetaria"]
+      YIELD_CURVE_10Y_2Y:  [-1, "Denominatore: 2Y sale → spread si comprime o inverte"]
+      FIN_STRESS_INDEX:    [+1, "2Y alto per lungo tempo segnala stress sul funding bancario a breve"]
+      TED_SPREAD:          [+1, "Entrambi riflettono costo del denaro a breve; stress li fa divergere"]
+      SP500:               [-1, "2Y alto = politica restrittiva in corso = vento contrario per equity"]
+      DOLLAR_INDEX:        [+1, "Tassi breve USA alti attraggono carry in USD"]
+
+  YIELD_CURVE_10Y_2Y:
+    ontology: >
+      Lo spread tra il rendimento a 10 anni e quello a 2 anni è il più monitorato indicatore anticipatore
+      di recessione negli USA. Una curva invertita (spread < 0) ha preceduto ogni recessione USA
+      dal 1955, con lead time medio di 12-18 mesi.
+      Meccanismo: la curva si inverte quando la Fed alza i tassi aggressivamente (2Y sale)
+      mentre il mercato sconta un rallentamento futuro che farà scendere i tassi a lungo (10Y scende).
+      Attenzione: l'inversione è il segnale; il disinvestimento (ritorno in positivo) spesso coincide
+      con l'inizio effettivo della recessione, non la fine.
+      Guidato da: differenziale di politica monetaria vs aspettative macro, credibilità Fed,
+      domanda strutturale di Treasury lunghi (pensioni, assicuratori).
+      Influenza: appetito al rischio generale, sentiment bancario (le banche prendono a breve e prestano a lungo —
+      curva invertita comprime i loro margini e riduce l'erogazione del credito).
+    correlations:
+      US_10Y_YIELD:        [+1, "Numeratore"]
+      US_2Y_YIELD:         [-1, "Denominatore"]
+      SP500:               [+1, "Curva positiva = ambiente favorevole all'equity; inversione = warning"]
+      US_HY_SPREAD:        [-1, "Curva invertita → risk-off → spread HY si allargano"]
+      FIN_STRESS_INDEX:    [-1, "Curva invertita aumenta lo stress finanziario sistemico"]
+      US_UNEMPLOYMENT:     [-1, "Curva piatta/invertita anticipa deterioramento del mercato del lavoro"]
+      COPPER:              [+1, "Entrambi riflettono aspettative di crescita; si muovono nella stessa direzione ciclica"]
+      BITCOIN:             [+1, "In risk-on (curva positiva) anche crypto beneficiano dell'appetito al rischio"]
+
+  REAL_RATE_10Y:
+    ontology: >
+      Il tasso reale a 10 anni (derivato dai TIPS) è il costo del denaro depurato dall'inflazione attesa.
+      È la variabile più importante per il prezzo dell'oro: quando il tasso reale è positivo e alto,
+      l'oro (asset non-yielding) perde attrattiva relativa; quando è negativo (come 2020-2021),
+      l'oro è favorito strutturalmente.
+      Guidato da: politica Fed, aspettative inflazione (BREAKEVEN_10Y), domanda di TIPS da fondi pensione.
+      Influenza: valutazioni degli asset reali (real estate, infrastrutture, commodity),
+      leverage delle aziende growth (alta duration nei cash flow futuri),
+      e differenziali reali globali che guidano i flussi di capitale FX.
+    correlations:
+      GOLD:                [-1, "Relazione inversa quasi meccanica: real rate alto = opportunity cost alto per oro"]
+      SILVER:              [-1, "Stesso meccanismo dell'oro per la componente monetaria"]
+      US_10Y_YIELD:        [+1, "Real rate = 10Y nominale − breakeven; sale con il nominale a parità di inflazione"]
+      BREAKEVEN_10Y:       [-1, "I due componenti del 10Y nominale tendono a compensarsi in parte"]
+      NASDAQ:              [-1, "Growth stocks sono i bond proxy dell'equity — sensitivity alta al tasso reale"]
+      DOLLAR_INDEX:        [+1, "Real rate USA alti attraggono capitali reali, non solo nominali"]
+      BITCOIN:             [-1, "In ambienti di real rate negativi il crypto funziona da hedge inflazione"]
+
+  # =========================================================================
+  # INFLATION
+  # =========================================================================
+
+  BREAKEVEN_10Y:
+    ontology: >
+      La differenza tra il rendimento nominale del Treasury 10Y e il rendimento reale dei TIPS 10Y.
+      Misura le aspettative di inflazione media del mercato nei prossimi 10 anni.
+      Non è una previsione 'pura' — incorpora anche il premio per il rischio inflazione.
+      Guidato da: dati CPI/PCE correnti, prezzi energetici (oil è il fastest mover),
+      politica fiscale espansiva, supply chain disruptions, credibilità Fed nel mandato di inflazione.
+      Influenza: decisioni di asset allocation tra nominali e reali,
+      pricing di commodity cicliche, e soprattutto il tasso reale residuale.
+    correlations:
+      US_10Y_YIELD:        [+1, "Aspettative inflazione più alte alzano il nominale"]
+      REAL_RATE_10Y:       [-1, "L'altro pezzo del nominale; a parità di 10Y nominale, si compensano"]
+      INFLATION_EXPECTATION_5Y: [+1, "Entrambe misurano aspettative inflazione, orizzonti diversi"]
+      GOLD:                [+1, "Inflazione attesa alta favorisce gold come store of value"]
+      BRENT_OIL:           [+1, "Oil è la componente più volatile dell'inflazione; sale → breakeven sale"]
+      WTI_OIL:             [+1, "Stesso meccanismo Brent"]
+      DOLLAR_INDEX:        [-1, "Inflazione USA alta erode il potere d'acquisto del dollaro"]
+
+  INFLATION_EXPECTATION_5Y:
+    ontology: >
+      Misura le aspettative di inflazione per il quinquennio 5-10 anni nel futuro
+      (forward rate implicito tra il breakeven 5Y e il breakeven 10Y).
+      È un indicatore di anchoring delle aspettative: se questo valore si discosta significativamente
+      dal target Fed del 2%, significa che il mercato dubita della credibilità della banca centrale.
+      Guidato da: credibilità Fed nel lungo periodo, trend strutturali (deglobalizzazione,
+      transizione energetica, demografia), politica fiscale e deficit strutturali.
+    correlations:
+      BREAKEVEN_10Y:       [+1, "Stessa famiglia di misure di inflazione implicita"]
+      US_10Y_YIELD:        [+1, "Aspettative di lungo periodo si trasmettono al yield nominale lungo"]
+      GOLD:                [+1, "Aspettative inflazione strutturalmente alte → domanda gold a lungo termine"]
+      REAL_RATE_10Y:       [-1, "Se breakeven sale e nominale è stabile, il real rate scende"]
+      DOLLAR_INDEX:        [-1, "Aspettative inflazione strutturali USA alti = USD structurally weaker"]
+
+  US_CPI:
+    ontology: >
+      Il CPI USA è la misura di inflazione più seguita dal pubblico (la Fed preferisce il PCE).
+      Housing/shelter ha il peso maggiore (ca. 33%), seguito da food e energy.
+      La componente shelter è notoriamente lagging (usa gli affitti degli ultimi 12 mesi, non i prezzi di mercato).
+      Guidato da: prezzi energetici (passthrough rapido), salari (sticky),
+      prezzi delle abitazioni (lagging), supply chain, e aspettative inflazione stesse.
+      Influenza: decisioni Fed (mandato duale), COLA per pensioni/salari,
+      yield reali, e sentiment politico (inflazione è la tassa più impopolare).
+    correlations:
+      BRENT_OIL:           [+1, "Energy è componente diretta del CPI; passthrough rapido"]
+      NATURAL_GAS:         [+1, "Utility bills → CPI"]
+      WHEAT:               [+1, "Food component del CPI"]
+      US_10Y_YIELD:        [+1, "CPI alto → aspettative di rialzo Fed → yield sale"]
+      BREAKEVEN_10Y:       [+1, "CPI corrente alimenta le aspettative future"]
+      REAL_RATE_10Y:       [-1, "CPI alto con yield nominale stabile → real rate scende"]
+      DOLLAR_INDEX:        [-1, "Inflazione erode il potere d'acquisto del dollaro nel lungo periodo"]
+      GOLD:                [+1, "Inflazione alta → domanda gold come hedge"]
+      US_UNEMPLOYMENT:     [-1, "Phillips curve: inflazione alta → mercato del lavoro teso → disoccupazione bassa"]
+
+  # =========================================================================
+  # VOLATILITY / UNCERTAINTY
+  # =========================================================================
+
+  VIX:
+    ontology: >
+      Il VIX misura la volatilità implicita nelle opzioni sull'S&P500 a 30 giorni.
+      È spesso chiamato 'fear gauge' ma è più precisamente un indicatore del costo dell'hedging:
+      sale quando gli operatori pagano di più per proteggere i portafogli.
+      Non è direzionale: può salire anche in rally violenti (vol upside).
+      Guidato da: eventi geopolitici, dati macro sorprendenti, earnings season,
+      posizionamento degli operatori di opzioni (gamma degli MM), e livello corrente del SP500.
+      Influenza: allocazione risk/risk-off nei portafogli istituzionali,
+      strategie di vol-targeting (quando VIX sale, i fondi sistematici de-levano meccanicamente),
+      spread creditizi, e domanda di asset safe haven (oro, JPY, Treasury).
+    correlations:
+      SP500:               [-1, "Relazione inversa quasi meccanica nel breve; spike VIX → drawdown SP500"]
+      NASDAQ:              [-1, "Ancora più sensibile: growth/tech amplificano la volatilità"]
+      GOLD:                [+1, "Flight-to-safety: VIX alto → domanda oro"]
+      US_10Y_YIELD:        [-1, "Risk-off porta capitali sui Treasury → yield scende"]
+      US_HY_SPREAD:        [+1, "Paura di mercato → spread creditizi si allargano"]
+      DOLLAR_INDEX:        [+1, "USD è valuta safe-haven; VIX alto → domanda USD in crisi sistemiche"]
+      USD_JPY:             [-1, "JPY è safe haven; VIX alto → JPY si apprezza → USD/JPY scende"]
+      BITCOIN:             [-1, "Crypto sono risk-on asset; VIX alto → BTC soffre"]
+      EPU_GLOBAL:          [+1, "Incertezza geopolitica e di policy si trasmette alla vol finanziaria"]
+      FIN_STRESS_INDEX:    [+1, "Alta volatilità è componente dello stress finanziario"]
+
+  EPU_GLOBAL:
+    ontology: >
+      Indice costruito da Baker, Bloom e Davis basato sulla frequenza di articoli di giornale
+      che citano simultaneamente economia, policy e incertezza.
+      A differenza del VIX (incertezza finanziaria di brevissimo termine), l'EPU cattura
+      l'incertezza di policy — fiscale, monetaria, regolatoria, commerciale — su orizzonti più lunghi.
+      Alta incertezza di policy deprime gli investimenti aziendali (capex) perché rende
+      i payoff futuri meno prevedibili (real options theory: vale aspettare).
+      Guidato da: elezioni politiche, escalation dazi, crisi geopolitiche, cambi regolatori.
+    correlations:
+      VIX:                 [+1, "Incertezza di policy si trasmette alla volatilità finanziaria"]
+      US_HY_SPREAD:        [+1, "Incertezza alta → risk premium credit più alto"]
+      SP500:               [-1, "Incertezza ostacola la valutazione e gli utili futuri"]
+      GOLD:                [+1, "Store of value in momenti di alta incertezza istituzionale"]
+      COPPER:              [-1, "Incertezza di policy riduce capex e domanda industriale"]
+      US_INDUSTRIAL_PROD:  [-1, "Alta incertezza → meno investimenti → meno produzione"]
+      BITCOIN:             [+1, "Incertezza su sistema finanziario tradizionale → hedge crypto"]
+
+  # =========================================================================
+  # COMMODITIES
+  # =========================================================================
+
+  BRENT_OIL:
+    ontology: >
+      Il Brent è il benchmark globale per il petrolio (ca. 80% dei contratti mondiali).
+      È simultaneamente un input produttivo (inflazione via costi energia e trasporto),
+      uno strumento geopolitico (OPEC+, embargo, sanzioni), e un termometro della domanda globale.
+      Guidato da: decisioni OPEC+ su quote produzione, crescita cinese (massimo consumatore mondiale),
+      inventari EIA settimanali, tensioni Medio Oriente (premium geopolitico),
+      forza del dollaro (oil è prezzato in USD).
+      Influenza: CPI (componente energetica diretta), margini aziendali energy-intensive,
+      breakeven inflazione, bilance commerciali dei paesi importatori.
+    correlations:
+      WTI_OIL:             [+1, "Spread Brent-WTI solitamente stretto (3-5$)"]
+      NATURAL_GAS:         [+1, "Sostituti parziali nell'energia; correlazione aumenta in crisi energetiche"]
+      BREAKEVEN_10Y:       [+1, "Oil è il principale driver di breve dell'inflazione"]
+      DOLLAR_INDEX:        [-1, "Oil prezzato in USD: dollaro forte → prezzo Brent scende in USD terms"]
+      USD_RUB:             [-1, "Russia esportatrice: oil alto → rublo si rafforza → USD/RUB scende"]
+      US_CPI:              [+1, "Componente energetica nel paniere CPI"]
+      COPPER:              [+1, "Entrambi guidati dalla domanda industriale globale / crescita cinese"]
+
+  WTI_OIL:
+    ontology: >
+      Il West Texas Intermediate è il benchmark USA per il petrolio.
+      Lo spread WTI-Brent cattura: l'eccesso di offerta USA, i costi di trasporto,
+      e la capacità di export.
+      Guidato da: produzione shale USA (breakeven ca. 45-60$/bbl),
+      inventari a Cushing, domanda USA (stagionalità: driving season estiva).
+    correlations:
+      BRENT_OIL:           [+1, "Benchmark quasi gemello con spread strutturalmente stretto"]
+      NATURAL_GAS:         [+1, "Energia alternativa; correlazione alta in crisi supply"]
+      DOLLAR_INDEX:        [-1, "Oil in USD: dollaro forte → WTI in calo strutturale"]
+      US_CPI:              [+1, "Impatto diretto sulla componente energy del CPI USA"]
+      BREAKEVEN_10Y:       [+1, "Aspettative inflazione reagiscono ai movimenti oil"]
+      CASS_FREIGHT_INDEX:  [+1, "Diesel da WTI → costi trasporto merci"]
+
+  NATURAL_GAS:
+    ontology: >
+      Il gas naturale è il commodity energetico con la più alta volatilità strutturale —
+      difficile da stoccare e trasportare (richiede infrastrutture LNG).
+      Il NG=F prezza il Henry Hub USA. La crisi europea post-2022 ha reso TTF Europa
+      il termometro geopolitico più rilevante.
+      Guidato da: temperatura, produzione shale associata a oil,
+      export LNG USA, inventari settimanali EIA.
+      Influenza: costi di produzione industriale (fertilizzanti, chimici, acciaio),
+      inflazione energetica europea, e decisioni di energy mix delle utilities.
+    correlations:
+      BRENT_OIL:           [+1, "Sostituti nell'energia; correlazione aumenta in crisi"]
+      WTI_OIL:             [+1, "Gas è spesso byproduct della produzione oil shale"]
+      WHEAT:               [+1, "Gas è input principale per fertilizzanti azotati → costo produzione grano"]
+      ALUMINUM:            [+1, "Alluminio è energy-intensive: gas alto → costi produzione alluminio salgono"]
+      US_CPI:              [+1, "Utility bills e heating oil trasmettono il gas al CPI"]
+      USD_RUB:             [-1, "Russia è major exporter; gas alto → rublo si rafforza"]
+      EUR_USD:             [-1, "Gas alto danneggia Europa (importatrice netta) → EUR debole"]
+
+  GOLD:
+    ontology: >
+      L'oro è simultaneamente una commodity (gioielleria, industria), una valuta di riserva
+      (le banche centrali lo detengono come riserva — acquisti in forte crescita post-sanzioni Russia 2022),
+      e un asset finanziario con caratteristiche uniche: zero yield, zero default risk, zero counterparty risk.
+      Il suo prezzo è determinato principalmente dal costo opportunità — ovvero dal tasso reale USA.
+      Guidato da: tasso reale USA (REAL_RATE_10Y), dollaro (prezzato in USD),
+      acquisti banche centrali (EM diversificano da USD post-2022),
+      domanda indiana e cinese (gioielleria e riserve), e geopolitica.
+    correlations:
+      REAL_RATE_10Y:       [-1, "Relazione inversa quasi meccanica e ben documentata empiricamente"]
+      DOLLAR_INDEX:        [-1, "Gold prezzato in USD: dollaro forte → gold più caro per acquirenti esteri"]
+      SILVER:              [+1, "Metalli preziosi si muovono in tandem; silver ha componente industriale aggiuntiva"]
+      VIX:                 [+1, "Safe haven: risk-off → domanda gold"]
+      BITCOIN:             [-1, "In fasi di risk appetite, BTC compete con gold come store of value alternativo"]
+      US_10Y_YIELD:        [-1, "Yield nominale alto = più costoso tenere gold"]
+      BREAKEVEN_10Y:       [+1, "Inflazione attesa alta → gold come hedge inflazione"]
+      EUR_USD:             [+1, "EUR forte = USD debole = gold più economico per acquirenti non-USD"]
+      EPU_GLOBAL:          [+1, "Incertezza globale → domanda di riserve di valore"]
+
+  SILVER:
+    ontology: >
+      L'argento è un asset ibrido: ca. 50-55% della domanda è industriale (pannelli solari,
+      elettronica, veicoli elettrici — l'argento è il miglior conduttore elettrico)
+      e il restante è investimento/gioielleria.
+      Questa dualità lo rende più volatile dell'oro: in risk-on beneficia sia del ciclo industriale
+      che dell'appetito al rischio; in risk-off tende a underperformare l'oro.
+    correlations:
+      GOLD:                [+1, "Principale correlazione: entrambi metalli preziosi"]
+      REAL_RATE_10Y:       [-1, "Come l'oro, ma con minore sensibilità"]
+      COPPER:              [+1, "Entrambi sensibili alla domanda industriale e alla crescita cinese"]
+      NASDAQ:              [+1, "In risk-on, silver e tech crescono insieme per domanda industriale"]
+      DOLLAR_INDEX:        [-1, "Prezzato in USD: dollaro forte pesa"]
+      URANIUM:             [+1, "Entrambi beneficiano della transizione energetica"]
+
+  COPPER:
+    ontology: >
+      Il rame è il metallo con il maggior numero di applicazioni industriali trasversali —
+      da qui il soprannome 'Dr. Copper' come diagnosi dell'economia globale.
+      La transizione energetica richiede 4-6x più rame per veicolo elettrico vs ICE.
+      Guidato da: domanda cinese (Cina consuma ca. 55% della produzione mondiale),
+      capex infrastrutturale globale, USD, costi estrattivi (Chile e Peru = 40% offerta globale).
+      Influenza: segnale leading sul ciclo manifatturiero globale
+      (spesso anticipa i PMI di 2-3 mesi), inflazione dei beni, e bilancia commerciale cinese.
+    correlations:
+      YIELD_CURVE_10Y_2Y:  [+1, "Entrambi leading indicator del ciclo economico"]
+      USD_CNY:             [-1, "Yuan forte = economia cinese robusta = più domanda rame"]
+      SP500:               [+1, "Copper e equity si muovono insieme nel ciclo risk-on"]
+      BRENT_OIL:           [+1, "Entrambi proxy della domanda industriale globale"]
+      SILVER:              [+1, "Stesso ciclo industriale e transizione energetica"]
+      ALUMINUM:            [+1, "Metalli industriali con driver simili"]
+      US_INDUSTRIAL_PROD:  [+1, "Manifattura USA consuma rame; correlazione diretta"]
+      DOLLAR_INDEX:        [-1, "Prezzato in USD; dollaro forte pesa sulla domanda estera"]
+      NICKEL:              [+1, "Entrambi metalli critici per EV e transizione energetica"]
+      EPU_GLOBAL:          [-1, "Incertezza di policy → meno capex → meno domanda rame"]
+
+  WHEAT:
+    ontology: >
+      Il grano è la commodity alimentare più geopoliticamente sensibile:
+      Russia e Ucraina insieme fornivano ca. 30% dell'export globale pre-2022.
+      È un indicatore di food security per i paesi importatori netti (MENA, Sub-Saharan Africa)
+      dove la spesa alimentare è 30-50% del reddito — prezzi alti generano instabilità sociale
+      (Arab Spring 2010-11 fu preceduta da spike grano).
+      Guidato da: condizioni meteorologiche, politiche di export,
+      costi fertilizzanti (legati al gas naturale), e geopolitica (corridoio grano Mar Nero).
+    correlations:
+      NATURAL_GAS:         [+1, "Gas → fertilizzanti azotati → costo produzione grano"]
+      BRENT_OIL:           [+1, "Costi di trasporto e macchinari agricoli"]
+      USD_RUB:             [-1, "Russia esportatrice: grano caro → rublo relativamente forte"]
+      EPU_GLOBAL:          [+1, "Crisi alimentari generano instabilità geopolitica"]
+      US_CPI:              [+1, "Food è componente del CPI"]
+      DOLLAR_INDEX:        [-1, "Commodity prezzata in USD: dollaro forte pesa"]
+
+  NICKEL:
+    ontology: >
+      Il nichel è un metallo critico per la transizione energetica:
+      componente chiave delle batterie NMC per i veicoli elettrici.
+      Indonesia è il maggiore produttore mondiale (ca. 50%), con Cina dominante nella raffinazione —
+      concentrazione geografica che crea rischio supply chain.
+      Guidato da: crescita adozione EV, produzione acciaio inox cinese,
+      politiche di resource nationalism (Indonesia ha vietato export minerale grezzo).
+    correlations:
+      COPPER:              [+1, "Metallo critico con driver simili: crescita cinese e transizione energetica"]
+      SILVER:              [+1, "Entrambi beneficiano strutturalmente dalla transizione energetica"]
+      ALUMINUM:            [+1, "Metalli industriali con esposizione alla produzione manifatturiera"]
+      USD_CNY:             [-1, "Domanda cinese (acciaio + EV) è il principale driver"]
+      BRENT_OIL:           [+1, "Correlazione ciclica con la crescita industriale globale"]
+
+  ALUMINUM:
+    ontology: >
+      L'alluminio è il metallo industriale più energy-intensive nella produzione
+      (ca. 15 MWh per tonnellata). Ha un'importante valenza difensiva: è usato in fusoliere aeronautiche,
+      veicoli blindati, e sistemi missilistici.
+      Guidato da: costi energetici, crescita costruzioni, domanda automotive e aerospaziale,
+      sanzioni Russia (Rusal = ca. 6% produzione globale).
+    correlations:
+      NATURAL_GAS:         [+1, "Gas è input energetico principale degli smelter"]
+      BRENT_OIL:           [+1, "Energia e crescita industriale guidano entrambi"]
+      COPPER:              [+1, "Metalli industriali con driver ciclici simili"]
+      NICKEL:              [+1, "Stesso gruppo metalli base / industriali"]
+      USD_RUB:             [-1, "Russia produttore rilevante; sanzioni → supply shock → prezzo sale"]
+      US_INDUSTRIAL_PROD:  [+1, "Manifattura USA è consumatore di alluminio"]
+
+  URANIUM:
+    ontology: >
+      URA è un ETF proxy dell'interesse per il nucleare come fonte di energia low-carbon ad alta densità.
+      Il mercato fisico dell'uranio (U3O8) è opaco e illiquido — dominato da contratti a lungo termine.
+      Guidato da: politiche di energy security post-2022, piani di espansione nucleare cinesi,
+      moratorie vs riattivazioni di reattori, e supply da Kazakhstan.
+    correlations:
+      SILVER:              [+1, "Entrambi beneficiano della transizione energetica"]
+      NICKEL:              [+1, "Metalli critici per l'energia pulita"]
+      NATURAL_GAS:         [-1, "Nucleare è sostituto del gas per generazione baseload"]
+      BRENT_OIL:           [-1, "Energy security spinge verso alternative"]
+      EPU_GLOBAL:          [+1, "Crisi energetiche e geopolitica accelerano la rivalutazione del nucleare"]
+
+  # =========================================================================
+  # FX
+  # =========================================================================
+
+  EUR_USD:
+    ontology: >
+      EUR/USD è la coppia valutaria più liquida al mondo (ca. 28% del volume forex globale).
+      Riflette il differenziale di crescita e di politica monetaria tra USA ed Eurozona.
+      Guidato da: differenziale tassi ECB-Fed, dati PMI comparati, bilancia commerciale,
+      crisi periferiche eurozona (spread BTP-Bund), prezzi energetici (Europa importatrice netta).
+    correlations:
+      DOLLAR_INDEX:        [-1, "EUR è il peso dominante nel DXY (ca. 57%); relazione quasi meccanica"]
+      GOLD:                [+1, "EUR forte = USD debole = gold più economico per non-USD"]
+      BRENT_OIL:           [-1, "Oil alto danneggia l'Europa importatrice → EUR si indebolisce"]
+      NATURAL_GAS:         [-1, "Gas alto è shock negativo per l'Europa → EUR debole"]
+      US_10Y_YIELD:        [-1, "Yield USA alti attraggono capitali da EUR → EUR/USD scende"]
+      SP500:               [+1, "Risk-on globale tende a indebolire il dollaro e rafforzare EUR"]
+
+  USD_JPY:
+    ontology: >
+      USD/JPY è il termometro più preciso del carry trade globale e del differenziale
+      di politica monetaria USA-Giappone.
+      Quando il carry unwind avviene (risk-off o rialzo BoJ improvviso), USD/JPY crolla violentemente.
+      Guidato da: differenziale 10Y USA vs JGB, decisioni BoJ (YCC, rialzi),
+      interventi valutari del Ministero delle Finanze giapponese, e VIX (safe haven JPY).
+    correlations:
+      US_10Y_YIELD:        [+1, "Differenziale tassi USA-Giappone è il driver principale"]
+      VIX:                 [-1, "Risk-off → JPY si apprezza → USD/JPY scende"]
+      SP500:               [+1, "Risk-on → carry trade attivo → USD/JPY sale"]
+      GOLD:                [-1, "Entrambi safe haven; crisi → gold e JPY si apprezzano"]
+      DOLLAR_INDEX:        [+1, "USD/JPY è componente del DXY"]
+      BITCOIN:             [+1, "Risk appetite: BTC e carry trade USD/JPY si muovono insieme"]
+
+  DOLLAR_INDEX:
+    ontology: >
+      Il DXY misura il valore del dollaro USA contro un basket ponderato di 6 valute:
+      EUR (57.6%), JPY (13.6%), GBP (11.9%), CAD (9.1%), SEK (4.2%), CHF (3.6%).
+      Il dollaro è la valuta di riserva globale (ca. 59% delle riserve FX mondiali).
+      Un dollaro forte ha effetti contraddittori: positivo per potere d'acquisto USA,
+      negativo per commodity (prezzate in USD), per debito EM in USD, e per esportazioni USA.
+      Guidato da: differenziali di tasso reale USA vs trading partners,
+      flussi di capitale verso asset USA, risk-off (USD safe haven).
+    correlations:
+      EUR_USD:             [-1, "EUR è 57.6% del DXY"]
+      GOLD:                [-1, "Gold prezzato in USD: dollaro forte → gold scende"]
+      BRENT_OIL:           [-1, "Oil in USD: dollaro forte → commodity in calo"]
+      COPPER:              [-1, "Stessa logica delle commodity prezzate in USD"]
+      WHEAT:               [-1, "Commodity agricola prezzata in USD"]
+      USD_JPY:             [+1, "Componente del DXY"]
+      US_10Y_YIELD:        [+1, "Yield alti attraggono capitali → domanda USD"]
+      REAL_RATE_10Y:       [+1, "Real rate positivi attraggono capitale reale in USD"]
+      SP500:               [-1, "Dollaro forte nel lungo periodo pesa sugli utili delle multinazionali USA"]
+      USD_CNY:             [+1, "Dollaro forte → yuan relativamente più debole"]
+
+  USD_CNY:
+    ontology: >
+      Il tasso USD/CNY è il più importante indicatore della posizione competitiva cinese
+      nel commercio globale. Lo yuan è gestito dalla PBOC attraverso fixing giornaliero e bande (±2%).
+      Una svalutazione CNY è simultaneamente un segnale di stimolo all'export cinese
+      e uno shock deflazionistico per il mondo.
+      Guidato da: surplus commerciale cinese, decisioni PBOC, flussi di capitale offshore,
+      tensioni commerciali USA-Cina (dazi → CNY tende a deprezzarsi), e crescita interna cinese.
+    correlations:
+      COPPER:              [-1, "Yuan forte = economia cinese robusta = più domanda rame"]
+      BRENT_OIL:           [-1, "Cina è il primo importatore: yuan forte → più potere d'acquisto energetico"]
+      DOLLAR_INDEX:        [+1, "Dollaro forte tende a far svalutare lo yuan relativamente"]
+      NICKEL:              [-1, "Domanda cinese di metalli industriali"]
+      ALUMINUM:            [-1, "Cina domina la produzione e il consumo"]
+      SP500:               [-1, "Tensioni USA-Cina (che deprezzano CNY) sono risk-off per equity"]
+      EPU_GLOBAL:          [+1, "Svalutazioni CNY segnalano stress o guerra commerciale → incertezza"]
+
+  USD_CNH:
+    ontology: >
+      Il CNH è lo yuan cinese scambiato nel mercato offshore (principalmente Hong Kong, Singapore, Londra)
+      senza i vincoli del fixing giornaliero PBOC che regola il CNY onshore.
+      Il suo valore informativo principale non è il livello assoluto, ma lo spread vs CNY:
+      quando CNH > CNY (yuan offshore più debole di quello onshore),
+      il mercato anticipa pressioni che la PBOC non ha ancora validato —
+      segnale di potenziale svalutazione imminente o fuga di capitali.
+    spread_signal:
+      formula: 'USD_CNH - USD_CNY'
+      positive_wide: >
+        CNH più debole del CNY: mercato offshore anticipa svalutazione o stress sui deflussi.
+        PBOC potrebbe intervenire o il mercato sta prezzando un evento non ancora riflesso nel fixing ufficiale.
+      negative_wide: >
+        CNH più forte del CNY: capitali offshore cercano esposizione yuan —
+        segnale di aspettative di apprezzamento o stimolo imminente. Raro.
+      near_zero: >
+        Spread stretto: mercato allineato al fixing PBOC. Condizione normale.
+    correlations:
+      USD_CNY:             [+1, "Stesso sottostante, mercati diversi; spread tra i due è il segnale chiave"]
+      COPPER:              [-1, "CNH debole = stress cinese = meno domanda industriale"]
+      DOLLAR_INDEX:        [+1, "Dollaro forte preme su CNH prima che su CNY (mercato libero reagisce prima)"]
+      VIX:                 [+1, "Risk-off globale → deflussi da Cina → CNH si indebolisce vs USD"]
+      SP500:               [-1, "Stress CNH segnala risk-off con epicentro cinese → equity globale soffre"]
+      BRENT_OIL:           [-1, "Yuan debole riduce potere d'acquisto energetico cinese → domanda oil scende"]
+      NICKEL:              [-1, "Yuan debole = domanda cinese di metalli in calo"]
+      EPU_GLOBAL:          [+1, "Incertezza geopolitica o commerciale si manifesta prima nel CNH che nel CNY"]
+
+  USD_GBP:
+    ontology: >
+      La sterlina è la quinta valuta più scambiata al mondo e riflette l'economia UK post-Brexit.
+      GBP è strutturalmente esposta a: bilancia delle partite correnti UK (deficit cronico),
+      politica BoE vs Fed, credibilità fiscale (episodio Truss settembre 2022).
+      Guidato da: differenziale tassi BoE-Fed, dati inflazione UK,
+      accordi commerciali post-Brexit, e flussi di capitali verso la City.
+    correlations:
+      DOLLAR_INDEX:        [-1, "GBP è componente del DXY"]
+      EUR_USD:             [+1, "GBP e EUR si muovono in modo simile vs USD in risk-on/off"]
+      US_10Y_YIELD:        [-1, "Yield USA alti attraggono capitali da GBP"]
+      BRENT_OIL:           [+1, "UK è paese produttore (Mare del Nord)"]
+      VIX:                 [-1, "Risk-off → fuga da GBP verso USD"]
+
+  USD_RUB:
+    ontology: >
+      Il rublo è diventato post-febbraio 2022 un indicatore sintetico della tenuta dell'economia
+      russa sotto sanzioni e dell'efficacia del framework di elusione.
+      Il pricing di mercato è distorto: controlli capitali, mercato bimodale ufficiale/nero.
+      Guidato da: prezzo del petrolio (Russia = ca. 40% revenue budget da idrocarburi),
+      sanzioni e contro-sanzioni, flussi commerciali con paesi non-sanzionatori,
+      e decisioni Banca Centrale Russa (tassi difensivi estremamente alti).
+    correlations:
+      BRENT_OIL:           [-1, "Oil alto → rublo si rafforza → USD/RUB scende"]
+      NATURAL_GAS:         [-1, "Stesso meccanismo del Brent"]
+      WHEAT:               [-1, "Russia esportatore: grano caro → valuta lievemente supportata"]
+      EPU_GLOBAL:          [+1, "Crisi geopolitiche → rublo volatile"]
+      DOLLAR_INDEX:        [+1, "Dollaro forte tende a pesare sulle valute EM tra cui rublo"]
+      GOLD:                [-1, "Russia ha accumulato oro come riserva: gold alto → capacità di sostenere rublo"]
+
+  # =========================================================================
+  # INDICES
+  # =========================================================================
+
+  SP500:
+    ontology: >
+      L'S&P 500 è il benchmark dell'equity USA large-cap (500 aziende, ca. 80% della capitalizzazione USA).
+      Le prime 10 aziende (mega-cap tech) pesano ca. 30%, rendendolo distorto verso il settore tecnologico.
+      Guidato da: utili aziendali (EPS growth), multipli di valutazione (P/E),
+      tassi di interesse (via discount rate), politica Fed,
+      buyback azionari (fenomeno strutturale USA), e posizionamento istituzionale.
+      Influenza: wealth effect (consumi USA legati al patrimonio finanziario),
+      confidence degli investitori globali, e flussi di capitale internazionali.
+    correlations:
+      NASDAQ:              [+1, "NASDAQ è sottoinsieme tech dell'SP500; correlazione alta ma con beta maggiore"]
+      VIX:                 [-1, "Relazione inversa quasi meccanica"]
+      US_10Y_YIELD:        [-1, "Yield alto comprime multipli; ma nel breve può essere positivo se segnala crescita"]
+      YIELD_CURVE_10Y_2Y:  [+1, "Curva positiva = ambiente macro favorevole all'equity"]
+      US_HY_SPREAD:        [-1, "Spread ampi = risk-off = SP500 in pressione"]
+      COPPER:              [+1, "Entrambi proxy del ciclo economico"]
+      DOLLAR_INDEX:        [-1, "Dollaro forte pesa sugli utili delle multinazionali USA nel lungo periodo"]
+      BITCOIN:             [+1, "Risk appetite: in risk-on entrambi crescono"]
+      GOLD:                [-1, "In risk-on l'oro sottoperforma l'equity; in risk-off viceversa"]
+      EPU_GLOBAL:          [-1, "Incertezza di policy comprime le valutazioni"]
+
+  NASDAQ:
+    ontology: >
+      Il NASDAQ Composite include ca. 3000 aziende con forte concentrazione in tech, biotech, e growth.
+      Ha una 'duration' finanziaria più lunga dell'SP500: il valore presente delle growth stocks
+      è più sensibile al tasso di sconto (ovvero ai tassi reali).
+      Guidato da: tassi reali (più che nominali), innovazione tecnologica (AI, semis, cloud),
+      earnings delle mega-cap (AAPL, MSFT, NVDA, AMZN, GOOGL determinano la direzione).
+    correlations:
+      SP500:               [+1, "Alta correlazione ma NASDAQ amplifica i movimenti (beta > 1)"]
+      REAL_RATE_10Y:       [-1, "Growth stocks sono i più sensibili al tasso reale"]
+      US_10Y_YIELD:        [-1, "Più sensibile del SP500 al yield nominale"]
+      VIX:                 [-1, "Risk-off colpisce tech prima del broad market"]
+      BITCOIN:             [+1, "Entrambi asset 'risk-on' con alta correlazione in certi regimi"]
+      GOLD:                [-1, "In risk-on NASDAQ sale e gold sottoperforma"]
+      SILVER:              [+1, "Domanda industriale tech (connettori, semiconduttori)"]
+
+  # =========================================================================
+  # CREDIT RISK
+  # =========================================================================
+
+  US_HY_SPREAD:
+    ontology: >
+      Lo spread HY misura il premio al rischio per obbligazioni corporate sub-investment grade vs Treasury.
+      È uno dei più affidabili indicatori leading di stress finanziario e recessione:
+      si allarga prima che il mercato azionario crolli, perché il mercato del credito
+      è spesso più informato (held by institutional 'smart money').
+      Guidato da: probabilità di default aggregate, liquidità di mercato,
+      avversione al rischio, e leverage delle aziende HY.
+    correlations:
+      VIX:                 [+1, "Risk-off → spread si allargano simultaneamente"]
+      SP500:               [-1, "Spread ampi sono segnale di stress → equity in calo"]
+      YIELD_CURVE_10Y_2Y:  [-1, "Curva invertita → più rischio recessione → spread HY si allargano"]
+      US_10Y_YIELD:        [-1, "Flight-to-safety comprime il 10Y e allarga gli spread simultaneamente"]
+      FIN_STRESS_INDEX:    [+1, "Spread HY è componente dello stress index"]
+      TED_SPREAD:          [+1, "Entrambi misure di stress creditizio, diverso segmento"]
+      BITCOIN:             [-1, "Risk-off → BTC scende, spread salgono"]
+      COPPER:              [-1, "Copper cade in recessione; spread salgono nello stesso momento"]
+
+  TED_SPREAD:
+    ontology: >
+      Il TED Spread è la differenza tra il LIBOR a 3 mesi (ora SOFR) e il T-Bill a 3 mesi.
+      Misura lo stress nel mercato interbancario: quando le banche non si fidano l'una dell'altra
+      (come durante Lehman 2008), il LIBOR sale mentre i T-Bill scendono per flight-to-safety.
+      Storicamente uno dei migliori early warning di crisi bancarie sistemiche.
+      Nota: con la transizione da LIBOR a SOFR (2023) il calcolo è cambiato.
+    correlations:
+      US_HY_SPREAD:        [+1, "Entrambi stress creditizi, diverso mercato"]
+      FIN_STRESS_INDEX:    [+1, "TED è componente diretta dello stress index"]
+      VIX:                 [+1, "Crisi sistemica → VIX e TED salgono insieme"]
+      SP500:               [-1, "TED alto segnala crisi bancaria → equity crolla"]
+      US_2Y_YIELD:         [+1, "Stress bancario → SOFR/LIBOR salgono vs T-Bill"]
+      GOLD:                [+1, "Crisis hedge: TED alto → domanda gold"]
+
+  FIN_STRESS_INDEX:
+    ontology: >
+      Il STLFSI è un indice composito costruito dalla Fed di St. Louis che aggrega
+      18 serie di dati settimanali coprendo tassi di interesse, spread creditizi,
+      e altri indicatori di tensione nei mercati finanziari.
+      Valori > 0 indicano stress superiore alla media storica; < 0 indicano condizioni distese.
+      È un aggregatore — sintetizza il segnale riducendo il rumore.
+    correlations:
+      VIX:                 [+1, "Alta correlazione: entrambi aggregatori dello stress di mercato"]
+      US_HY_SPREAD:        [+1, "Componente diretta dell'indice"]
+      TED_SPREAD:          [+1, "Componente diretta dell'indice"]
+      YIELD_CURVE_10Y_2Y:  [-1, "Curva invertita → stress index alto"]
+      SP500:               [-1, "Stress finanziario alto → equity in pressione"]
+      GOLD:                [+1, "Safe haven: stress alto → domanda gold"]
+
+  # =========================================================================
+  # REAL ECONOMY
+  # =========================================================================
+
+  US_UNEMPLOYMENT:
+    ontology: >
+      Il tasso di disoccupazione USA (U3) è un indicatore lagging classico:
+      le aziende licenziano dopo che la recessione è già iniziata.
+      La Fed ha un doppio mandato (inflazione + occupazione).
+      Da monitorare: la regola di Sahm (se il tasso sale di +0.5pp dalla media dei minimi dei 12 mesi,
+      si è già in recessione con alta probabilità).
+    correlations:
+      SP500:               [-1, "Disoccupazione alta → recessione → equity in calo"]
+      US_CPI:              [-1, "Phillips curve: disoccupazione alta → meno pressione salariale"]
+      YIELD_CURVE_10Y_2Y:  [-1, "Inversione curva anticipa salita della disoccupazione"]
+      US_INDUSTRIAL_PROD:  [-1, "Produzione cala → più disoccupati"]
+      CASS_FREIGHT_INDEX:  [-1, "Meno attività economica → meno trasporti → più disoccupazione"]
+      VIX:                 [+1, "Disoccupazione in rapida salita → panico di mercato"]
+      GOLD:                [+1, "Recessione e disoccupazione alta → flight to safety"]
+
+  US_INDUSTRIAL_PROD:
+    ontology: >
+      L'indice di produzione industriale misura l'output reale di manifattura, mining, e utilities negli USA.
+      È un indicatore coincidente del ciclo economico incluso nel composite index del NBER.
+      Guidato da: domanda finale (consumer e export), ordini di beni durevoli,
+      costo dell'energia, prezzi delle commodity industriali, e ciclo delle scorte.
+    correlations:
+      COPPER:              [+1, "Produzione industriale consuma rame; correlazione diretta"]
+      CASS_FREIGHT_INDEX:  [+1, "Più produzione → più merci da trasportare"]
+      BRENT_OIL:           [+1, "Oil è input energetico ma anche proxy della stessa crescita"]
+      SP500:               [+1, "Settore industriale contribuisce agli utili aggregati"]
+      US_UNEMPLOYMENT:     [-1, "Più produzione → meno disoccupazione"]
+      YIELD_CURVE_10Y_2Y:  [+1, "Curva positiva anticipa espansione produttiva"]
+      ALUMINUM:            [+1, "Metallo industriale direttamente consumato dal manifatturiero"]
+
+  # =========================================================================
+  # SHIPPING / LOGISTICS
+  # =========================================================================
+
+  CASS_FREIGHT_INDEX:
+    ontology: >
+      Il Cass Freight Shipments Index misura il volume fisico di spedizioni merci negli USA.
+      È uno dei migliori indicatori coincidenti e parzialmente leading dell'attività economica reale:
+      la merce si muove prima di essere conteggiata nel PIL.
+      Quando il Cass declina per più mesi consecutivi, è un segnale early della debolezza manifatturiera.
+    correlations:
+      US_INDUSTRIAL_PROD:  [+1, "Più produzione → più merci trasportate"]
+      BRENT_OIL:           [+1, "Diesel è il principale costo variabile del trasporto su gomma"]
+      WTI_OIL:             [+1, "Stesso meccanismo Brent"]
+      SP500:               [+1, "Attività logistica riflette salute dell'economia"]
+      US_UNEMPLOYMENT:     [-1, "Meno trasporti → meno driver, operatori logistici"]
+      COPPER:              [+1, "Entrambi proxy dell'attività industriale reale"]
+
+  # =========================================================================
+  # CRYPTO
+  # =========================================================================
+
+  BITCOIN:
+    ontology: >
+      Bitcoin è simultaneamente un asset speculativo ad alto beta,
+      un esperimento monetario (supply fissa a 21M, emissione decrescente ogni halving),
+      e un proxy narrativo della sfiducia nel sistema finanziario tradizionale.
+      La sua correlazione con i mercati tradizionali è instabile nel tempo:
+      in risk-off si comporta come risk asset; in crisi di fiducia sistemica
+      può comportarsi come store of value alternativo.
+      Guidato da: halving cycle (~4 anni), liquidità globale (correlazione con M2 globale),
+      regolamentazione (SEC, MiCA), adozione istituzionale (ETF spot USA approvati 2024),
+      tassi reali (asset non-yielding), e sentiment speculativo.
+    correlations:
+      NASDAQ:              [+1, "Entrambi risk-on; correlazione aumentata con arrivo degli istituzionali"]
+      SP500:               [+1, "Risk appetite generale"]
+      REAL_RATE_10Y:       [-1, "Come l'oro: real rate negativi favoriscono asset non-yielding"]
+      GOLD:                [-1, "Spesso competono come store of value; in crisi acute gold batte BTC"]
+      VIX:                 [-1, "Risk-off → BTC scende"]
+      DOLLAR_INDEX:        [-1, "Narrativa de-dollarizzazione: dollaro debole favorisce BTC"]
+      US_HY_SPREAD:        [-1, "Spread ampi = risk-off = BTC in pressione"]
+      EPU_GLOBAL:          [+1, "Incertezza istituzionale → interesse in alternative al sistema tradizionale"]

@@ -1,0 +1,108 @@
+# PDF Sources Configuration
+# =========================
+# Institutional documents for the PDF Deep Library layer.
+# Each source is ingested via PDFIngestor, processed through NLP, and loaded into PostgreSQL.
+#
+# Fields:
+#   url:          Direct PDF download URL (used as articles.link for deduplication)
+#   title:        Document title
+#   publisher:    Organization name (maps to articles.source as "pdf:{publisher}")
+#   category:     Thematic category
+#   subcategory:  Specific sub-category
+#   cadence:      Update frequency (annual, quarterly, monthly) — informational only
+#   published:    Publication date (ISO) — optional, defaults to ingestion date
+#
+# Usage:
+#   python scripts/ingest_pdfs.py --all              # Ingest all sources
+#   python scripts/ingest_pdfs.py --all --dry-run    # Preview without saving
+
+pdf_sources:
+  # === DEFENSE & SECURITY ===
+  - url: "https://www.sipri.org/sites/default/files/2024-06/yb24_summary_en_1.pdf"
+    title: "SIPRI Yearbook 2024 — Summary"
+    publisher: "SIPRI"
+    category: "intelligence"
+    subcategory: "defense"
+    cadence: "annual"
+
+  - url: "https://media.defense.gov/2024/Oct/31/2003581514/-1/-1/0/2024-NATIONAL-DEFENSE-STRATEGY.PDF"
+    title: "US National Defense Strategy 2024"
+    publisher: "US DoD"
+    category: "intelligence"
+    subcategory: "defense"
+    cadence: "quadrennial"
+
+  - url: "https://www.iiss.org/globalassets/media-library---content--migration/files/publications/strategic-dossier/military-balance-2024/mb-2024-press-summary.pdf"
+    title: "IISS Military Balance 2024 — Press Summary"
+    publisher: "IISS"
+    category: "intelligence"
+    subcategory: "defense"
+    cadence: "annual"
+
+  # === ENERGY & RESOURCES ===
+  - url: "https://iea.blob.core.windows.net/assets/86ede39e-4436-42d7-ba2a-edf61467e070/WorldEnergyOutlook2023.pdf"
+    title: "IEA World Energy Outlook 2023"
+    publisher: "IEA"
+    category: "intelligence"
+    subcategory: "energy"
+    cadence: "annual"
+
+  - url: "https://pubs.usgs.gov/periodicals/mcs2024/mcs2024.pdf"
+    title: "USGS Mineral Commodity Summaries 2024"
+    publisher: "USGS"
+    category: "intelligence"
+    subcategory: "critical_minerals"
+    cadence: "annual"
+
+  # === GEOPOLITICS & DIPLOMACY ===
+  - url: "https://www.cfr.org/sites/default/files/report_pdf/preventive-priorities-survey-2024.pdf"
+    title: "CFR Preventive Priorities Survey 2024"
+    publisher: "CFR"
+    category: "intelligence"
+    subcategory: "geopolitics"
+    cadence: "annual"
+
+  - url: "https://www.csis.org/analysis/2024-military-balance-middle-east"
+    title: "CSIS Military Balance: Middle East 2024"
+    publisher: "CSIS"
+    category: "intelligence"
+    subcategory: "regional"
+    cadence: "annual"
+
+  # === TRADE & ECONOMICS ===
+  - url: "https://unctad.org/system/files/official-document/tdstat48_FS12_en.pdf"
+    title: "UNCTAD Trade and Development Report 2023 — Key Statistics"
+    publisher: "UNCTAD"
+    category: "intelligence"
+    subcategory: "trade"
+    cadence: "annual"
+
+  - url: "https://www.wto.org/english/res_e/booksp_e/wtr24_e/wtr24_e.pdf"
+    title: "WTO World Trade Report 2024"
+    publisher: "WTO"
+    category: "intelligence"
+    subcategory: "trade"
+    cadence: "annual"
+
+  # === TECHNOLOGY & CYBER ===
+  - url: "https://www.dni.gov/files/ODNI/documents/assessments/ATA-2024-Unclassified-Report.pdf"
+    title: "DNI Annual Threat Assessment 2024"
+    publisher: "US DNI"
+    category: "intelligence"
+    subcategory: "threats"
+    cadence: "annual"
+
+  # === CONFLICT & HUMANITARIAN ===
+  - url: "https://reliefweb.int/sites/reliefweb.int/files/resources/GHO2024.pdf"
+    title: "OCHA Global Humanitarian Overview 2024"
+    publisher: "UN OCHA"
+    category: "intelligence"
+    subcategory: "humanitarian"
+    cadence: "annual"
+
+  - url: "https://ucdp.uu.se/downloads/ucdpprio-acd-241.pdf"
+    title: "UCDP/PRIO Armed Conflict Dataset Codebook v24.1"
+    publisher: "UCDP"
+    category: "intelligence"
+    subcategory: "conflict_methodology"
+    cadence: "annual"
