@@ -40,7 +40,7 @@
   expected:
     start_date: null    # Nessun frame temporale → null
     end_date: null
-    gpe_filter_contains: ["United States", "China"]
+    gpe_filter_contains: ["USA", "China"]
     categories: ["ECONOMY"]
 
 - id: qa_004

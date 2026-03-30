@@ -174,35 +174,35 @@ Query: "{query}"
 Respond ONLY with valid JSON:
 {{"intent": "factual|analytical|narrative|market|comparative|ticker|overview", "confidence": 0.0-1.0, "key_entities": ["entity1", "entity2"]}}"""
 
-        try:
-            result = self._llm_call_with_retry(
-                prompt,
-                genai.types.GenerationConfig(
-                    temperature=0.1,
-                    max_output_tokens=1024,
-                ),
-            )
-            raw = (result.text or "").strip()
-            if not raw:
-                raise ValueError("Empty LLM response")
-            # Try direct parse; fall back to regex JSON extraction
+        config = genai.types.GenerationConfig(temperature=0.1, max_output_tokens=1024)
+        last_exc: Exception = ValueError("No attempts made")
+        for attempt in range(2):
             try:
-                parsed = json.loads(raw)
-            except json.JSONDecodeError:
-                m = re.search(r'\{[^{}]*"intent"[^{}]*\}', raw, re.DOTALL)
-                if m:
-                    parsed = json.loads(m.group())
-                else:
-                    raise
-            intent_str = parsed.get("intent", "factual").lower()
-            # Validate enum
-            intent = QueryIntent(intent_str) if intent_str in QueryIntent._value2member_map_ else QueryIntent.FACTUAL
-            key_entities = parsed.get("key_entities", [])
-            logger.info(f"QueryRouter: intent={intent.value} confidence={parsed.get('confidence', 0):.0%}")
-            return intent, key_entities
-        except Exception as e:
-            logger.warning(f"QueryRouter: intent classification failed ({e}), defaulting to FACTUAL")
-            return QueryIntent.FACTUAL, []
+                result = self._llm_call_with_retry(prompt, config)
+                raw = (result.text or "").strip()
+                if not raw:
+                    last_exc = ValueError("Empty LLM response")
+                    logger.debug(f"QueryRouter: empty response on attempt {attempt + 1}, retrying")
+                    continue
+                # Try direct parse; fall back to regex JSON extraction
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError:
+                    m = re.search(r'\{[^{}]*"intent"[^{}]*\}', raw, re.DOTALL)
+                    if m:
+                        parsed = json.loads(m.group())
+                    else:
+                        raise
+                intent_str = parsed.get("intent", "factual").lower()
+                intent = QueryIntent(intent_str) if intent_str in QueryIntent._value2member_map_ else QueryIntent.FACTUAL
+                key_entities = parsed.get("key_entities", [])
+                logger.info(f"QueryRouter: intent={intent.value} confidence={parsed.get('confidence', 0):.0%}")
+                return intent, key_entities
+            except Exception as e:
+                last_exc = e
+                break
+        logger.warning(f"QueryRouter: intent classification failed ({last_exc}), defaulting to FACTUAL")
+        return QueryIntent.FACTUAL, []
 
     @retry(
         stop=stop_after_attempt(2),
@@ -408,8 +408,20 @@ Respond ONLY with valid JSON:
             "storyline_edges, v_active_storylines, v_storyline_graph"
         )
 
+        schema_hints = (
+            "Key columns (PostgreSQL):\n"
+            "- articles: id, title, source, category, published_date, url, content\n"
+            "- storylines: id, title, summary, momentum_score, narrative_status, community_id\n"
+            "- trade_signals: id, ticker, signal (BULLISH/BEARISH/NEUTRAL/WATCHLIST), timeframe, rationale, confidence, signal_date\n"
+            "- entities: id, name, entity_type, intelligence_score\n"
+            "- v_active_storylines: id, title, momentum_score, narrative_status (view of active storylines)\n"
+            "- reports: id, report_date, status, report_type, title"
+        )
+
         prompt = f"""Generate a safe read-only SQL SELECT query for this intelligence database query.
+Database: PostgreSQL — use PostgreSQL syntax (e.g. NOW() - INTERVAL '7 days', not DATE_SUB/CURDATE).
 Available tables: {allowed_tables}
+{schema_hints}
 User request: {sanitized}
 
 Rules:
@@ -417,7 +429,7 @@ Rules:
 - Max 3 JOINs
 - No subqueries returning more than 1000 rows
 - Only reference the allowed tables above
-- Add LIMIT 50 if not already present
+- Add LIMIT 50 if not already present for non-aggregate (non-COUNT/SUM) queries
 
 Output ONLY the SQL query, nothing else."""
 

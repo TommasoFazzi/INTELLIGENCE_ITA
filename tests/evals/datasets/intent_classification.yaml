@@ -35,20 +35,25 @@
   split: dev
 
 # ─── ANALYTICAL ────────────────────────────────────────────────────────────
+# Nota: "analytical" = conteggi, trend, distribuzioni nel DATABASE.
+# Query di "analisi geopolitica profonda" → overview o narrative, non analytical.
 - id: ic_a_001
-  query: "Analizza le implicazioni strategiche del ritiro USA dall'Afghanistan"
+  query: "Quanti articoli sulla Cina sono stati pubblicati negli ultimi 30 giorni?"
   expected_intent: "analytical"
   split: eval
+  notes: "Conteggio con filtro geografico e temporale — classico analytical"
 
 - id: ic_a_002
-  query: "Quali sono le conseguenze geopolitiche dell'allargamento NATO verso est?"
+  query: "Qual è la distribuzione delle notizie per categoria nell'ultimo mese?"
   expected_intent: "analytical"
   split: eval
+  notes: "Distribuzione per categoria — chiaramente analytical (statistiche DB)"
 
 - id: ic_a_003
-  query: "Come influisce la politica energetica russa sulla sicurezza europea?"
+  query: "Mostrami il trend degli articoli sul conflitto in Medio Oriente settimana per settimana"
   expected_intent: "analytical"
   split: eval
+  notes: "Trend temporale — analytical"
 
 - id: ic_a_004
   query: "Spiega le dinamiche di potere nel Mar Cinese Meridionale"
