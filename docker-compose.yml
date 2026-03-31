@@ -71,6 +71,7 @@ services:
       DATA_DIR: /app/data
       PHOTON_URL: ${PHOTON_URL:-https://photon.komoot.io/api}
       INTELLIGENCE_API_URL: http://backend:8000
+      UCDP_API_TOKEN: ${UCDP_API_TOKEN:-}
     volumes:
       - reports:/app/reports
       - ./data:/app/data

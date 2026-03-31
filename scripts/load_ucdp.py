@@ -36,7 +36,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-UCDP_API = "https://ucdpapi.pcr.uu.se/api/gedevents/24.1"
+UCDP_API = "https://ucdpapi.pcr.uu.se/api/gedevents/25.1"
 
 
 def _get_headers() -> dict:
