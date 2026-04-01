@@ -368,6 +368,7 @@ class RAGTool(BaseTool):
             chunks = unique_chunks
 
         # ── Cross-encoder reranking ───────────────────────────────────────
+        has_reranked = False
         if chunks and len(chunks) > top_k:
             try:
                 reranker = _get_reranker()
@@ -376,6 +377,7 @@ class RAGTool(BaseTool):
                 for i, chunk in enumerate(chunks):
                     chunk["rerank_score"] = float(scores[i])
                 chunks.sort(key=lambda x: x.get("rerank_score", 0), reverse=True)
+                has_reranked = True
                 logger.info(f"Cross-encoder reranking: {len(chunks)} chunks reranked")
             except Exception as e:
                 logger.warning(f"Reranking failed, using original order: {e}")
@@ -399,7 +401,8 @@ class RAGTool(BaseTool):
                     chunks = filtered if filtered else chunks
 
                 # Authority-weighted re-ranking: normalized weighted sum (alpha=0.15)
-                chunks = apply_authority_rerank(chunks, score_field=score_field)
+                auth_score_field = "rerank_score" if has_reranked else score_field
+                chunks = apply_authority_rerank(chunks, score_field=auth_score_field)
                 chunks = chunks[:top_k]
 
             if reports:
@@ -506,18 +509,23 @@ class RAGTool(BaseTool):
         reports = data.get("reports", [])
         chunks = data.get("chunks", [])
         search_type = metadata.get("search_type", "hybrid")
-        chunk_score_field = SEARCH_TYPE_SCORE_FIELD.get(search_type, "similarity")
+        chunk_score_field = "rerank_score" if chunks and "rerank_score" in chunks[0] else SEARCH_TYPE_SCORE_FIELD.get(search_type, "similarity")
         parts = []
         current_len = 0
+        
+        report_budget = 24000
+        report_len = 0
 
         for i, report in enumerate(reports, 1):
+            if report_len >= report_budget:
+                break
             report_date = report.get("report_date")
             date_str = (
                 report_date.strftime("%d/%m/%Y")
                 if hasattr(report_date, "strftime")
                 else (str(report_date)[:10] if report_date else "N/A")
             )
-            content = (report.get("final_content") or report.get("draft_content", ""))[:28000]
+            content = (report.get("final_content") or report.get("draft_content", ""))[:12000]
             score_line = self._score_line(report, "similarity")
             doc = (
                 f"\n<DOCUMENTO_{i}>\n"
@@ -527,9 +535,12 @@ class RAGTool(BaseTool):
                 f"[INIZIO_TESTO]\n{content}\n[FINE_TESTO]\n"
                 f"</DOCUMENTO_{i}>\n"
             )
+            if report_len + len(doc) > report_budget and i > 1:
+                break
             if current_len + len(doc) > self.DEFAULT_CONTEXT_MAX_CHARS:
                 break
             parts.append(doc)
+            report_len += len(doc)
             current_len += len(doc)
 
         offset = len(reports) + 1
