@@ -36,9 +36,8 @@ _BLOCKLIST_PATTERNS: List[re.Pattern] = [
         r'\b(?:Australian Open|Roland Garros|Wimbledon|US Open Tennis)\b',
         r'\b(?:T20|ODI|Test cricket|IPL|Ashes)\b',
         r'\b(?:Lakers|Warriors|Celtics|Yankees|Cowboys|Patriots)\b',
-        # Arsenal requires football club context to avoid blocking "arsenal" as military term
-        r'\b(?:Real Madrid|Barcelona|Man(?:chester)? (?:United|City)|Arsenal\s+F\.?C\.?|Liverpool\s+F\.?C\.?|Chelsea\s+F\.?C\.?|Tottenham|Juventus|PSG|Bayern)\b',
-        r'\bArsenal\b(?!\s+(?:of|as|beneath|weapon|missile|military|air|naval|nuclear|bomb|drone|stockpile|cache|depot))',
+        # Arsenal omitted: too ambiguous with military "arsenal" — only block explicit "Arsenal FC"
+        r'\b(?:Real Madrid|Barcelona|Man(?:chester)? (?:United|City)|Arsenal\s+F\.?C\.?|Liverpool|Chelsea|Tottenham|Juventus|PSG|Bayern)\b',
         r'\b(?:Ronaldo|Messi|Guardiola|Mourinho|Klopp)\b',
         # --- Entertainment ---
         r'\b(?:Grammy|Oscar|Emmy|Golden Globe|BAFTA|Cannes Film)\b',

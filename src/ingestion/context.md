@@ -47,6 +47,11 @@ A single `asyncio.run()` in `pipeline.run()` orchestrates both feed parsing and 
   - `deduplicate_by_quick_hash()` - MD5 hash(link + title) deduplication (Phase 1)
   - `get_summary()` - Statistics by category/source
   - Auto-saves JSON to `data/articles_{timestamp}.json`
+  - `_BLOCKLIST_PATTERNS` - Filtro 1: regex compilate per bloccare articoli off-topic a livello di titolo.
+    - **ICC escluso** dal gruppo sport: ambiguo con International Criminal Court.
+    - **UFC escluso** dal gruppo sport: compare in contesti sanzionatori/geopolitici ("ex-UFC fighter + sanctions").
+    - **Arsenal** non è nel pattern semplice: richiede esplicitamente "Arsenal F.C." / "Arsenal FC" per evitare falsi positivi con uso militare del termine ("arsenal of weapons", "The Arsenal as the Battlefield").
+    - `_is_off_topic(title)` — restituisce il pattern che ha fatto match (per logging) o None se l'articolo va tenuto.
 
 - **`pdf_ingestor.py`** - **PDF document ingestion** (rewritten for pymupdf4llm)
   - `PDFIngestor` class - Extracts text from PDF files as clean Markdown

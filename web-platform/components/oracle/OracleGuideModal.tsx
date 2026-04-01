@@ -6,51 +6,67 @@ import { X } from 'lucide-react';
 const INTENT_GUIDE = [
   {
     key: 'factual',
-    label: 'Factual',
+    label: 'Recent Events',
     labelColor: 'text-blue-300',
     bgColor: 'bg-blue-500/8 border-blue-500/15',
-    desc: 'Searches recent events, declarations, and news. Uses strong time-decay weighting — recent data is prioritised.',
+    desc: 'Ask about what is happening right now. Oracle searches the latest news and intelligence articles to give you a current, sourced answer.',
     example: 'What happened in Taiwan this week?',
   },
   {
     key: 'analytical',
-    label: 'Analytical',
+    label: 'Trends & Statistics',
     labelColor: 'text-yellow-300',
     bgColor: 'bg-yellow-500/8 border-yellow-500/15',
-    desc: 'Counts, groups, calculates trends. Queries the database directly with aggregations on articles and entities.',
+    desc: 'Get numbers, counts, and trends from the database. Useful for understanding how much attention a topic is getting over time.',
     example: 'How many articles about China in the last 30 days?',
   },
   {
     key: 'narrative',
-    label: 'Narrative',
+    label: 'Storyline Tracking',
     labelColor: 'text-purple-300',
     bgColor: 'bg-purple-500/8 border-purple-500/15',
-    desc: 'Explores the storyline network, narrative evolution over time, and relationships between geopolitical themes.',
+    desc: 'Follow how a story evolves over time and which other topics it connects to. Ideal for understanding the broader narrative behind an event.',
     example: 'How has the narrative on the Israeli conflict evolved?',
   },
   {
     key: 'market',
-    label: 'Market',
+    label: 'Market Signals',
     labelColor: 'text-green-300',
     bgColor: 'bg-green-500/8 border-green-500/15',
-    desc: 'Analyses trading signals (BULLISH/BEARISH/WATCHLIST), tickers, macro indicators and geopolitical correlations.',
+    desc: 'Surface geopolitical risks and opportunities that move markets. Oracle cross-references intelligence events with trading signals and macro indicators.',
     example: 'Show me BUY signals on European defense',
   },
   {
     key: 'comparative',
-    label: 'Comparative',
+    label: 'Comparisons',
     labelColor: 'text-pink-300',
     bgColor: 'bg-pink-500/8 border-pink-500/15',
-    desc: 'Compares entities, periods, or perspectives. Oracle automatically decomposes the query into parallel sub-queries.',
+    desc: 'Put two topics, countries, or time periods side by side. Oracle analyses both independently and highlights key differences.',
     example: 'Compare Russia vs China coverage over the last 60 days',
   },
   {
     key: 'overview',
-    label: 'Overview',
+    label: 'Country Briefing',
     labelColor: 'text-teal-300',
     bgColor: 'bg-teal-500/8 border-teal-500/15',
-    desc: 'Full geopolitical profile of a country or region. Uses all available history in the database (very slow decay).',
+    desc: 'Get a comprehensive briefing on any country or region — political situation, key actors, recent developments, and persistent risks.',
     example: 'Geopolitical overview of Iran',
+  },
+  {
+    key: 'reference',
+    label: 'Data Lookup',
+    labelColor: 'text-orange-300',
+    bgColor: 'bg-orange-500/8 border-orange-500/15',
+    desc: 'Look up structured data on any country: economic indicators, IMF forecasts, active sanctions, and trade relationships.',
+    example: 'Show me the IMF GDP forecast for Germany',
+  },
+  {
+    key: 'spatial',
+    label: 'Geographic Risk',
+    labelColor: 'text-cyan-300',
+    bgColor: 'bg-cyan-500/8 border-cyan-500/15',
+    desc: 'Identify strategic assets and conflict hotspots near a specific country or region — ports, pipelines, power plants, and recent violent incidents.',
+    example: 'What critical infrastructure is at risk near Ukraine?',
   },
 ];
 
@@ -107,10 +123,11 @@ export function OracleGuideModal({ open, onClose, onQuerySelect }: OracleGuideMo
               What is Oracle
             </h3>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Oracle is an intelligence analysis engine that combines semantic vector search
-              (RAG) with LLM synthesis over a proprietary database of geopolitical articles,
-              intelligence reports, and market signals. It retains conversation memory to
-              answer contextual follow-up questions.
+              Oracle is your intelligence analyst on demand. Ask a question in plain language
+              and it will search across thousands of geopolitical articles, intelligence
+              reports, market signals, and country data to give you a sourced, concise answer.
+              It remembers the context of the conversation, so you can ask follow-up questions
+              naturally.
             </p>
             <p className="text-gray-500 text-xs mt-2 leading-relaxed">
               Responses include clickable numbered citations{' '}
@@ -181,17 +198,18 @@ export function OracleGuideModal({ open, onClose, onQuerySelect }: OracleGuideMo
               Technical notes
             </h3>
             <ul className="space-y-2 text-sm text-gray-500">
-              <li>⏱ Request timeout: 120 seconds (complex queries take 15–30s)</li>
+              <li>⏱ Complex questions can take up to 30 seconds — Oracle is working, not stuck</li>
               <li>
-                🔑 Requires a valid Gemini API key — configure in{' '}
+                🔑 Requires your personal Gemini API key — add it in{' '}
                 <span className="text-white/50">Settings</span>
               </li>
-              <li>📚 Database is updated every day at 08:00 UTC</li>
+              <li>📚 Intelligence database is refreshed every day at 08:00 UTC</li>
               <li>
-                🔗 Citations in the text are clickable and link to the corresponding source in
-                the sidebar
+                🔗 Every number in brackets like{' '}
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-bold bg-[#FF6B35]/20 text-[#FF6B35] border border-[#FF6B35]/40 mx-0.5">1</span>{' '}
+                is a clickable source — see the full article in the sidebar
               </li>
-              <li>🧠 Session memory persists throughout the current conversation</li>
+              <li>🧠 Oracle remembers your conversation — ask follow-ups without repeating context</li>
             </ul>
           </div>
         </div>
