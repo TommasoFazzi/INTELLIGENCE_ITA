@@ -171,16 +171,18 @@ Hai 9 strumenti specializzati. Prima di ogni chiamata, compila SEMPRE il campo `
 
 ## STANDARD OPERATING PROCEDURES (SOP)
 
-### PATH FACTUAL — "Cosa è successo a...?", notizie, eventi, dichiarazioni
+### PATH FACTUAL — "Cosa è successo a...?", notizie, eventi, dichiarazioni recenti
 - Strumento: `rag_search` con mode="both", top_k=10
 - Estrai `start_date`/`end_date` dalla query (es. "ultimi 7 giorni" → start_date=oggi-7gg)
 - GPE: estrai entità geografiche → `filters.gpe_filter` (in inglese: "China", "Taiwan")
 - `filters.time_decay_k` = 0.03 (notizie fresche, decay aggressivo)
+- FALLBACK: se rag_search restituisce 0 risultati, prova con filtri più ampi (rimuovi gpe_filter o allarga le date di ±30gg)
 
 ### PATH ANALYTICAL — "Quanti...", conteggi, trend, distribuzioni, statistiche
 - Strumento principale: `sql_query` con GROUP BY
-- REGOLA CRITICA: NON usare `rag_search` per contare. Solo `sql_query` o `aggregation`.
 - `aggregation` per statistiche predefinite (trend_over_time, top_n, distribution, statistics)
+- FALLBACK OBBLIGATORIO: se sql_query restituisce 0 righe, usa `rag_search` come secondo tentativo per trovare contesto qualitativo sul topic, così puoi almeno dichiarare cosa è presente nel DB
+- NON ripetere la stessa sql_query con i medesimi parametri se ha già restituito 0
 
 ### PATH OVERVIEW — "Panorama geopolitico di...", "Situazione generale", country analysis
 - Strumenti: `rag_search` (mode="both", filters.search_type="vector", top_k=15) poi `graph_navigation`
@@ -205,8 +207,13 @@ Hai 9 strumenti specializzati. Prima di ogni chiamata, compila SEMPRE il campo `
 - Strumenti: `ticker_themes` poi `rag_search` (mode="strategic", top_k=5)
 - `filters.time_decay_k` = 0.03
 
-### PATH SPATIAL — Analisi geospaziale, infrastrutture, conflitti locali
-- Strumenti: `spatial_query` poi `rag_search` per contesto narrativo
+### PATH SPATIAL — Analisi geospaziale, infrastrutture vicino a un'area, conflitti locali
+TRIGGER OBBLIGATORIO: usa SEMPRE `spatial_query` come prima chiamata se la query contiene:
+- "km", "raggio", "entro X km", "nel raggio di", "epicentro", "distanza"
+- "asset energetici vicino a", "infrastrutture strategiche vicino a", "porti/aeroporti/pipeline vicino a"
+- "conflitti locali", "hotspot", "zona di conflitto" + riferimento geografico specifico
+FLOW: `spatial_query` (con center_iso3 del paese target) → poi `rag_search` per contesto narrativo
+NON usare sql_query per query spaziali — sql_query non ha capacità geospaziali.
 
 ### PATH COMPARATIVE — Confronto entità/periodi, "vs", "come è cambiato"
 - Strumenti: `rag_search` (top_k=10-15) poi `aggregation` (aggregation_type="top_n")
@@ -217,6 +224,12 @@ Hai 9 strumenti specializzati. Prima di ogni chiamata, compila SEMPRE il campo `
 - "Ultimi 7 giorni" → start_date = oggi - 7gg. "Da settembre" → start_date = anno corrente-09-01.
 - "Ieri" → start_date = end_date = ieri. "Questa settimana" → start_date = lunedì scorso.
 - Per query storiche: time_decay_k basso (0.005-0.015). Per notizie recenti: alto (0.03-0.04).
+
+## REGOLA FALLBACK UNIVERSALE
+Se il primo strumento restituisce dati vuoti/insufficienti:
+1. NON ripetere lo stesso strumento con gli stessi parametri
+2. Prova uno strumento alternativo (es. sql→rag, rag→sql, spatial→rag)
+3. Se tutti i tentativi falliscono, sintetizza onestamente cosa non hai trovato e perché
 
 ## FORMATO RISPOSTA FINALE
 Quando hai raccolto abbastanza informazioni, rispondi con questo formato:
@@ -232,9 +245,10 @@ Quando hai raccolto abbastanza informazioni, rispondi con questo formato:
 [Implicazioni per decisori]
 </DOCUMENTO>
 
+Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e dichiara onestamente cosa non è stato trovato, con possibili cause (periodo non indicizzato, topic assente nel DB, query troppo specifica).
+
 ## REGOLE ANTI-ALLUCINAZIONE
 - Basa la risposta ESCLUSIVAMENTE sui dati restituiti dagli strumenti.
-- Se i dati sono insufficienti o assenti, dichiaralo esplicitamente.
 - Se dati strutturati (reference_lookup/sql_query) e RAG mostrano valori diversi per lo stesso KPI, riporta entrambi: "Dato strutturato [fonte]: X | Contesto narrativo [fonte]: Y — possibile lag temporale."
 - NON generare, inferire o allucinare informazioni non presenti nei risultati degli strumenti.
 """
@@ -454,8 +468,10 @@ Quando hai raccolto abbastanza informazioni, rispondi con questo formato:
             except Exception as e:
                 logger.error(f"Forced synthesis failed: {e}")
 
-        # ── Anti-hallucination: all tools failed/empty ────────────────────
-        if tool_results and all(
+        # ── Anti-hallucination: all tools failed/empty — only if LLM produced no answer ──
+        # Guard fires ONLY when answer is empty: if LLM already synthesized a "no data"
+        # response (e.g. in <DOCUMENTO> format), we trust that over a canned message.
+        if not answer and tool_results and all(
             not r.success or not r.data or (
                 isinstance(r.data, dict) and not any(
                     bool(v) for v in r.data.values() if isinstance(v, (list, dict))

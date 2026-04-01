@@ -34,8 +34,9 @@ Intelligence synthesis layer that consumes context from the vector database and 
   - `OracleOrchestrator` class — Entry point for all Oracle 2.0 queries
   - **Architecture**: Native Gemini Function Calling agentic loop (max 4 iterations) replaces the static QueryRouter → Tool Plan → Synthesis pipeline
   - `_create_agentic_model()` — creates `GenerativeModel` with all 9 tool `FunctionDeclaration` objects and system SOPs; called inside `_byok_lock` for BYOK users
-  - `_build_system_prompt()` — encodes 9 Standard Operating Procedures (PATH FACTUAL / ANALYTICAL / OVERVIEW / MARKET / REFERENCE / NARRATIVE / TICKER / SPATIAL / COMPARATIVE) with intent-based time decay K values (FACTUAL=0.03, ANALYTICAL=0.015, NARRATIVE=0.02, MARKET=0.04, COMPARATIVE=0.015, TICKER=0.03, OVERVIEW=0.005, REFERENCE=0.001, SPATIAL=0.005)
+  - `_build_system_prompt()` — encodes 9 Standard Operating Procedures (PATH FACTUAL / ANALYTICAL / OVERVIEW / MARKET / REFERENCE / NARRATIVE / TICKER / SPATIAL / COMPARATIVE) with intent-based time decay K values (FACTUAL=0.03, ANALYTICAL=0.015, NARRATIVE=0.02, MARKET=0.04, COMPARATIVE=0.015, TICKER=0.03, OVERVIEW=0.005, REFERENCE=0.001, SPATIAL=0.005). Includes explicit fallback rules (try rag_search after sql returns 0) and PATH SPATIAL trigger keywords ("km", "raggio", "epicentro", "infrastrutture vicino a")
   - `_process_agentic()` — runs `start_chat(history=serialized_session)` + iterative function call loop; each tool result compressed to 8000 chars via `format_for_history()` before being added to history; full data retained in `result.data` for source collection
+  - **Anti-hallucination guard**: fires ONLY when `answer` is empty AND all tools returned empty data — does NOT override an LLM-synthesized response (fix: was unconditionally overwriting `answer`)
   - Session management with TTL cleanup daemon thread (2h TTL, 10min cleanup interval)
   - `TTLCache` for SQL results (5min) preserved; intent cache removed (routing handled by LLM)
   - BYOK: `_byok_lock` preserved; `_create_agentic_model()` called inside lock to create fresh model with user's key
