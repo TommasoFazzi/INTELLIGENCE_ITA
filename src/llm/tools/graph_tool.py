@@ -13,22 +13,35 @@ VALID_OPERATIONS = {"connected_storylines", "entity_path", "storyline_cluster"}
 class GraphTool(BaseTool):
     name = "graph_navigation"
     description = (
-        "Navigate storyline relationship graph using recursive traversal. "
-        "Find connected storylines, entity paths, and storyline clusters."
+        "Navigate the storyline relationship graph using recursive CTE traversal. "
+        "Use for PATH NARRATIVE and PATH OVERVIEW to find connected storylines. "
+        "operation='storyline_cluster': no source ID needed — finds most interconnected storylines. "
+        "operation='connected_storylines': requires a source storyline ID (get from sql_query first). "
+        "operation='entity_path': requires both source and target IDs to find shared entities. "
+        "Recommended: use 'storyline_cluster' when you don't have specific IDs yet."
     )
     parameters = {
         "type": "object",
         "properties": {
+            "rationale": {
+                "type": "string",
+                "description": (
+                    "Think step-by-step: why use graph_navigation? Which operation fits? "
+                    "Do you have a source storyline ID (from a previous sql_query or rag_search result)? "
+                    "If not, use 'storyline_cluster' which needs no ID."
+                ),
+            },
             "operation": {
                 "type": "string",
                 "enum": list(VALID_OPERATIONS),
+                "description": "storyline_cluster: no ID needed. connected_storylines: needs source. entity_path: needs source+target.",
             },
-            "source": {"type": "integer", "description": "Source storyline ID"},
-            "target": {"type": "integer", "description": "Target storyline ID (for entity_path)"},
-            "max_depth": {"type": "integer", "default": 3},
-            "weight_threshold": {"type": "number", "default": 0.3},
+            "source": {"type": "integer", "description": "Source storyline ID (required for connected_storylines/entity_path)"},
+            "target": {"type": "integer", "description": "Target storyline ID (required for entity_path only)"},
+            "max_depth": {"type": "integer", "default": 3, "description": "Maximum traversal depth (1-5)"},
+            "weight_threshold": {"type": "number", "default": 0.3, "description": "Minimum edge weight to traverse (0.0-1.0)"},
         },
-        "required": ["operation"],
+        "required": ["rationale", "operation"],
     }
 
     def _execute(self, **kwargs) -> ToolResult:

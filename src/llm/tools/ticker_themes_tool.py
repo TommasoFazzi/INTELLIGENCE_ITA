@@ -20,6 +20,10 @@ class TickerThemesTool(BaseTool):
     parameters = {
         "type": "object",
         "properties": {
+            "rationale": {
+                "type": "string",
+                "description": "PATH TICKER: Explain why you're looking up this ticker and what narrative themes you expect to find correlated with it.",
+            },
             "ticker": {
                 "type": "string",
                 "description": "Market ticker symbol (e.g., RTX, NVDA, TSLA)",
@@ -35,7 +39,7 @@ class TickerThemesTool(BaseTool):
                 "description": "Look back this many days for articles (1-365)",
             },
         },
-        "required": ["ticker"],
+        "required": ["rationale", "ticker"],
     }
 
     def _execute(self, **kwargs) -> ToolResult:

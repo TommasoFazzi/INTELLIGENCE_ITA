@@ -99,9 +99,82 @@ class SpatialTool(BaseTool):
     """
 
     name = "spatial_query"
-    description = "Spatial analysis: find infrastructure and conflicts near locations"
+    description = (
+        "PostGIS spatial analysis: find strategic infrastructure and conflict events near a geographic center. "
+        "Use for PATH SPATIAL: queries about what is located near a country/region, "
+        "critical infrastructure at risk, conflict zones near pipelines, etc. "
+        "Center can be specified as ISO3 country code (e.g. 'IRN') or explicit coordinates. "
+        "Returns infrastructure layers (ports, airports, pipelines, cables, refineries) and conflict events "
+        "with distance in km from center."
+    )
     parameters = {
-        "spec": "dict (SpatialQuerySpec fields)",
+        "type": "object",
+        "properties": {
+            "rationale": {
+                "type": "string",
+                "description": (
+                    "PATH SPATIAL: Explain the geographic center you're analyzing, "
+                    "which layers (infrastructure/conflicts) are relevant to the query, "
+                    "and what radius makes sense for this geographic context."
+                ),
+            },
+            "spec": {
+                "type": "object",
+                "description": "Spatial query specification",
+                "properties": {
+                    "center_iso3": {
+                        "type": "string",
+                        "description": "ISO3 country code as geographic center, e.g. 'IRN', 'UKR', 'TWN'",
+                    },
+                    "center_lon": {
+                        "type": "number",
+                        "description": "Longitude if center_iso3 not available",
+                    },
+                    "center_lat": {
+                        "type": "number",
+                        "description": "Latitude if center_iso3 not available",
+                    },
+                    "radius_km": {
+                        "type": "integer",
+                        "description": "Search radius in km (1-2000, default 200)",
+                    },
+                    "include_infrastructure": {
+                        "type": "boolean",
+                        "description": "Include strategic infrastructure (default true)",
+                    },
+                    "include_conflicts": {
+                        "type": "boolean",
+                        "description": "Include conflict events from UCDP data (default true)",
+                    },
+                    "include_boundaries": {
+                        "type": "boolean",
+                        "description": "Include neighboring country boundaries (default false)",
+                    },
+                    "date_from": {
+                        "type": "string",
+                        "description": "ISO YYYY-MM-DD filter for conflict events start date",
+                    },
+                    "date_to": {
+                        "type": "string",
+                        "description": "ISO YYYY-MM-DD filter for conflict events end date",
+                    },
+                    "infra_types": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "Filter infrastructure types: SUBMARINE_CABLE, CABLE_LANDING_POINT, "
+                            "PORT, AIRPORT, PIPELINE, REFINERY, LNG_TERMINAL, MINE, "
+                            "DATA_CENTER, POWER_PLANT, MILITARY_BASE"
+                        ),
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max results per layer (1-200, default 50)",
+                    },
+                },
+            },
+        },
+        "required": ["rationale", "spec"],
     }
 
     STATEMENT_TIMEOUT_MS = 30000  # 30s for spatial queries

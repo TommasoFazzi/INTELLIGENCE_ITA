@@ -21,6 +21,14 @@ class AggregationTool(BaseTool):
     parameters = {
         "type": "object",
         "properties": {
+            "rationale": {
+                "type": "string",
+                "description": (
+                    "Think step-by-step: why use aggregation here? Which pre-defined aggregation type "
+                    "fits the user request (trend_over_time/top_n/distribution/statistics)? "
+                    "Which target dataset is relevant?"
+                ),
+            },
             "aggregation_type": {
                 "type": "string",
                 "enum": list(VALID_AGGREGATION_TYPES),
@@ -42,7 +50,7 @@ class AggregationTool(BaseTool):
             },
             "limit": {"type": "integer", "default": 10},
         },
-        "required": ["aggregation_type", "target"],
+        "required": ["rationale", "aggregation_type", "target"],
     }
 
     def _execute(self, **kwargs) -> ToolResult:

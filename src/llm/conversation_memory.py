@@ -18,6 +18,10 @@ FOLLOW_UP_PATTERNS = {
     "di cui sopra", "menzionato", "citato", "appena detto",
 }
 
+# Max chars per assistant message when serializing history for Gemini.
+# Prevents context overflow from long synthesis responses in multi-turn sessions.
+_HISTORY_ASSISTANT_MAX_CHARS = 2000
+
 
 class ConversationContext:
     """
@@ -45,14 +49,13 @@ class ConversationContext:
         self.message_count += 1
 
     def get_context_for_llm(self) -> str:
-        """Return last N messages formatted for LLM injection."""
+        """Return last N messages formatted for LLM injection (legacy text-based context)."""
         if not self.messages:
             return ""
 
         lines = ["[CONVERSAZIONE PRECEDENTE]"]
         for msg in self.messages:
             role_label = "UTENTE" if msg["role"] == "user" else "ORACLE"
-            # Truncate long assistant responses to keep prompt manageable
             content = msg["content"]
             if msg["role"] == "assistant" and len(content) > 500:
                 content = content[:500] + "..."
@@ -60,6 +63,36 @@ class ConversationContext:
         lines.append("[FINE CONVERSAZIONE PRECEDENTE]")
 
         return "\n".join(lines)
+
+    def to_gemini_history(self) -> List[Any]:
+        """Serialize conversation messages as Gemini Content[] for start_chat(history=...).
+
+        Converts the internal message deque to the genai.protos.Content format expected
+        by GenerativeModel.start_chat(). Each message becomes a Content with a single
+        text Part. Assistant messages are truncated to _HISTORY_ASSISTANT_MAX_CHARS to
+        prevent context overflow in long multi-turn sessions.
+
+        Returns:
+            List of genai.protos.Content objects, or empty list on error/empty history.
+        """
+        if not self.messages:
+            return []
+        try:
+            import google.generativeai as genai
+            history = []
+            for msg in self.messages:
+                role = "user" if msg["role"] == "user" else "model"
+                content = msg["content"]
+                if role == "model" and len(content) > _HISTORY_ASSISTANT_MAX_CHARS:
+                    content = content[:_HISTORY_ASSISTANT_MAX_CHARS] + "..."
+                history.append(genai.protos.Content(
+                    role=role,
+                    parts=[genai.protos.Part(text=content)],
+                ))
+            return history
+        except Exception as e:
+            logger.warning(f"to_gemini_history failed, returning empty history: {e}")
+            return []
 
     def detect_follow_up(self, query: str) -> bool:
         """Heuristic: detect if query is a follow-up to previous exchange."""

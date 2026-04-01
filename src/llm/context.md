@@ -30,34 +30,36 @@ Intelligence synthesis layer that consumes context from the vector database and 
   - Three search modes: `both`, `factual`, `strategic`
   - XML-like context injection for anti-hallucination
 
-- `oracle_orchestrator.py` - **Oracle 2.0 main coordinator** (new)
-  - `OracleOrchestrator` class - Entry point for all Oracle 2.0 queries
-  - Manages: ToolRegistry (5 tools), QueryRouter, ConversationMemory, caching, LLM synthesis
+- `oracle_orchestrator.py` - **Oracle 2.0 agentic coordinator** (Agentic rewrite)
+  - `OracleOrchestrator` class — Entry point for all Oracle 2.0 queries
+  - **Architecture**: Native Gemini Function Calling agentic loop (max 4 iterations) replaces the static QueryRouter → Tool Plan → Synthesis pipeline
+  - `_create_agentic_model()` — creates `GenerativeModel` with all 9 tool `FunctionDeclaration` objects and system SOPs; called inside `_byok_lock` for BYOK users
+  - `_build_system_prompt()` — encodes 9 Standard Operating Procedures (PATH FACTUAL / ANALYTICAL / OVERVIEW / MARKET / REFERENCE / NARRATIVE / TICKER / SPATIAL / COMPARATIVE) with intent-based time decay K values (FACTUAL=0.03, ANALYTICAL=0.015, NARRATIVE=0.02, MARKET=0.04, COMPARATIVE=0.015, TICKER=0.03, OVERVIEW=0.005, REFERENCE=0.001, SPATIAL=0.005)
+  - `_process_agentic()` — runs `start_chat(history=serialized_session)` + iterative function call loop; each tool result compressed to 8000 chars via `format_for_history()` before being added to history; full data retained in `result.data` for source collection
   - Session management with TTL cleanup daemon thread (2h TTL, 10min cleanup interval)
-  - `TTLCache` for intent (10min), SQL results (5min), embeddings (1h)
-  - Anti-hallucination guard: returns structured "no data found" when all tools return empty
-  - **Numbered citations**: `_synthesize()` builds a `FONTI INDICIZZATE` numbered list from RAG results and injects it into the synthesis prompt; LLM is instructed to cite inline as `[1]`, `[2]` corresponding to 1-based source index (same order as `prepare_sources()` sort)
-  - **Chain-of-Verification (CoVe)**: synthesis prompt instructs Oracle to annotate structured↔RAG conflicts for the same KPI rather than silently choosing one. Format: "Dato strutturato [fonte]: X | Contesto narrativo [fonte]: Y — possibile lag temporale o divergenza metodologica." Structured data has priority for quantitative KPIs; RAG has priority for sentiment and recent events (<30 days). Ref: Dhuliawala et al. 2023.
-  - **Temporal Guardrail**: synthesis prompt flags structured data with `data_year` > 2 years old as potentially outdated. Instructs Oracle to prioritize most-recent data for "latest" queries.
-  - Logs queries to `oracle_query_log` DB table
+  - `TTLCache` for SQL results (5min) preserved; intent cache removed (routing handled by LLM)
+  - BYOK: `_byok_lock` preserved; `_create_agentic_model()` called inside lock to create fresh model with user's key
+  - Logs queries to `oracle_query_log` with `intent="agentic"`, `complexity="dynamic"`
   - `get_oracle_orchestrator_singleton()` — lazy thread-safe singleton
 
-- `query_router.py` - **Oracle 2.0 query routing** (new)
-  - `QueryRouter` class - Intent classification (Gemini 2.5 Flash, JSON mode) + QueryPlan
-  - 9 intent types: FACTUAL, ANALYTICAL, NARRATIVE, MARKET, COMPARATIVE, TICKER, OVERVIEW, REFERENCE, SPATIAL
-  - 3 complexity levels: SIMPLE, MEDIUM, COMPLEX (rule-based heuristic)
-  - Double-layer SQL injection defense: `_sanitize_user_query()` before LLM + SQLTool validates after
-  - Intent cache via TTLCache (10min)
-  - **Few-Shot SQL Store** (`_SQL_EXAMPLES`): per-table canonical query patterns injected into `_generate_sql()` prompt for tables where zero-shot generation is unreliable (PostGIS, GIN arrays, vintage subqueries). Empirical improvement +30% schema adherence (Spider/BIRD benchmark evidence).
-  - **Temporal Guardrail**: `_generate_sql()` injects `TODAY = {date}` into the SQL generation prompt; default conflict_events filter uses CURRENT_DATE - INTERVAL '365 days'; macro_forecasts always use latest vintage subquery.
+- `query_router.py` - **Legacy config constants** (refactored — no longer used in production)
+  - `QueryRouter` class removed; all routing logic migrated to SOPs in orchestrator system prompt
+  - Remaining: `INTENT_EXAMPLES`, `SQL_EXAMPLES` / `_SQL_EXAMPLES` (alias), keyword sets (`ANALYTICAL_KEYWORDS`, `OVERVIEW_KEYWORDS`, etc.) — kept for eval script backward-compat
+  - SQL few-shot examples migrated into `SQLTool.description` for LLM access via function declaration
 
-- `conversation_memory.py` - **Oracle 2.0 conversation context** (new)
-  - `ConversationContext` class - deque buffer (maxlen=10), entity tracking, follow-up detection
+- `conversation_memory.py` - **Oracle 2.0 conversation context**
+  - `ConversationContext` class — deque buffer (maxlen=10), entity tracking, follow-up detection
+  - `to_gemini_history()` — serializes message deque to `genai.protos.Content[]` for `start_chat(history=[...])`. Assistant messages truncated to 2000 chars to prevent context overflow.
   - In-memory only, TTL managed by OracleOrchestrator cleanup thread
 
-- `tools/` - **Oracle 2.0 tool registry** (new package)
+- `tools/` - **Oracle 2.0 tool registry**
   - `base.py` - `BaseTool` ABC + `ToolResult` Pydantic model
+    - `format_for_history()` — compresses tool output to max 8000 chars for chat history
+    - `_json_schema_to_genai_schema()` — recursive classmethod converts JSON Schema dict → `genai.protos.Schema`
+    - `to_function_declaration()` — classmethod generates `genai.protos.FunctionDeclaration` from class schema
+    - All tools have mandatory `rationale` as first parameter (CoT forcing; empirical +20-35% SQL accuracy on Spider/BIRD)
   - `registry.py` - `ToolRegistry` with lazy instantiation
+    - `get_function_declarations()` — returns list of `genai.protos.FunctionDeclaration` for all registered tools
   - `rag_tool.py` - `RAGTool` - hybrid search with **time-weighted decay**: `score * exp(-k * days_old)` post-retrieval. Over-fetch 3x to avoid Top-K bias, min floor 0.15, K dinamico per intent (FACTUAL=0.03, MARKET=0.04, ANALYTICAL=0.015), time-shifting for historical queries (reference_date = end_date)
   - `sql_tool.py` - `SQLTool` - LLM-generated SQL with 5-layer safety (sqlparse, forbidden keywords, max 3 JOINs, LIMIT enforcement, EXPLAIN cost check ≤10000, 5s timeout). `ALLOWED_TABLES` includes knowledge base expansion tables; uses `v_sanctions_public` (not raw `sanctions_registry`).
   - `aggregation_tool.py` - `AggregationTool` - pre-parametrized stats (trend_over_time, top_n, distribution, statistics)
@@ -71,7 +73,7 @@ Intelligence synthesis layer that consumes context from the vector database and 
 - `schemas.py` - Pydantic schemas for structured LLM output
   - `IntelligenceReportMVP`, `IntelligenceReport`, `TradeSignal`, `ImpactScore`
   - `MacroCondensedContext`, `MacroDashboardItem`, `ExtractedFilters`
-  - **Oracle 2.0 schemas**: `QueryIntent`, `QueryComplexity`, `ExecutionStep`, `QueryPlan`
+  - **Oracle 2.0 schemas**: `QueryIntent` (enum, used for logging), `QueryComplexity`, `ExecutionStep`, `QueryPlan` (retained for Oracle 1.0 compat and logging)
 
 ## Dependencies
 

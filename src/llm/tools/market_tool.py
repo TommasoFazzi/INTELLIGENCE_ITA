@@ -20,6 +20,14 @@ class MarketTool(BaseTool):
     parameters = {
         "type": "object",
         "properties": {
+            "rationale": {
+                "type": "string",
+                "description": (
+                    "Think step-by-step: PATH MARKET is active. Which analysis_type fits? "
+                    "'signals_filter' for trade signals/BUY-SELL, 'macro_correlation' for "
+                    "macro indicator trends, 'valuation_screen' for top BUY opportunities."
+                ),
+            },
             "analysis_type": {
                 "type": "string",
                 "enum": list(VALID_ANALYSIS_TYPES),
@@ -34,7 +42,7 @@ class MarketTool(BaseTool):
                 "default": "SHORT_TERM",
             },
         },
-        "required": ["analysis_type"],
+        "required": ["rationale", "analysis_type"],
     }
 
     def _execute(self, **kwargs) -> ToolResult:

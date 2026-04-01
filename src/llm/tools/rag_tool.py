@@ -192,25 +192,75 @@ def apply_authority_rerank(
 class RAGTool(BaseTool):
     name = "rag_search"
     description = (
-        "Hybrid RAG search over articles and intelligence reports. "
-        "Use for factual queries, narrative analysis, and document retrieval."
+        "Hybrid RAG search (vector + keyword) over articles and intelligence reports. "
+        "Use for: factual news queries, narrative analysis, document retrieval, overview research. "
+        "Supports time-weighted decay (pass time_decay_k in filters), GPE filtering, and recency boost. "
+        "PATH FACTUAL: mode='both', top_k=10, filters.time_decay_k=0.03. "
+        "PATH OVERVIEW: mode='both', filters.search_type='vector', top_k=15, filters.time_decay_k=0.005. "
+        "PATH NARRATIVE: mode='both', top_k=8, filters.time_decay_k=0.02. "
+        "Always extract dates from query and pass as filters.start_date/end_date (ISO YYYY-MM-DD). "
+        "Always extract geographic entities and pass as filters.gpe_filter (in English)."
     )
     parameters = {
         "type": "object",
         "properties": {
-            "query": {"type": "string", "description": "Natural language query"},
+            "rationale": {
+                "type": "string",
+                "description": (
+                    "Think step-by-step: which SOP path are you following (FACTUAL/OVERVIEW/NARRATIVE/etc.)? "
+                    "Why is rag_search the right tool here? What temporal/geographic filters will you apply? "
+                    "What decay rate matches this query type?"
+                ),
+            },
+            "query": {"type": "string", "description": "Natural language search query (core topic, without temporal noise)"},
             "mode": {
                 "type": "string",
                 "enum": ["both", "factual", "strategic"],
                 "default": "both",
+                "description": "'both' searches articles+reports, 'factual' articles only, 'strategic' reports only",
             },
-            "top_k": {"type": "integer", "default": 10},
+            "top_k": {
+                "type": "integer",
+                "default": 10,
+                "description": "Number of results to return (5-20 recommended)",
+            },
             "filters": {
                 "type": "object",
-                "description": "Optional filters: start_date, end_date, categories, gpe_filter, sources, search_type",
+                "description": "Optional search filters",
+                "properties": {
+                    "start_date": {"type": "string", "description": "ISO YYYY-MM-DD — filter articles from this date"},
+                    "end_date": {"type": "string", "description": "ISO YYYY-MM-DD — filter articles up to this date"},
+                    "gpe_filter": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Geographic/political entities in English, e.g. ['China', 'Taiwan', 'South China Sea']",
+                    },
+                    "categories": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Article categories: GEOPOLITICS, DEFENSE, ECONOMY, CYBER, ENERGY",
+                    },
+                    "search_type": {
+                        "type": "string",
+                        "enum": ["hybrid", "vector", "keyword"],
+                        "description": "Use 'vector' for overview/panoramic queries to avoid AND-matching issues",
+                    },
+                    "time_decay_k": {
+                        "type": "number",
+                        "description": (
+                            "Exponential decay rate for recency bias. "
+                            "FACTUAL=0.03, ANALYTICAL=0.015, NARRATIVE=0.02, MARKET=0.04, "
+                            "OVERVIEW=0.005, REFERENCE=0.001, SPATIAL=0.005, COMPARATIVE=0.015"
+                        ),
+                    },
+                    "recency_boost": {
+                        "type": "boolean",
+                        "description": "Set true when query contains 'latest', 'recent', 'today' keywords",
+                    },
+                },
             },
         },
-        "required": ["query"],
+        "required": ["rationale", "query"],
     }
 
     DEFAULT_MIN_SIMILARITY = 0.30

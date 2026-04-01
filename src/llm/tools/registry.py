@@ -30,3 +30,11 @@ class ToolRegistry:
 
     def registered_names(self) -> List[str]:
         return list(self._tools.keys())
+
+    def get_function_declarations(self) -> List:
+        """Return genai.protos.FunctionDeclaration for all registered tools.
+
+        Used by OracleOrchestrator to build the Gemini function-calling model.
+        Accesses class-level schema attrs — no db/llm needed for this step.
+        """
+        return [tool_class.to_function_declaration() for tool_class, _ in self._tools.values()]

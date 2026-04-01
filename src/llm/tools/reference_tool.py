@@ -52,14 +52,53 @@ class ReferenceTool(BaseTool):
         "sanctions registries (OpenSanctions), IMF WEO macro forecasts, trade flows"
     )
     parameters = {
-        "lookup_type": (
-            "string (country_profile|country_by_name|country_by_region|"
-            "sanctions_search|sanctions_by_country|"
-            "macro_forecast|macro_forecast_indicator|trade_flow)"
-        ),
-        "query": "string (ISO3 code, country name, indicator code, or search term)",
-        "start_year": "int (optional, for macro_forecast_indicator — default: current year - 1)",
-        "end_year": "int (optional, for macro_forecast_indicator — default: current year + 5)",
+        "type": "object",
+        "properties": {
+            "rationale": {
+                "type": "string",
+                "description": (
+                    "PATH REFERENCE: Explain what structured reference data you need. "
+                    "Which lookup_type fits? For country data use ISO3 (e.g. 'CHN', 'DEU'). "
+                    "For sanctions use entity name or ISO2 country code (e.g. 'RU'). "
+                    "For macro forecasts use ISO3 + indicator code (e.g. 'NGDP_RPCH')."
+                ),
+            },
+            "lookup_type": {
+                "type": "string",
+                "enum": [
+                    "country_profile", "country_by_name", "country_by_region",
+                    "sanctions_search", "sanctions_by_country",
+                    "macro_forecast", "macro_forecast_indicator", "trade_flow",
+                ],
+                "description": (
+                    "country_profile: by ISO3. country_by_name: fuzzy match. "
+                    "country_by_region: e.g. 'Middle East & North Africa'. "
+                    "sanctions_search: by entity name. sanctions_by_country: by ISO2. "
+                    "macro_forecast: all IMF indicators for one country (ISO3). "
+                    "macro_forecast_indicator: cross-country for one indicator code "
+                    "(NGDP_RPCH/PCPIPCH/LUR/GGXWDG_NGDP/BCA_NGDPD). "
+                    "trade_flow: exports/imports/balance for one country (ISO3)."
+                ),
+            },
+            "query": {
+                "type": "string",
+                "description": (
+                    "ISO3 for country_profile/macro_forecast/trade_flow (e.g. 'CHN'). "
+                    "ISO2 for sanctions_by_country (e.g. 'RU'). "
+                    "Indicator code for macro_forecast_indicator (e.g. 'NGDP_RPCH'). "
+                    "Country/entity name for search lookups."
+                ),
+            },
+            "start_year": {
+                "type": "integer",
+                "description": "Start year for macro_forecast_indicator (optional, default: current year - 1)",
+            },
+            "end_year": {
+                "type": "integer",
+                "description": "End year for macro_forecast_indicator (optional, default: current year + 5)",
+            },
+        },
+        "required": ["rationale", "lookup_type", "query"],
     }
 
     # Pre-approved parameterized queries — no LLM SQL generation.

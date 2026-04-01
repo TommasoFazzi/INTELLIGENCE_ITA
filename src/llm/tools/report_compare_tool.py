@@ -20,6 +20,10 @@ class ReportCompareTool(BaseTool):
     parameters = {
         "type": "object",
         "properties": {
+            "rationale": {
+                "type": "string",
+                "description": "PATH COMPARATIVE: Explain which two reports you're comparing and what delta you expect to find (new developments, trend shifts, resolved topics).",
+            },
             "report_id_a": {
                 "type": "integer",
                 "description": "ID of the older/first report to compare",
@@ -29,7 +33,7 @@ class ReportCompareTool(BaseTool):
                 "description": "ID of the newer/second report to compare",
             },
         },
-        "required": ["report_id_a", "report_id_b"],
+        "required": ["rationale", "report_id_a", "report_id_b"],
     }
 
     def _execute(self, **kwargs) -> ToolResult:
