@@ -392,9 +392,11 @@ class RAGTool(BaseTool):
                     date_field="published_date", score_field=score_field,
                     reference_date=ref_date,
                 )
-                # Apply floor, but fallback to top results if floor eliminates everything
-                filtered = [c for c in chunks if c.get(score_field, 0) >= MIN_DECAYED_SCORE]
-                chunks = filtered if filtered else chunks
+                
+                # Apply floor ONLY if score is similarity. FTS and Fusion scores have different scales.
+                if score_field == "similarity":
+                    filtered = [c for c in chunks if c.get(score_field, 0) >= MIN_DECAYED_SCORE]
+                    chunks = filtered if filtered else chunks
 
                 # Authority-weighted re-ranking: normalized weighted sum (alpha=0.15)
                 chunks = apply_authority_rerank(chunks, score_field=score_field)
