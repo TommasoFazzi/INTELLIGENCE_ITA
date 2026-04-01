@@ -20,8 +20,8 @@ Usage:
     python scripts/load_ucdp.py --candidate --start-date 2025-01-01   # 2025+ only
     python scripts/load_ucdp.py --candidate --start-date 2025-01-01 --end-date 2025-12-31
 
-NOTE: The stable GED endpoint ignores StartDate/EndDate/Year filters — it always
-returns all events. Use --candidate for date-filtered incremental updates.
+NOTE: StartDate/EndDate filter on the date_end field and work on all GED versions
+(both stable and candidate). Use --candidate to access provisional 2025+ data.
 Deduplication is handled via ON CONFLICT on data_source_id.
 """
 
@@ -51,8 +51,8 @@ logger = get_logger(__name__)
 UCDP_GED_API = "https://ucdpapi.pcr.uu.se/api/gedevents/25.1"
 
 # GED Candidate: provisional monthly data. v26.0.2 covers up to ~Feb 2026.
-# Supports StartDate/EndDate filters for incremental updates.
-UCDP_CANDIDATE_API = "https://ucdpapi.pcr.uu.se/api/gedeventscandidate/26.0.2"
+# Same endpoint label (gedevents), different version number.
+UCDP_CANDIDATE_API = "https://ucdpapi.pcr.uu.se/api/gedevents/26.0.2"
 
 
 def _get_headers() -> dict:
@@ -121,7 +121,7 @@ def fetch_ucdp_events(
 ):
     """Stream UCDP GED events via paginated API. Requires UCDP_API_TOKEN in .env.
     Uses NextPageUrl HATEOAS for pagination (compliant with 2026 API spec).
-    StartDate/EndDate filtering only effective on the Candidate endpoint.
+    StartDate/EndDate filter on the date_end field (YYYY-MM-DD) and work on all GED versions.
     """
     next_url = None
     total_yielded = 0
