@@ -11,7 +11,6 @@ import { OracleEmptyState } from '@/components/oracle/OracleEmptyState';
 import { OracleThinkingState } from '@/components/oracle/OracleThinkingState';
 import { UserBubble, AssistantBubble } from '@/components/oracle/OracleMessage';
 import { OracleSourcesSidebar } from '@/components/oracle/OracleSourcesSidebar';
-import { OracleSourceCard } from '@/components/oracle/OracleSourceCard';
 
 export default function OraclePage() {
   const {
@@ -218,22 +217,12 @@ export default function OraclePage() {
         heightClass="h-[75vh]"
         className="bg-[#0d1d35]"
       >
-        <div className="px-4 py-3">
-          {lastAssistantMessage?.sources && lastAssistantMessage.sources.length > 0 ? (
-            lastAssistantMessage.sources.map((src, i) => (
-              <OracleSourceCard
-                key={i}
-                source={src}
-                index={i + 1}
-                highlighted={highlightedSource === i + 1}
-              />
-            ))
-          ) : (
-            <div className="text-center text-gray-600 text-xs pt-8">
-              Sources will appear after the first response.
-            </div>
-          )}
-        </div>
+        <OracleSourcesSidebar
+          message={lastAssistantMessage}
+          highlightedSource={highlightedSource}
+          isVisible={true}
+          embedded={true}
+        />
       </BottomSheet>
 
       {/* Guide modal */}
