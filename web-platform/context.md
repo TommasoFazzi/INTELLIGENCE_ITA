@@ -58,6 +58,9 @@ See `components/StorylineGraph/context.md` for full detail.
   - `handleNavigate(id)`: sets `selectedId`, calls `graphRef.current.centerAt(x, y, 500)` + `.zoom(3, 500)` for animated graph camera navigation
   - HUD overlay (top-left): NARRATIVE GRAPH label + NODES, EDGES, **COMMUNITIES**, AVG MOMENTUM, **EDGES/NODE** stats
   - **Community legend (top-right)**: Dynamic list of top 15 communities by size with colored dots and entity-based labels. Includes "Others (N)" row at bottom aggregating all minor communities and their total node count. Hidden when a node is selected.
+  - **Entity filter (top-right)**: Autocomplete input (min 2 chars) populated from `key_entities` of all graph nodes. Selected entities shown as dismissible chips (OR logic — any match highlights). Highlights and zooms to matching nodes in dim mode; "Show only matches" toggle removes non-matching nodes entirely (isolate mode). `allEntities` memo derived from raw `graph?.nodes` (pre-momentum-filter). `entityHighlightIds` memo derived from `graphData.nodes` post-filter (defined after `graphData` to avoid TDZ). Entity filter + title filter share the same dim/isolate logic.
+  - **Title search (top-right)**: Text input that filters nodes by keyword in `title` field, combinable with entity filter (AND logic between entity+title).
+  - **"Show only matches" isolate toggle**: Appears when entity or title filter is active. When checked, `graphData` memo removes non-matching nodes from the force simulation entirely; edges between removed nodes also removed. When unchecked, non-matching nodes dimmed to `alpha=0.08` (same as ticker dim logic).
   - Momentum slider (top-right): Interactive range slider (0–1, step 0.1) for filtering nodes by minimum momentum score
   - Tooltip (bottom-left): shows hovered node title, momentum, article_count, category
   - Inline loading/error/empty states rendered over canvas

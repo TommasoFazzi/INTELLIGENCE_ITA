@@ -104,6 +104,11 @@ export default function StorylineGraph({ highlightId = null }: StorylineGraphPro
   const [minMomentum, setMinMomentum] = useState(0);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [legendExpanded, setLegendExpanded] = useState(false);
+  const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
+  const [entityQuery, setEntityQuery] = useState('');
+  const [showEntityDropdown, setShowEntityDropdown] = useState(false);
+  const [titleQuery, setTitleQuery] = useState('');
+  const [filterIsolate, setFilterIsolate] = useState(false);
 
   // Ticker hooks
   const { tickers } = useTickerList();
@@ -115,6 +120,25 @@ export default function StorylineGraph({ highlightId = null }: StorylineGraphPro
     if (!egoNetwork || !selectedId) return new Set();
     return new Set([selectedId, ...egoNetwork.neighbors.map((n) => n.id)]);
   }, [egoNetwork, selectedId]);
+
+  // All unique entities from the full (unfiltered) graph data — powers autocomplete
+  const allEntities = useMemo(() =>
+    [...new Set((graph?.nodes ?? []).flatMap(n => n.key_entities || []))]
+      .sort()
+      .filter(e => e.length > 1),
+    [graph]
+  );
+
+  // Autocomplete suggestions: show up to 15 matches when query >= 2 chars
+  const entitySuggestions = useMemo(() =>
+    entityQuery.length >= 2
+      ? allEntities
+          .filter(e => e.toLowerCase().includes(entityQuery.toLowerCase()))
+          .filter(e => !selectedEntities.includes(e))
+          .slice(0, 15)
+      : [],
+    [allEntities, entityQuery, selectedEntities]
+  );
 
   // Ticker-correlated storylines
   const tickerHighlightIds = useMemo<Set<number>>(() => {
@@ -145,9 +169,23 @@ export default function StorylineGraph({ highlightId = null }: StorylineGraphPro
       key_entities: n.key_entities,
     }));
 
-    const filteredNodes = minMomentum > 0
+    let filteredNodes = minMomentum > 0
       ? allNodes.filter((n) => n.momentum_score >= minMomentum)
       : allNodes;
+
+    // Isolate mode: hide non-matching nodes entirely from the graph
+    if (filterIsolate && (selectedEntities.length > 0 || titleQuery.trim())) {
+      filteredNodes = filteredNodes.filter(n => {
+        const entityMatch = selectedEntities.length === 0 ||
+          selectedEntities.some(sel =>
+            n.key_entities?.some(ke => ke.toLowerCase().includes(sel.toLowerCase()))
+          );
+        const titleMatch = !titleQuery.trim() ||
+          n.title.toLowerCase().includes(titleQuery.trim().toLowerCase());
+        return entityMatch && titleMatch;
+      });
+    }
+
     const filteredIds = new Set(filteredNodes.map((n) => n.id));
 
     const links: GraphLink[] = graph.links
@@ -160,7 +198,34 @@ export default function StorylineGraph({ highlightId = null }: StorylineGraphPro
       }));
 
     return { nodes: filteredNodes, links };
-  }, [graph, minMomentum]);
+  }, [graph, minMomentum, filterIsolate, selectedEntities, titleQuery]);
+
+  // Entity/title highlight IDs — used in dim mode (when not isolating)
+  // Must be defined after graphData since it depends on graphData.nodes
+  const entityHighlightIds = useMemo<Set<number>>(() => {
+    const hasFilter = selectedEntities.length > 0 || titleQuery.trim();
+    if (!hasFilter || filterIsolate) return new Set<number>();
+    return new Set(
+      graphData.nodes
+        .filter(n => {
+          const entityMatch = selectedEntities.length === 0 ||
+            selectedEntities.some(sel =>
+              n.key_entities?.some(ke => ke.toLowerCase().includes(sel.toLowerCase()))
+            );
+          const titleMatch = !titleQuery.trim() ||
+            n.title.toLowerCase().includes(titleQuery.trim().toLowerCase());
+          return entityMatch && titleMatch;
+        })
+        .map(n => n.id)
+    );
+  }, [graphData.nodes, selectedEntities, titleQuery, filterIsolate]);
+
+  // Zoom to entity/title-matching nodes when filter is applied (dim mode)
+  useEffect(() => {
+    if (entityHighlightIds.size > 0 && graphRef.current) {
+      graphRef.current.zoomToFit(400, 50, (node: GraphNode) => entityHighlightIds.has(node.id));
+    }
+  }, [entityHighlightIds]);
 
   // Auto-select node from URL param (deep-link from map → graph)
   const highlightApplied = useRef(false);
@@ -273,8 +338,12 @@ export default function StorylineGraph({ highlightId = null }: StorylineGraphPro
       let alpha = momentumBrightness;
       if (isEgoActive && !isNeighbor) {
         alpha = 0.05;
-      } else if (tickerHighlightIds.size > 0 && !isEgoActive && !tickerHighlightIds.has(node.id)) {
-        alpha = 0.08;
+      } else if (!isEgoActive) {
+        const hasActiveFilter = tickerHighlightIds.size > 0 || entityHighlightIds.size > 0;
+        const isHighlighted = tickerHighlightIds.has(node.id) || entityHighlightIds.has(node.id);
+        if (hasActiveFilter && !isHighlighted) {
+          alpha = 0.08;
+        }
       }
       ctx.globalAlpha = alpha;
 
@@ -327,7 +396,7 @@ export default function StorylineGraph({ highlightId = null }: StorylineGraphPro
       // Reset alpha so subsequent canvas draws are unaffected
       ctx.globalAlpha = 1.0;
     },
-    [selectedId, hoveredNode, egoNeighborIds, communityColorMap, tickerHighlightIds]
+    [selectedId, hoveredNode, egoNeighborIds, communityColorMap, tickerHighlightIds, entityHighlightIds]
   );
 
   // Community label overlay drawn after all nodes
@@ -457,7 +526,117 @@ export default function StorylineGraph({ highlightId = null }: StorylineGraphPro
       {/* Momentum filter + Dynamic community legend - Top Right */}
       <div className="absolute top-4 right-4 pointer-events-auto">
         {!selectedId && (
-          <div className="bg-[#0A1628]/80 backdrop-blur-sm border border-white/10 rounded px-4 py-3 min-w-[190px]">
+          <div className="bg-[#0A1628]/80 backdrop-blur-sm border border-white/10 rounded px-4 py-3 w-[220px]">
+            {/* Entity filter — autocomplete + chips */}
+            <div className="mb-3">
+              <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1">
+                Filter by Entity
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={entityQuery}
+                  onChange={(e) => {
+                    setEntityQuery(e.target.value);
+                    setShowEntityDropdown(true);
+                  }}
+                  onFocus={() => setShowEntityDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowEntityDropdown(false), 150)}
+                  placeholder="e.g. Russia, Kazakhstan…"
+                  className="w-full bg-black/60 border border-white/10 rounded text-xs text-gray-300 px-2 py-1.5 placeholder-gray-600 focus:outline-none focus:border-white/25"
+                />
+                {showEntityDropdown && entitySuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-0.5 bg-[#0A1628] border border-white/15 rounded shadow-lg z-50 max-h-40 overflow-y-auto">
+                    {entitySuggestions.map(e => (
+                      <button
+                        key={e}
+                        type="button"
+                        onMouseDown={() => {
+                          setSelectedEntities(prev => [...prev, e]);
+                          setEntityQuery('');
+                          setShowEntityDropdown(false);
+                        }}
+                        className="w-full text-left text-xs font-mono text-gray-300 px-2 py-1 hover:bg-white/10 transition-colors truncate"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Selected entity chips */}
+              {selectedEntities.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {selectedEntities.map(e => (
+                    <span
+                      key={e}
+                      className="inline-flex items-center gap-1 bg-[#FF6B35]/20 border border-[#FF6B35]/30 rounded px-1.5 py-0.5 text-[10px] font-mono text-[#FF6B35] max-w-[120px]"
+                    >
+                      <span className="truncate">{e}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEntities(prev => prev.filter(x => x !== e))}
+                        className="flex-shrink-0 hover:text-white transition-colors leading-none"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEntities([])}
+                    className="text-[10px] font-mono text-gray-500 hover:text-gray-300 transition-colors px-1"
+                  >
+                    clear all
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Storyline title search */}
+            <div className="mb-3">
+              <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1">
+                Search by Title
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={titleQuery}
+                  onChange={(e) => setTitleQuery(e.target.value)}
+                  placeholder="Keyword in title…"
+                  className="w-full bg-black/60 border border-white/10 rounded text-xs text-gray-300 px-2 py-1.5 pr-6 placeholder-gray-600 focus:outline-none focus:border-white/25"
+                />
+                {titleQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setTitleQuery('')}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors text-xs"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Isolate toggle — only shown when a filter is active */}
+            {(selectedEntities.length > 0 || titleQuery.trim()) && (
+              <div className="mb-3 flex items-center gap-2">
+                <input
+                  id="filter-isolate"
+                  type="checkbox"
+                  checked={filterIsolate}
+                  onChange={(e) => setFilterIsolate(e.target.checked)}
+                  className="w-3 h-3 accent-[#FF6B35] cursor-pointer"
+                />
+                <label
+                  htmlFor="filter-isolate"
+                  className="text-xs font-mono text-gray-400 cursor-pointer select-none"
+                >
+                  Show only matches
+                </label>
+              </div>
+            )}
+
             {/* Ticker filter dropdown */}
             {tickers && (
               <div className="mb-3">
