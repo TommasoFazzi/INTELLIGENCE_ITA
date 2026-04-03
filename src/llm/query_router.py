@@ -123,3 +123,160 @@ SQL_EXAMPLES = {
 
 # Backward-compat alias used in some eval scripts
 _SQL_EXAMPLES = SQL_EXAMPLES
+
+
+# ---------------------------------------------------------------------------
+# QueryRouter — standalone utility class used by eval scripts.
+# Production routing has moved to oracle_orchestrator.py (agentic loop).
+# This class is kept here for eval/testing purposes only.
+# ---------------------------------------------------------------------------
+
+import json
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
+import google.generativeai as genai
+import google.api_core.exceptions
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class QueryRouter:
+    """Standalone intent classifier and SQL generator for eval scripts."""
+
+    def __init__(self, llm):
+        self.llm = llm
+
+    # ── Intent classification ──────────────────────────────────────────────
+
+    def _classify_intent(self, query: str) -> Tuple[str, List[str]]:
+        """Classify query intent. Returns (intent_str, key_entities)."""
+        q_lower = query.lower()
+        if any(kw in q_lower for kw in OVERVIEW_KEYWORDS):
+            logger.info("QueryRouter: overview keyword detected, overriding to OVERVIEW")
+            return "overview", []
+
+        examples_block = "\n".join(
+            f"  {intent}: {', '.join(exs[:2])}"
+            for intent, exs in INTENT_EXAMPLES.items()
+        )
+        prompt = f"""Classify the following intelligence query into one of these intents:
+- factual: looking for specific facts, news, events, declarations
+- analytical: counting, trends, distributions, statistics from the database
+- narrative: storyline evolution, graph relationships, narrative analysis
+- market: trade signals, macro indicators, investment opportunities
+- comparative: comparing two entities, time periods, or viewpoints
+- ticker: market ticker analysis, company themes, storylines correlated to stock symbols
+- overview: broad geopolitical overview, country/region profile, comprehensive landscape analysis
+
+Examples:
+{examples_block}
+
+Query: "{query}"
+
+Respond ONLY with valid JSON:
+{{"intent": "factual|analytical|narrative|market|comparative|ticker|overview", "confidence": 0.0-1.0, "key_entities": ["entity1"]}}"""
+
+        config = genai.types.GenerationConfig(temperature=0.1, max_output_tokens=1024)
+        last_exc: Exception = ValueError("No attempts made")
+        for attempt in range(2):
+            try:
+                result = self._llm_call(prompt, config)
+                raw = (result.text or "").strip()
+                if not raw:
+                    last_exc = ValueError("Empty LLM response")
+                    logger.debug(f"QueryRouter: empty response attempt {attempt + 1}, retrying")
+                    continue
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError:
+                    m = re.search(r'\{[^{}]*"intent"[^{}]*\}', raw, re.DOTALL)
+                    if m:
+                        parsed = json.loads(m.group())
+                    else:
+                        raise
+                intent_str = parsed.get("intent", "factual").lower()
+                key_entities = parsed.get("key_entities", [])
+                logger.info(f"QueryRouter: intent={intent_str} confidence={parsed.get('confidence', 0):.0%}")
+                return intent_str, key_entities
+            except Exception as e:
+                last_exc = e
+                break
+        logger.warning(f"QueryRouter: intent classification failed ({last_exc}), defaulting to FACTUAL")
+        return "factual", []
+
+    # ── SQL generation ─────────────────────────────────────────────────────
+
+    def _generate_sql(self, query: str) -> Optional[str]:
+        """Generate a safe read-only SQL query for the given natural language request."""
+        sanitized = self._sanitize_user_query(query)
+
+        allowed_tables = (
+            "articles, chunks, reports, storylines, entities, entity_mentions, "
+            "trade_signals, macro_indicators, market_data, article_storylines, "
+            "storyline_edges, v_active_storylines, v_storyline_graph"
+        )
+        schema_hints = (
+            "Key columns (PostgreSQL):\n"
+            "- articles: id, title, source, category, published_date, url, content\n"
+            "- storylines: id, title, summary, momentum_score, narrative_status, community_id\n"
+            "- trade_signals: id, ticker, signal (BULLISH/BEARISH/NEUTRAL/WATCHLIST), timeframe, rationale, confidence, signal_date\n"
+            "- entities: id, name, entity_type, intelligence_score\n"
+            "- v_active_storylines: id, title, momentum_score, narrative_status (view of active storylines)\n"
+            "- reports: id, report_date, status, report_type, title"
+        )
+
+        prompt = f"""Generate a safe read-only SQL SELECT query for this intelligence database query.
+Database: PostgreSQL — use PostgreSQL syntax (e.g. NOW() - INTERVAL '7 days', not DATE_SUB/CURDATE).
+Available tables: {allowed_tables}
+{schema_hints}
+User request: {sanitized}
+
+Rules:
+- Use only SELECT statements
+- Max 3 JOINs
+- Only reference the allowed tables above
+- Add LIMIT 50 if not already present for non-aggregate (non-COUNT/SUM) queries
+
+Output ONLY the SQL query, nothing else."""
+
+        try:
+            result = self._llm_call(
+                prompt,
+                genai.types.GenerationConfig(temperature=0.1, max_output_tokens=2048),
+            )
+            sql = result.text.strip().strip("```sql").strip("```").strip()
+            if sql.upper().startswith("SELECT"):
+                return sql
+            return None
+        except Exception as e:
+            logger.warning(f"QueryRouter: SQL generation failed ({e})")
+            return None
+
+    @retry(
+        stop=stop_after_attempt(2),
+        wait=wait_exponential(min=2, max=10),
+        retry=retry_if_exception_type((
+            google.api_core.exceptions.DeadlineExceeded,
+            google.api_core.exceptions.ServiceUnavailable,
+        )),
+    )
+    def _llm_call(self, prompt: str, config):
+        return self.llm.generate_content(
+            prompt,
+            generation_config=config,
+            request_options={"timeout": 30},
+        )
+
+    def _sanitize_user_query(self, query: str) -> str:
+        dangerous = [
+            "DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE",
+            "GRANT", "TRUNCATE", "EXEC", "EXECUTE", "COPY", "VACUUM",
+        ]
+        sanitized = query
+        for kw in dangerous:
+            sanitized = re.sub(rf"\b{kw}\b", "", sanitized, flags=re.IGNORECASE)
+        return " ".join(sanitized.split())
