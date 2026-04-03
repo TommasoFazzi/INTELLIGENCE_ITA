@@ -164,104 +164,128 @@ class OpenBBMarketService:
     """
 
     # Standard macro indicators to fetch
+    # fetch_category controls behavior on NYSE holidays (weekday, market closed):
+    #   'equity_etf'  — NYSE-listed equities and ETFs (SP500, VIX, URA, BDRY)
+    #   'commodities' — Futures markets that follow NYSE holiday schedule (CME)
+    #   'fred'        — Federal Reserve data series; available every weekday regardless of holidays
+    #   'fx'          — Forex markets open 24/5 (Mon-Fri); unaffected by NYSE holidays
+    #   'crypto'      — Always available (24/7)
+    # On 'holiday' days, yfinance already returns the last available close via
+    # ticker.history(period='5d'), so no special handling is needed for data retrieval.
+    # The field is used for logging and future selective-fetch logic.
     MACRO_INDICATORS = {
         'US_10Y_YIELD': {
             'fred_series': 'DGS10',
             'symbol': '^TNX',  # CBOE 10-Year Treasury Note Yield (fallback)
             'unit': '%',
             'category': 'RATES',
-            'description': 'US Treasury 10-Year Yield'
+            'description': 'US Treasury 10-Year Yield',
+            'fetch_category': 'fred',
         },
         'US_2Y_YIELD': {
             'fred_series': 'DGS2',
             # No Yahoo symbol - FRED only (futures price != yield)
             'unit': '%',
             'category': 'RATES',
-            'description': 'US Treasury 2-Year Yield'
+            'description': 'US Treasury 2-Year Yield',
+            'fetch_category': 'fred',
         },
         'VIX': {
             'symbol': '^VIX',
             'unit': 'Points',
             'category': 'VOLATILITY',
-            'description': 'CBOE Volatility Index'
+            'description': 'CBOE Volatility Index',
+            'fetch_category': 'equity_etf',
         },
         'BRENT_OIL': {
             'symbol': 'BZ=F',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Brent Crude Oil'
+            'description': 'Brent Crude Oil',
+            'fetch_category': 'commodities',
         },
         'WTI_OIL': {
             'symbol': 'CL=F',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'WTI Crude Oil'
+            'description': 'WTI Crude Oil',
+            'fetch_category': 'commodities',
         },
         'GOLD': {
             'symbol': 'GC=F',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Gold Futures'
+            'description': 'Gold Futures',
+            'fetch_category': 'commodities',
         },
         'EUR_USD': {
             'symbol': 'EURUSD=X',
             'unit': 'Rate',
             'category': 'FX',
-            'description': 'EUR/USD Exchange Rate'
+            'description': 'EUR/USD Exchange Rate',
+            'fetch_category': 'fx',
         },
         'USD_JPY': {
             'symbol': 'JPY=X',
             'unit': 'Rate',
             'category': 'FX',
-            'description': 'USD/JPY Exchange Rate'
+            'description': 'USD/JPY Exchange Rate',
+            'fetch_category': 'fx',
         },
         'SP500': {
             'symbol': '^GSPC',
             'unit': 'Points',
             'category': 'INDICES',
-            'description': 'S&P 500 Index'
+            'description': 'S&P 500 Index',
+            'fetch_category': 'equity_etf',
         },
         # --- CURVA DEI RENDIMENTI ---
         'YIELD_CURVE_10Y_2Y': {
             'fred_series': 'T10Y2Y',
             'unit': '%',
             'category': 'RATES',
-            'description': '10Y-2Y Spread (Recession Indicator)'
+            'description': '10Y-2Y Spread (Recession Indicator)',
+            'fetch_category': 'fred',
         },
         # --- RISCHIO CREDITO ---
         'US_HY_SPREAD': {
             'fred_series': 'BAMLH0A0HYM2',
             'unit': '%',
             'category': 'CREDIT_RISK',
-            'description': 'High Yield Option-Adjusted Spread'
+            'description': 'High Yield Option-Adjusted Spread',
+            'fetch_category': 'fred',
         },
         # --- ECONOMIA REALE ---
         'COPPER': {
             'symbol': 'HG=F',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Copper Futures (Global Growth Proxy)'
+            'description': 'Copper Futures (Global Growth Proxy)',
+            'fetch_category': 'commodities',
         },
         # --- ASPETTATIVE INFLAZIONE ---
         'INFLATION_EXPECTATION_5Y': {
             'fred_series': 'T5YIFR',
             'unit': '%',
             'category': 'INFLATION',
-            'description': '5-Year Forward Inflation Expectation'
+            'description': '5-Year Forward Inflation Expectation',
+            'fetch_category': 'fred',
         },
         # --- FOREX ---
         'DOLLAR_INDEX': {
             'symbol': 'DX-Y.NYB',
             'unit': 'Points',
             'category': 'FX',
-            'description': 'US Dollar Index (DXY)'
+            'description': 'US Dollar Index (DXY)',
+            'fetch_category': 'fx',
         },
         # --- SHIPPING / LOGISTICS ---
         'CASS_FREIGHT_INDEX': {
             'fred_series': 'FRGSHPUSM649NCIS',
             'unit': 'Index',
             'category': 'SHIPPING',
-            'description': 'Cass Freight Shipments Index (US Logistics)'
+            'description': 'Cass Freight Shipments Index (US Logistics)',
+            'fetch_category': 'fred',
         },
         # ================================================================
         # EXPANSION: 19 additional geopolitically relevant indicators
@@ -271,129 +295,149 @@ class OpenBBMarketService:
             'fred_series': 'DEXCHUS',
             'unit': 'Rate',
             'category': 'FX',
-            'description': 'USD/CNY Exchange Rate (China trade proxy)'
+            'description': 'USD/CNY Exchange Rate (China trade proxy)',
+            'fetch_category': 'fred',
         },
         'USD_GBP': {
             'fred_series': 'DEXUSUK',
             'unit': 'Rate',
             'category': 'FX',
-            'description': 'USD/GBP Exchange Rate'
+            'description': 'USD/GBP Exchange Rate',
+            'fetch_category': 'fred',
         },
         'USD_RUB': {
             'symbol': 'RUBUSD=X',
             'unit': 'Rate',
             'category': 'FX',
-            'description': 'USD/RUB Exchange Rate (Sanctions proxy)'
+            'description': 'USD/RUB Exchange Rate (Sanctions proxy)',
+            'fetch_category': 'fx',
         },
         # --- STRATEGIC COMMODITIES ---
         'NATURAL_GAS': {
             'symbol': 'NG=F',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Natural Gas Futures (Energy security proxy)'
+            'description': 'Natural Gas Futures (Energy security proxy)',
+            'fetch_category': 'commodities',
         },
         'WHEAT': {
             'fred_series': 'PWHEAMTUSD',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Global Wheat Price (Food security indicator)'
+            'description': 'Global Wheat Price (Food security indicator)',
+            'fetch_category': 'fred',
         },
         'NICKEL': {
             'fred_series': 'PNICKUSDM',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Nickel Price (EV battery / critical minerals)'
+            'description': 'Nickel Price (EV battery / critical minerals)',
+            'fetch_category': 'fred',
         },
         'ALUMINUM': {
             'fred_series': 'PALUMUSDM',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Aluminum Price (Industrial / defense production)'
+            'description': 'Aluminum Price (Industrial / defense production)',
+            'fetch_category': 'fred',
         },
         'SILVER': {
             'symbol': 'SI=F',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Silver Futures (Industrial + safe haven)'
+            'description': 'Silver Futures (Industrial + safe haven)',
+            'fetch_category': 'commodities',
         },
         'URANIUM': {
             'symbol': 'URA',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Global X Uranium ETF (Nuclear energy proxy)'
+            'description': 'Global X Uranium ETF (Nuclear energy proxy)',
+            'fetch_category': 'equity_etf',
         },
         # --- CREDIT RISK / FINANCIAL STRESS ---
         'TED_SPREAD': {
             'fred_series': 'TEDRATE',
             'unit': '%',
             'category': 'CREDIT_RISK',
-            'description': 'TED Spread (Interbank lending stress)'
+            'description': 'TED Spread (Interbank lending stress)',
+            'fetch_category': 'fred',
         },
         'FIN_STRESS_INDEX': {
             'fred_series': 'STLFSI4',
             'unit': 'Index',
             'category': 'CREDIT_RISK',
-            'description': 'St. Louis Financial Stress Index'
+            'description': 'St. Louis Financial Stress Index',
+            'fetch_category': 'fred',
         },
         # --- REAL ECONOMY ---
         'US_CPI': {
             'fred_series': 'CPIAUCSL',
             'unit': 'Index',
             'category': 'INFLATION',
-            'description': 'US Consumer Price Index (All Items)'
+            'description': 'US Consumer Price Index (All Items)',
+            'fetch_category': 'fred',
         },
         'US_UNEMPLOYMENT': {
             'fred_series': 'UNRATE',
             'unit': '%',
             'category': 'ECONOMY',
-            'description': 'US Unemployment Rate'
+            'description': 'US Unemployment Rate',
+            'fetch_category': 'fred',
         },
         'US_INDUSTRIAL_PROD': {
             'fred_series': 'INDPRO',
             'unit': 'Index',
             'category': 'ECONOMY',
-            'description': 'US Industrial Production Index'
+            'description': 'US Industrial Production Index',
+            'fetch_category': 'fred',
         },
         # --- INFLATION EXPECTATIONS ---
         'BREAKEVEN_10Y': {
             'fred_series': 'T10YIE',
             'unit': '%',
             'category': 'INFLATION',
-            'description': '10-Year Breakeven Inflation Rate'
+            'description': '10-Year Breakeven Inflation Rate',
+            'fetch_category': 'fred',
         },
         'REAL_RATE_10Y': {
             'fred_series': 'DFII10',
             'unit': '%',
             'category': 'RATES',
-            'description': '10-Year Real Interest Rate (TIPS)'
+            'description': '10-Year Real Interest Rate (TIPS)',
+            'fetch_category': 'fred',
         },
         # --- UNCERTAINTY ---
         'EPU_GLOBAL': {
             'fred_series': 'GEPUCURRENT',
             'unit': 'Index',
             'category': 'VOLATILITY',
-            'description': 'Global Economic Policy Uncertainty Index'
+            'description': 'Global Economic Policy Uncertainty Index',
+            'fetch_category': 'fred',
         },
         # --- ADDITIONAL INDICES ---
         'NASDAQ': {
             'symbol': '^IXIC',
             'unit': 'Points',
             'category': 'INDICES',
-            'description': 'NASDAQ Composite Index'
+            'description': 'NASDAQ Composite Index',
+            'fetch_category': 'equity_etf',
         },
         # --- CRYPTO (RISK PROXY) ---
         'BITCOIN': {
             'symbol': 'BTC-USD',
             'unit': 'USD',
             'category': 'CRYPTO',
-            'description': 'Bitcoin (Risk appetite / de-dollarization proxy)'
+            'description': 'Bitcoin (Risk appetite / de-dollarization proxy)',
+            'fetch_category': 'crypto',
         },
         # --- OFFSHORE YUAN ---
         'USD_CNH': {
             'symbol': 'USDCNH=X',
             'unit': 'Rate',
             'category': 'FX',
-            'description': 'USD/CNH Exchange Rate (Offshore Yuan — free market rate)'
+            'description': 'USD/CNH Exchange Rate (Offshore Yuan — free market rate)',
+            'fetch_category': 'fx',
         },
     }
 
@@ -436,6 +480,23 @@ class OpenBBMarketService:
         if self._has_macro_data(target_date):
             logger.info(f"Macro data already present for {target_date}")
             return True
+
+        # Holiday detection: log when fetching on a US market holiday (weekday, NYSE closed).
+        # yfinance already returns last available close via history(period='5d') on holidays,
+        # so equity/commodity data is collected with acceptable 1-2 day staleness.
+        # FRED and FX indicators are unaffected by NYSE holidays.
+        try:
+            from src.integrations.market_calendar import fetch_mode, last_nyse_trading_day
+            _fetch_mode = fetch_mode(target_date)
+            if _fetch_mode == 'holiday':
+                _last_trading = last_nyse_trading_day(before=target_date)
+                logger.warning(
+                    f"NYSE holiday on {target_date} — FRED/FX/crypto unaffected; "
+                    f"equity/commodity data will reflect last trading day "
+                    f"({_last_trading}) via yfinance history fallback"
+                )
+        except ImportError:
+            pass  # pandas_market_calendars not installed — skip holiday check
 
         logger.info(f"Fetching macro data for {target_date}...")
 

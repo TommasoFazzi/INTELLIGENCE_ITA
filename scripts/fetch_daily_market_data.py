@@ -53,6 +53,19 @@ def fetch_macro_data(target_date: date, dry_run: bool = False, force: bool = Fal
     if force:
         logger.info("FORCE MODE - Will refresh existing data")
 
+    # Holiday awareness: log when fetching on a US market holiday.
+    # Weekends are skipped upstream (backfill) or by explicit date choice.
+    try:
+        from src.integrations.market_calendar import fetch_mode
+        _mode = fetch_mode(target_date)
+        if _mode == 'holiday':
+            logger.info(
+                f"NOTE: {target_date} is a US market holiday (NYSE closed). "
+                "FRED/FX/crypto data unaffected. Equity/commodity will reflect last trading close."
+            )
+    except ImportError:
+        pass  # pandas_market_calendars not installed — skip
+
     try:
         from src.integrations.openbb_service import OpenBBMarketService
 
@@ -122,14 +135,28 @@ def backfill_macro_data(days: int = 7, dry_run: bool = False) -> dict:
     stats = {'success': 0, 'failed': 0, 'skipped': 0}
     today = date.today()
 
+    try:
+        from src.integrations.market_calendar import fetch_mode as _fetch_mode
+    except ImportError:
+        _fetch_mode = None  # fallback: weekday-only check
+
     for i in range(days):
         target_date = today - timedelta(days=i)
 
-        # Skip weekends (markets closed)
-        if target_date.weekday() >= 5:
-            logger.info(f"  {target_date}: Skipping (weekend)")
-            stats['skipped'] += 1
-            continue
+        if _fetch_mode is not None:
+            mode = _fetch_mode(target_date)
+            if mode == 'skip':
+                logger.info(f"  {target_date}: Skipping (weekend)")
+                stats['skipped'] += 1
+                continue
+            if mode == 'holiday':
+                logger.info(f"  {target_date}: NYSE holiday — equity/commodity data will be last-close stale")
+        else:
+            # pandas_market_calendars not available — fall back to weekend-only skip
+            if target_date.weekday() >= 5:
+                logger.info(f"  {target_date}: Skipping (weekend)")
+                stats['skipped'] += 1
+                continue
 
         logger.info(f"\n--- Processing {target_date} ---")
         success = fetch_macro_data(target_date, dry_run)

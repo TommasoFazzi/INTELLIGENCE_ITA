@@ -40,6 +40,19 @@ Data acquisition layer for financial intelligence. Used by `src/finance/` for tr
     - `FMP_API_KEY` - Financial Modeling Prep (optional)
     - `INTRINIO_API_KEY` - Intrinio (optional)
 
+- `market_calendar.py` - NYSE holiday-aware scheduling utility
+  - `is_nyse_open(target_date)` — True if NYSE is open that day (False for weekends AND US holidays)
+  - `last_nyse_trading_day(before)` — most recent NYSE trading day before a given date; used as reference when fetching on a holiday
+  - `fetch_mode(target_date)` — returns `'normal'` | `'holiday'` | `'skip'` (weekend)
+  - Backed by `pandas_market_calendars` NYSE calendar (accurate US holiday schedule)
+  - Used by `scripts/fetch_daily_market_data.py` backfill logic and `ensure_daily_macro_data()` for holiday logging
+  - **MACRO_INDICATORS `fetch_category` field**: each of the 38 indicators has a `fetch_category` key:
+    - `equity_etf` — NYSE-listed (SP500, VIX, NASDAQ, URA)
+    - `commodities` — CME futures that follow NYSE holidays (Oil, Gold, Copper, Gas, Silver)
+    - `fred` — Federal Reserve data (available every weekday regardless of holidays)
+    - `fx` — Forex 24/5 (EUR/USD, DXY, RUB, CNH; unaffected by NYSE holidays)
+    - `crypto` — Always available (BTC)
+
 ## Dependencies
 
 - **Internal**: `src/storage/database`, `src/utils/logger`
@@ -47,6 +60,7 @@ Data acquisition layer for financial intelligence. Used by `src/finance/` for tr
   - `yfinance` (0.2.66+) - Yahoo Finance with curl_cffi
   - `openbb` (v4+) - OpenBB unified API
   - `pandas` - Data manipulation
+  - `pandas-market-calendars` (>=4.3) - NYSE holiday calendar
   - `python-dotenv` - Environment configuration
 
 ## Data Flow
