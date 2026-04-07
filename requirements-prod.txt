@@ -1,5 +1,5 @@
 aiohappyeyeballs==2.6.1
-aiohttp==3.13.3
+aiohttp==3.13.5
 aiohttp-client-cache==0.11.1
 aiosignal==1.4.0
 aiosqlite==0.20.0
@@ -138,7 +138,7 @@ pycparser==2.23
 pydantic==2.12.5
 pydantic_core==2.41.5
 pydeck==0.9.1
-Pygments==2.19.2
+Pygments==2.20.0
 PyJWT==2.12.0
 pyparsing==3.2.5
 pytest==9.0.2
