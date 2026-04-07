@@ -46,6 +46,7 @@ class AggregationTool(BaseTool):
             "time_bucket": {
                 "type": "string",
                 "enum": list(VALID_TIME_BUCKETS),
+                "description": "Time granularity: hour, day, week, month, year",
             },
             "limit": {"type": "integer"},
         },

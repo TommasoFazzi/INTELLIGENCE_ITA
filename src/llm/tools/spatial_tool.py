@@ -273,14 +273,28 @@ class SpatialTool(BaseTool):
             return ToolResult(success=False, data=None, error="No layers requested")
 
         final_sql = " UNION ALL ".join(blocks)
+
+        # Convert Protobuf types to Python native types
+        infra_types = validated.infra_types
+        if infra_types and not isinstance(infra_types, list):
+            infra_types = list(infra_types)
+
+        event_types = validated.event_types
+        if event_types and not isinstance(event_types, list):
+            event_types = list(event_types)
+
+        country_codes = validated.country_codes
+        if country_codes and not isinstance(country_codes, list):
+            country_codes = list(country_codes)
+
         params = {
             "center_iso3": validated.center_iso3.upper() if validated.center_iso3 else None,
             "center_lon": validated.center_lon,
             "center_lat": validated.center_lat,
             "radius_m": validated.radius_km * 1000,  # ST_DWithin uses meters
-            "infra_types": validated.infra_types,
-            "event_types": validated.event_types,
-            "country_codes": [c.upper() for c in validated.country_codes] if validated.country_codes else None,
+            "infra_types": infra_types,
+            "event_types": event_types,
+            "country_codes": [c.upper() for c in country_codes] if country_codes else None,
             "date_from": validated.date_from,
             "date_to": validated.date_to,
             "limit": validated.limit,

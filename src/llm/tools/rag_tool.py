@@ -276,11 +276,18 @@ class RAGTool(BaseTool):
         model = _get_embedding_model()
         embedding = model.encode(cleaned).tolist()
 
+        # Convert Protobuf types to Python native types
         start_date = filters.get("start_date")
         end_date = filters.get("end_date")
         categories = filters.get("categories")
+        if categories and hasattr(categories, '__iter__') and not isinstance(categories, (str, bytes)):
+            categories = list(categories)
         gpe_filter = filters.get("gpe_filter")
+        if gpe_filter and hasattr(gpe_filter, '__iter__') and not isinstance(gpe_filter, (str, bytes)):
+            gpe_filter = list(gpe_filter)
         sources = filters.get("sources")
+        if sources and hasattr(sources, '__iter__') and not isinstance(sources, (str, bytes)):
+            sources = list(sources)
         search_type = filters.get("search_type", "hybrid")
 
         # Time decay config
@@ -295,6 +302,9 @@ class RAGTool(BaseTool):
         # Build list of (query_text, embedding) pairs for multi-query expansion
         query_variants = [(cleaned, embedding)]
         if multi_query:
+            # Convert Protobuf list to Python list if needed
+            if hasattr(multi_query, '__iter__') and not isinstance(multi_query, (str, bytes, list)):
+                multi_query = list(multi_query)
             for sq in multi_query[:3]:  # cap at 3 sub-queries
                 sq_cleaned = clean_query(sq)
                 sq_emb = model.encode(sq_cleaned).tolist()

@@ -31,6 +31,7 @@ class MarketTool(BaseTool):
             "analysis_type": {
                 "type": "string",
                 "enum": list(VALID_ANALYSIS_TYPES),
+                "description": "Type of market analysis: 'signals_filter' for BUY/SELL signals, 'macro_correlation' for indicator trends, 'valuation_screen' for opportunities",
             },
             "filters": {
                 "type": "object",
@@ -39,6 +40,7 @@ class MarketTool(BaseTool):
             "timeframe": {
                 "type": "string",
                 "enum": list(VALID_TIMEFRAMES),
+                "description": "Market timeframe: SHORT_TERM (days), MEDIUM_TERM (weeks/months), LONG_TERM (quarters/years)",
             },
         },
         "required": ["rationale", "analysis_type"],
