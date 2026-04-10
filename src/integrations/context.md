@@ -21,14 +21,27 @@ Data acquisition layer for financial intelligence. Used by `src/finance/` for tr
 
 - `openbb_service.py` - OpenBB v4+ integration
   - `OpenBBMarketService` class - Macro and fundamentals
-  - **Macro Indicators** (stored daily):
-    - US 10Y Treasury Yield (FRED: DGS10)
-    - VIX Volatility Index (Yahoo: ^VIX)
-    - Brent Crude Oil (Yahoo: BZ=F)
-    - EUR/USD Exchange Rate (Yahoo: EURUSD=X)
-    - Baltic Dry Index when available
+  - **Macro Indicators** — 30 active indicators (stored daily):
+    - FRED daily: US_10Y_YIELD, US_2Y_YIELD, YIELD_CURVE_10Y_2Y, REAL_RATE_10Y, BREAKEVEN_10Y, INFLATION_EXPECTATION_5Y, US_HY_SPREAD
+    - FRED weekly: FIN_STRESS_INDEX
+    - FRED monthly (structural context): NICKEL, US_CPI, US_UNEMPLOYMENT, US_INDUSTRIAL_PROD, CASS_FREIGHT_INDEX
+    - yfinance daily futures: BRENT_OIL, WTI_OIL, GOLD, COPPER, SILVER, NATURAL_GAS, URANIUM, ALUMINUM (ALI=F), WHEAT (ZW=F)
+    - yfinance equity/indices: SP500, NASDAQ, VIX
+    - yfinance FX: EUR_USD, USD_JPY, DOLLAR_INDEX, USD_GBP (GBPUSD=X), USD_CNY (CNYUSD=X), USD_CNH (⚠️ restricted)
+    - yfinance crypto: BITCOIN
+    - **Removed**: TED_SPREAD (LIBOR→SOFR degraded), EPU_GLOBAL (4-6w lag), USD_RUB (bimodal post-sanctions)
+    - **Fixed (Phase 1)**: ALUMINUM and WHEAT switched from FRED monthly to daily CME futures; USD_GBP and USD_CNY switched from FRED to yfinance daily
   - `ensure_daily_macro_data()` - Fetch and persist macro indicators
+    - FRED branch now uses `_fetch_indicator_openbb_fixed()` — saves with real `data_date` (not `target_date`). Fixes NICKEL/monthly mislabeling bug.
+    - All fetch paths call `_upsert_indicator_metadata()` to track staleness and reliability.
   - `get_macro_context_text(date)` - Formatted text for LLM prompt injection
+  - **New methods (Phase 1)**:
+    - `_fetch_indicator_openbb_fixed(fred_series, target_date)` → `(value, data_date, frequency) | None` — extracts real FRED data date; staleness check before saving
+    - `_upsert_indicator_metadata(key, frequency, last_updated, ...)` — writes to `macro_indicator_metadata` table (migration 035)
+    - `_fred_series_to_key(fred_series)` — reverse lookup FRED series → MACRO_INDICATORS key
+  - **Class-level constants**:
+    - `FRED_SERIES_FREQUENCY` — maps FRED series ID to frequency (daily/weekly/monthly)
+    - `MAX_STALENESS_BY_FREQUENCY` — max acceptable gap per frequency
   - **Company Fundamentals** (7-day cache):
     - P/E ratio, forward P/E
     - Debt/Equity ratio
