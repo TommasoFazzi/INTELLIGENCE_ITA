@@ -290,28 +290,22 @@ class OpenBBMarketService:
         # ================================================================
         # EXPANSION: 19 additional geopolitically relevant indicators
         # ================================================================
-        # --- EXCHANGE RATES (FRED) ---
+        # --- EXCHANGE RATES (yfinance daily — preferred over FRED monthly) ---
         'USD_CNY': {
-            'fred_series': 'DEXCHUS',
+            'symbol': 'CNYUSD=X',
             'unit': 'Rate',
             'category': 'FX',
             'description': 'USD/CNY Exchange Rate (China trade proxy)',
-            'fetch_category': 'fred',
+            'fetch_category': 'fx',
         },
         'USD_GBP': {
-            'fred_series': 'DEXUSUK',
+            'symbol': 'GBPUSD=X',
             'unit': 'Rate',
             'category': 'FX',
             'description': 'USD/GBP Exchange Rate',
-            'fetch_category': 'fred',
-        },
-        'USD_RUB': {
-            'symbol': 'RUBUSD=X',
-            'unit': 'Rate',
-            'category': 'FX',
-            'description': 'USD/RUB Exchange Rate (Sanctions proxy)',
             'fetch_category': 'fx',
         },
+        # USD_RUB removed: bimodal post-sanctions, data unreliable
         # --- STRATEGIC COMMODITIES ---
         'NATURAL_GAS': {
             'symbol': 'NG=F',
@@ -321,25 +315,25 @@ class OpenBBMarketService:
             'fetch_category': 'commodities',
         },
         'WHEAT': {
-            'fred_series': 'PWHEAMTUSD',
+            'symbol': 'ZW=F',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Global Wheat Price (Food security indicator)',
-            'fetch_category': 'fred',
+            'description': 'Wheat Futures (Food security indicator)',
+            'fetch_category': 'commodities',
         },
         'NICKEL': {
             'fred_series': 'PNICKUSDM',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Nickel Price (EV battery / critical minerals)',
+            'description': 'Nickel Price — FRED monthly, ~2mo lag (EV battery / critical minerals)',
             'fetch_category': 'fred',
         },
         'ALUMINUM': {
-            'fred_series': 'PALUMUSDM',
+            'symbol': 'ALI=F',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Aluminum Price (Industrial / defense production)',
-            'fetch_category': 'fred',
+            'description': 'Aluminum Futures — daily CME (Industrial / defense production)',
+            'fetch_category': 'commodities',
         },
         'SILVER': {
             'symbol': 'SI=F',
@@ -355,14 +349,8 @@ class OpenBBMarketService:
             'description': 'Global X Uranium ETF (Nuclear energy proxy)',
             'fetch_category': 'equity_etf',
         },
+        # TED_SPREAD removed: LIBOR→SOFR transition 2023, series degraded
         # --- CREDIT RISK / FINANCIAL STRESS ---
-        'TED_SPREAD': {
-            'fred_series': 'TEDRATE',
-            'unit': '%',
-            'category': 'CREDIT_RISK',
-            'description': 'TED Spread (Interbank lending stress)',
-            'fetch_category': 'fred',
-        },
         'FIN_STRESS_INDEX': {
             'fred_series': 'STLFSI4',
             'unit': 'Index',
@@ -407,14 +395,7 @@ class OpenBBMarketService:
             'description': '10-Year Real Interest Rate (TIPS)',
             'fetch_category': 'fred',
         },
-        # --- UNCERTAINTY ---
-        'EPU_GLOBAL': {
-            'fred_series': 'GEPUCURRENT',
-            'unit': 'Index',
-            'category': 'VOLATILITY',
-            'description': 'Global Economic Policy Uncertainty Index',
-            'fetch_category': 'fred',
-        },
+        # EPU_GLOBAL removed: 4-6 week lag, not actionable daily
         # --- ADDITIONAL INDICES ---
         'NASDAQ': {
             'symbol': '^IXIC',
@@ -510,30 +491,71 @@ class OpenBBMarketService:
             value = None
 
             try:
-                # For FRED series (rates, spreads): use OpenBB FRED
+                # For FRED series (rates, spreads): use OpenBB FRED with fixed date extraction
                 # For symbols (commodities, FX, indices): use yfinance directly for real-time data
                 if 'fred_series' in config:
-                    # FRED data - use OpenBB (not real-time anyway)
-                    if obb:
-                        value = self._fetch_indicator_openbb(obb, key, config, target_date)
+                    # FRED data — use fixed method that extracts real data_date from FRED,
+                    # not target_date (avoids NICKEL/monthly mislabeling bug)
+                    result = self._fetch_indicator_openbb_fixed(config['fred_series'], target_date)
+                    if result is not None:
+                        value, data_date, frequency = result
+                        self._save_macro_indicator(
+                            data_date, key, value,           # data_date, not target_date
+                            config['unit'], config['category']
+                        )
+                        self._upsert_indicator_metadata(
+                            key=key,
+                            frequency=frequency,
+                            last_updated=data_date,
+                            last_source='fred',
+                            is_stale=False,
+                            staleness_days=(target_date - data_date).days,
+                            fetch_attempted=True,
+                            fetch_succeeded=True,
+                        )
+                        success_count += 1
+                        logger.debug(f"  {key}: {value} (data_date={data_date})")
+                    else:
+                        failed_indicators.append(key)
+                        error_count += 1
                 elif 'symbol' in config:
                     # Market quotes - prefer yfinance direct for fresh real-time data
-                    # (OpenBB has caching issues that return stale prices)
                     value = self._fetch_indicator_yfinance(config['symbol'])
                     # Fallback to OpenBB if yfinance fails
                     if value is None and obb:
                         value = self._fetch_indicator_openbb(obb, key, config, target_date)
 
-                if value is not None:
-                    self._save_macro_indicator(
-                        target_date, key, value,
-                        config['unit'], config['category']
-                    )
-                    success_count += 1
-                    logger.debug(f"  {key}: {value}")
-                else:
-                    failed_indicators.append(key)
-                    error_count += 1
+                    if value is not None:
+                        self._save_macro_indicator(
+                            target_date, key, value,
+                            config['unit'], config['category']
+                        )
+                        frequency = config.get('frequency', 'daily')
+                        self._upsert_indicator_metadata(
+                            key=key,
+                            frequency=frequency,
+                            last_updated=target_date,
+                            last_source='yfinance',
+                            is_stale=False,
+                            staleness_days=0,
+                            fetch_attempted=True,
+                            fetch_succeeded=True,
+                        )
+                        success_count += 1
+                        logger.debug(f"  {key}: {value}")
+                    else:
+                        self._upsert_indicator_metadata(
+                            key=key,
+                            frequency=config.get('frequency', 'daily'),
+                            last_updated=None,
+                            last_source='yfinance',
+                            is_stale=True,
+                            staleness_days=None,
+                            fetch_attempted=True,
+                            fetch_succeeded=False,
+                        )
+                        failed_indicators.append(key)
+                        error_count += 1
 
                 # Rate limiting
                 time.sleep(0.2)
@@ -654,6 +676,202 @@ class OpenBBMarketService:
         except Exception as e:
             logger.debug(f"yfinance fetch failed for {symbol}: {e}")
             return None
+
+    # =========================================================================
+    # FRED SERIES FREQUENCY MAP — used by _fetch_indicator_openbb_fixed()
+    # =========================================================================
+    FRED_SERIES_FREQUENCY = {
+        'DGS10':             'daily',
+        'DGS2':              'daily',
+        'T10Y2Y':            'daily',
+        'DFII10':            'daily',
+        'T10YIE':            'daily',
+        'T5YIFR':            'daily',
+        'BAMLH0A0HYM2':      'daily',
+        'STLFSI4':           'weekly',
+        'PNICKUSDM':         'monthly',
+        'CPIAUCSL':          'monthly',
+        'UNRATE':            'monthly',
+        'INDPRO':            'monthly',
+        'FRGSHPUSM649NCIS':  'monthly',
+    }
+
+    MAX_STALENESS_BY_FREQUENCY = {
+        'daily':   2,
+        'weekly':  10,
+        'monthly': 45,
+        '24_7':    1,
+    }
+
+    def _fetch_indicator_openbb_fixed(
+        self,
+        fred_series: str,
+        target_date: date,
+    ) -> Optional[tuple]:
+        """
+        Corrected FRED fetch — extracts real data_date from FRED instead of
+        using target_date. Fixes monthly indicator mislabeling bug (NICKEL, etc.)
+
+        Returns
+        -------
+        (value: float, data_date: date, frequency: str) if data is acceptable.
+        None if fetch fails, data absent, or staleness exceeds threshold.
+        """
+        from datetime import date as date_type
+        frequency = self.FRED_SERIES_FREQUENCY.get(fred_series, 'monthly')
+        max_staleness = self.MAX_STALENESS_BY_FREQUENCY[frequency]
+        key = self._fred_series_to_key(fred_series)
+
+        try:
+            obb = get_obb()
+            if not obb:
+                self._upsert_indicator_metadata(
+                    key=key, frequency=frequency, last_updated=None,
+                    last_source='fred', is_stale=True, staleness_days=None,
+                    fetch_attempted=True, fetch_succeeded=False,
+                )
+                return None
+
+            result = obb.economy.fred_series(
+                symbol=fred_series,
+                start_date=str(target_date - timedelta(days=90)),
+                end_date=str(target_date),
+                provider='fred',
+            )
+
+            if not result or not result.results:
+                logger.debug(f"FRED {fred_series}: no data returned")
+                self._upsert_indicator_metadata(
+                    key=key, frequency=frequency, last_updated=None,
+                    last_source='fred', is_stale=True, staleness_days=None,
+                    fetch_attempted=True, fetch_succeeded=False,
+                )
+                return None
+
+            last_item = result.results[-1]
+
+            # Extract value — OpenBB uses series name as attribute (e.g. DGS10=4.19)
+            value = getattr(last_item, fred_series.lower(), None)
+            if value is None:
+                value = getattr(last_item, fred_series, None)
+            if value is None:
+                for attr in ['value', 'close', 'data', 'y']:
+                    if hasattr(last_item, attr):
+                        value = getattr(last_item, attr)
+                        break
+            if value is None:
+                logger.warning(f"FRED {fred_series}: cannot extract value (attrs: {[a for a in dir(last_item) if not a.startswith('_')]})")
+                return None
+
+            # Extract REAL data date from FRED result
+            data_date = getattr(last_item, 'date', None)
+            if data_date is None:
+                logger.warning(f"FRED {fred_series}: cannot extract date from result")
+                return None
+            if isinstance(data_date, str):
+                data_date = date_type.fromisoformat(data_date[:10])
+
+            # Staleness check against the real data date
+            staleness_days = (target_date - data_date).days
+
+            if staleness_days > max_staleness:
+                logger.warning(
+                    f"FRED {fred_series}: data_date={data_date} is {staleness_days}d old "
+                    f"(max={max_staleness} for {frequency}). Marked stale — not saved to macro_indicators."
+                )
+                self._upsert_indicator_metadata(
+                    key=key, frequency=frequency, last_updated=data_date,
+                    last_source='fred', is_stale=True, staleness_days=staleness_days,
+                    fetch_attempted=True, fetch_succeeded=True,
+                )
+                return None
+
+            logger.info(
+                f"FRED {fred_series}: value={float(value):.4f} "
+                f"data_date={data_date} staleness={staleness_days}d OK"
+            )
+            return float(value), data_date, frequency
+
+        except Exception as e:
+            logger.error(f"FRED {fred_series} fetch failed: {e}")
+            self._upsert_indicator_metadata(
+                key=key, frequency=frequency, last_updated=None,
+                last_source='fred', is_stale=True, staleness_days=None,
+                fetch_attempted=True, fetch_succeeded=False,
+            )
+            return None
+
+    def _upsert_indicator_metadata(
+        self,
+        key: str,
+        frequency: str,
+        last_updated: Optional[date],
+        last_source: str,
+        is_stale: bool,
+        staleness_days: Optional[int],
+        fetch_attempted: bool,
+        fetch_succeeded: bool,
+    ) -> None:
+        """
+        Upsert data quality metadata for a macro indicator.
+        Called after every fetch attempt — successful or not.
+        Non-blocking: logs errors without raising.
+        """
+        from datetime import date as date_type
+        today = date_type.today()
+
+        indicator_config = self.MACRO_INDICATORS.get(key, {})
+        expected_gap = {
+            'daily': 1, 'weekly': 7, 'monthly': 35, '24_7': 1
+        }.get(frequency, 1)
+        reliability = indicator_config.get('reliability', 'normal')
+        reliability_note = indicator_config.get('reliability_note')
+        release_pattern = indicator_config.get('release_pattern')
+        notes = indicator_config.get('notes')
+
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO macro_indicator_metadata (
+                            key, expected_frequency, expected_gap_days,
+                            last_updated, last_source,
+                            staleness_days, is_stale,
+                            last_fetch_date, fetch_attempted, fetch_succeeded,
+                            reliability, reliability_note,
+                            release_pattern, notes, updated_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s, %s, NOW()
+                        )
+                        ON CONFLICT (key) DO UPDATE SET
+                            last_updated       = EXCLUDED.last_updated,
+                            last_source        = EXCLUDED.last_source,
+                            staleness_days     = EXCLUDED.staleness_days,
+                            is_stale           = EXCLUDED.is_stale,
+                            last_fetch_date    = EXCLUDED.last_fetch_date,
+                            fetch_attempted    = EXCLUDED.fetch_attempted,
+                            fetch_succeeded    = EXCLUDED.fetch_succeeded,
+                            updated_at         = NOW()
+                    """, (
+                        key, frequency, expected_gap,
+                        last_updated, last_source,
+                        staleness_days, is_stale,
+                        today, fetch_attempted, fetch_succeeded,
+                        reliability, reliability_note,
+                        release_pattern, notes,
+                    ))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"_upsert_indicator_metadata failed for {key}: {e}")
+
+    def _fred_series_to_key(self, fred_series: str) -> str:
+        """Reverse lookup: FRED series ID → MACRO_INDICATORS key."""
+        for key, config in self.MACRO_INDICATORS.items():
+            if config.get('fred_series') == fred_series:
+                return key
+        # Fallback: use the series ID itself (for removed/unknown series)
+        return fred_series
 
     def _fetch_macro_fallback(self, target_date: date) -> bool:
         """

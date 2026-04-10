@@ -83,7 +83,13 @@ Schema evolution layer that extends the core database as new features are added.
 
 ### Ontological Layer (no migration required)
 
-The **OntologyManager** (`src/knowledge/ontology_manager.py`) loads `config/asset_theory_library.yaml` at application boot — singleton pattern, pure application-layer. Provides JIT theoretical context for the top anomalous macro indicators during report generation via `_generate_macro_analysis()`. No DB schema changes; reads existing `macro_indicators` table. USD_CNH added to `MACRO_INDICATORS` in `openbb_service.py` (36 total indicators).
+The **OntologyManager** (`src/knowledge/ontology_manager.py`) loads `config/asset_theory_library.yaml` at application boot — singleton pattern, pure application-layer. Provides JIT theoretical context for the top anomalous macro indicators during report generation via `_generate_macro_analysis()`. No DB schema changes; reads existing `macro_indicators` table. Active indicators: 30 (removed TED_SPREAD, EPU_GLOBAL, USD_RUB in Phase 1; ALUMINUM→ALI=F daily, WHEAT→ZW=F daily, USD_GBP/USD_CNY→yfinance daily).
+
+### Strategic Intelligence Layer — Phase 1 (2026-04-10)
+
+- `035_macro_intelligence_layer.sql` — Creates two tables:
+  1. `macro_indicator_metadata` — per-indicator data quality tracking: real data date (`last_updated`), `is_stale`, `staleness_days`, `expected_frequency`, `reliability`. Populated by `_upsert_indicator_metadata()` after every fetch. Fixes the NICKEL/monthly mislabeling bug (monthly FRED data was saved with fetch date, not real data date). Indexed: `(is_stale, expected_frequency)`, `(reliability)`.
+  2. `macro_regime_history` — 60-day rolling macro regime history. Populated by `MacroRegimePersistence` singleton in Phase 4. Columns: `risk_regime`, `regime_confidence`, `active_convergence_ids[]`, `active_sc_sectors[]`, `macro_narrative`, `analysis_json` (full JSONB), `data_quality_snapshot`, `data_freshness_gap_days`. GIN indexes on arrays for Oracle 2.0 queries.
 
 ## Applied in Production
 
@@ -92,6 +98,7 @@ Migrations applied to the Hetzner production database (as of 2026-03-24):
 - 020 through 025: Applied (confirmed via memory: 018, 019, 024)
 - 026 through 033: **Applied** (2026-03-31) — PostGIS 3.6 confirmed; all reference data loaded
 - 034: **Not yet applied** — apply with: `docker compose -p app exec postgres psql -U intelligence_user -d intelligence_ita < migrations/034_sanctions_view.sql`
+- 035: **Not yet applied** — apply after Phase 1 deploy: `docker compose -p app exec postgres psql -U intelligence_user -d intelligence_ita -f migrations/035_macro_intelligence_layer.sql`
 
 ## Execution Order
 
@@ -105,6 +112,7 @@ Migrations applied to the Hetzner production database (as of 2026-03-24):
   → 030 (no spatial dependency)
   → 032 → 033 (no spatial dependency)
   → 034 (view only — no spatial dependency, requires 030 applied first)
+  → 035 (Strategic Intelligence Layer — no external dependencies)
 ```
 
 Run a single migration:

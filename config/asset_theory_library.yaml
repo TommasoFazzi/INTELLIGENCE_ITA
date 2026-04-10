@@ -62,7 +62,6 @@ indicators:
       US_10Y_YIELD:        [+1, "Stesso universo risk-free, ma 2Y guida il 10Y in fasi di cambio politica monetaria"]
       YIELD_CURVE_10Y_2Y:  [-1, "Denominatore: 2Y sale → spread si comprime o inverte"]
       FIN_STRESS_INDEX:    [+1, "2Y alto per lungo tempo segnala stress sul funding bancario a breve"]
-      TED_SPREAD:          [+1, "Entrambi riflettono costo del denaro a breve; stress li fa divergere"]
       SP500:               [-1, "2Y alto = politica restrittiva in corso = vento contrario per equity"]
       DOLLAR_INDEX:        [+1, "Tassi breve USA alti attraggono carry in USD"]
 
@@ -189,26 +188,8 @@ indicators:
       DOLLAR_INDEX:        [+1, "USD è valuta safe-haven; VIX alto → domanda USD in crisi sistemiche"]
       USD_JPY:             [-1, "JPY è safe haven; VIX alto → JPY si apprezza → USD/JPY scende"]
       BITCOIN:             [-1, "Crypto sono risk-on asset; VIX alto → BTC soffre"]
-      EPU_GLOBAL:          [+1, "Incertezza geopolitica e di policy si trasmette alla vol finanziaria"]
       FIN_STRESS_INDEX:    [+1, "Alta volatilità è componente dello stress finanziario"]
-
-  EPU_GLOBAL:
-    ontology: >
-      Indice costruito da Baker, Bloom e Davis basato sulla frequenza di articoli di giornale
-      che citano simultaneamente economia, policy e incertezza.
-      A differenza del VIX (incertezza finanziaria di brevissimo termine), l'EPU cattura
-      l'incertezza di policy — fiscale, monetaria, regolatoria, commerciale — su orizzonti più lunghi.
-      Alta incertezza di policy deprime gli investimenti aziendali (capex) perché rende
-      i payoff futuri meno prevedibili (real options theory: vale aspettare).
-      Guidato da: elezioni politiche, escalation dazi, crisi geopolitiche, cambi regolatori.
-    correlations:
-      VIX:                 [+1, "Incertezza di policy si trasmette alla volatilità finanziaria"]
-      US_HY_SPREAD:        [+1, "Incertezza alta → risk premium credit più alto"]
-      SP500:               [-1, "Incertezza ostacola la valutazione e gli utili futuri"]
-      GOLD:                [+1, "Store of value in momenti di alta incertezza istituzionale"]
-      COPPER:              [-1, "Incertezza di policy riduce capex e domanda industriale"]
-      US_INDUSTRIAL_PROD:  [-1, "Alta incertezza → meno investimenti → meno produzione"]
-      BITCOIN:             [+1, "Incertezza su sistema finanziario tradizionale → hedge crypto"]
+  # EPU_GLOBAL rimosso: lag 4-6 settimane, non azionabile giornalmente
 
   # =========================================================================
   # COMMODITIES
@@ -229,7 +210,6 @@ indicators:
       NATURAL_GAS:         [+1, "Sostituti parziali nell'energia; correlazione aumenta in crisi energetiche"]
       BREAKEVEN_10Y:       [+1, "Oil è il principale driver di breve dell'inflazione"]
       DOLLAR_INDEX:        [-1, "Oil prezzato in USD: dollaro forte → prezzo Brent scende in USD terms"]
-      USD_RUB:             [-1, "Russia esportatrice: oil alto → rublo si rafforza → USD/RUB scende"]
       US_CPI:              [+1, "Componente energetica nel paniere CPI"]
       COPPER:              [+1, "Entrambi guidati dalla domanda industriale globale / crescita cinese"]
 
@@ -264,7 +244,6 @@ indicators:
       WHEAT:               [+1, "Gas è input principale per fertilizzanti azotati → costo produzione grano"]
       ALUMINUM:            [+1, "Alluminio è energy-intensive: gas alto → costi produzione alluminio salgono"]
       US_CPI:              [+1, "Utility bills e heating oil trasmettono il gas al CPI"]
-      USD_RUB:             [-1, "Russia è major exporter; gas alto → rublo si rafforza"]
       EUR_USD:             [-1, "Gas alto danneggia Europa (importatrice netta) → EUR debole"]
 
   GOLD:
@@ -285,7 +264,6 @@ indicators:
       US_10Y_YIELD:        [-1, "Yield nominale alto = più costoso tenere gold"]
       BREAKEVEN_10Y:       [+1, "Inflazione attesa alta → gold come hedge inflazione"]
       EUR_USD:             [+1, "EUR forte = USD debole = gold più economico per acquirenti non-USD"]
-      EPU_GLOBAL:          [+1, "Incertezza globale → domanda di riserve di valore"]
 
   SILVER:
     ontology: >
@@ -321,7 +299,6 @@ indicators:
       US_INDUSTRIAL_PROD:  [+1, "Manifattura USA consuma rame; correlazione diretta"]
       DOLLAR_INDEX:        [-1, "Prezzato in USD; dollaro forte pesa sulla domanda estera"]
       NICKEL:              [+1, "Entrambi metalli critici per EV e transizione energetica"]
-      EPU_GLOBAL:          [-1, "Incertezza di policy → meno capex → meno domanda rame"]
 
   WHEAT:
     ontology: >
@@ -330,13 +307,12 @@ indicators:
       È un indicatore di food security per i paesi importatori netti (MENA, Sub-Saharan Africa)
       dove la spesa alimentare è 30-50% del reddito — prezzi alti generano instabilità sociale
       (Arab Spring 2010-11 fu preceduta da spike grano).
+      Fonte dati: ZW=F (futures CME, daily). La serie FRED è stata rimossa (source evaluation).
       Guidato da: condizioni meteorologiche, politiche di export,
       costi fertilizzanti (legati al gas naturale), e geopolitica (corridoio grano Mar Nero).
     correlations:
       NATURAL_GAS:         [+1, "Gas → fertilizzanti azotati → costo produzione grano"]
       BRENT_OIL:           [+1, "Costi di trasporto e macchinari agricoli"]
-      USD_RUB:             [-1, "Russia esportatrice: grano caro → rublo relativamente forte"]
-      EPU_GLOBAL:          [+1, "Crisi alimentari generano instabilità geopolitica"]
       US_CPI:              [+1, "Food è componente del CPI"]
       DOLLAR_INDEX:        [-1, "Commodity prezzata in USD: dollaro forte pesa"]
 
@@ -346,6 +322,8 @@ indicators:
       componente chiave delle batterie NMC per i veicoli elettrici.
       Indonesia è il maggiore produttore mondiale (ca. 50%), con Cina dominante nella raffinazione —
       concentrazione geografica che crea rischio supply chain.
+      Fonte dati: FRED mensile (PNICKUSDM), ~2 mesi di lag. Staleness massima accettata: 45 giorni.
+      Usare come contesto strutturale, non come segnale giornaliero. Etichettare con [dato: MMM YYYY].
       Guidato da: crescita adozione EV, produzione acciaio inox cinese,
       politiche di resource nationalism (Indonesia ha vietato export minerale grezzo).
     correlations:
@@ -360,6 +338,7 @@ indicators:
       L'alluminio è il metallo industriale più energy-intensive nella produzione
       (ca. 15 MWh per tonnellata). Ha un'importante valenza difensiva: è usato in fusoliere aeronautiche,
       veicoli blindati, e sistemi missilistici.
+      Fonte dati: ALI=F (futures CME daily via yfinance). La serie FRED mensile è stata rimossa.
       Guidato da: costi energetici, crescita costruzioni, domanda automotive e aerospaziale,
       sanzioni Russia (Rusal = ca. 6% produzione globale).
     correlations:
@@ -367,7 +346,6 @@ indicators:
       BRENT_OIL:           [+1, "Energia e crescita industriale guidano entrambi"]
       COPPER:              [+1, "Metalli industriali con driver ciclici simili"]
       NICKEL:              [+1, "Stesso gruppo metalli base / industriali"]
-      USD_RUB:             [-1, "Russia produttore rilevante; sanzioni → supply shock → prezzo sale"]
       US_INDUSTRIAL_PROD:  [+1, "Manifattura USA è consumatore di alluminio"]
 
   URANIUM:
@@ -381,7 +359,6 @@ indicators:
       NICKEL:              [+1, "Metalli critici per l'energia pulita"]
       NATURAL_GAS:         [-1, "Nucleare è sostituto del gas per generazione baseload"]
       BRENT_OIL:           [-1, "Energy security spinge verso alternative"]
-      EPU_GLOBAL:          [+1, "Crisi energetiche e geopolitica accelerano la rivalutazione del nucleare"]
 
   # =========================================================================
   # FX
@@ -452,7 +429,6 @@ indicators:
       NICKEL:              [-1, "Domanda cinese di metalli industriali"]
       ALUMINUM:            [-1, "Cina domina la produzione e il consumo"]
       SP500:               [-1, "Tensioni USA-Cina (che deprezzano CNY) sono risk-off per equity"]
-      EPU_GLOBAL:          [+1, "Svalutazioni CNY segnalano stress o guerra commerciale → incertezza"]
 
   USD_CNH:
     ontology: >
@@ -480,7 +456,6 @@ indicators:
       SP500:               [-1, "Stress CNH segnala risk-off con epicentro cinese → equity globale soffre"]
       BRENT_OIL:           [-1, "Yuan debole riduce potere d'acquisto energetico cinese → domanda oil scende"]
       NICKEL:              [-1, "Yuan debole = domanda cinese di metalli in calo"]
-      EPU_GLOBAL:          [+1, "Incertezza geopolitica o commerciale si manifesta prima nel CNH che nel CNY"]
 
   USD_GBP:
     ontology: >
@@ -496,21 +471,7 @@ indicators:
       BRENT_OIL:           [+1, "UK è paese produttore (Mare del Nord)"]
       VIX:                 [-1, "Risk-off → fuga da GBP verso USD"]
 
-  USD_RUB:
-    ontology: >
-      Il rublo è diventato post-febbraio 2022 un indicatore sintetico della tenuta dell'economia
-      russa sotto sanzioni e dell'efficacia del framework di elusione.
-      Il pricing di mercato è distorto: controlli capitali, mercato bimodale ufficiale/nero.
-      Guidato da: prezzo del petrolio (Russia = ca. 40% revenue budget da idrocarburi),
-      sanzioni e contro-sanzioni, flussi commerciali con paesi non-sanzionatori,
-      e decisioni Banca Centrale Russa (tassi difensivi estremamente alti).
-    correlations:
-      BRENT_OIL:           [-1, "Oil alto → rublo si rafforza → USD/RUB scende"]
-      NATURAL_GAS:         [-1, "Stesso meccanismo del Brent"]
-      WHEAT:               [-1, "Russia esportatore: grano caro → valuta lievemente supportata"]
-      EPU_GLOBAL:          [+1, "Crisi geopolitiche → rublo volatile"]
-      DOLLAR_INDEX:        [+1, "Dollaro forte tende a pesare sulle valute EM tra cui rublo"]
-      GOLD:                [-1, "Russia ha accumulato oro come riserva: gold alto → capacità di sostenere rublo"]
+  # USD_RUB rimosso: mercato bimodale post-sanzioni, dato non affidabile
 
   # =========================================================================
   # INDICES
@@ -535,7 +496,6 @@ indicators:
       DOLLAR_INDEX:        [-1, "Dollaro forte pesa sugli utili delle multinazionali USA nel lungo periodo"]
       BITCOIN:             [+1, "Risk appetite: in risk-on entrambi crescono"]
       GOLD:                [-1, "In risk-on l'oro sottoperforma l'equity; in risk-off viceversa"]
-      EPU_GLOBAL:          [-1, "Incertezza di policy comprime le valutazioni"]
 
   NASDAQ:
     ontology: >
@@ -571,24 +531,10 @@ indicators:
       YIELD_CURVE_10Y_2Y:  [-1, "Curva invertita → più rischio recessione → spread HY si allargano"]
       US_10Y_YIELD:        [-1, "Flight-to-safety comprime il 10Y e allarga gli spread simultaneamente"]
       FIN_STRESS_INDEX:    [+1, "Spread HY è componente dello stress index"]
-      TED_SPREAD:          [+1, "Entrambi misure di stress creditizio, diverso segmento"]
       BITCOIN:             [-1, "Risk-off → BTC scende, spread salgono"]
       COPPER:              [-1, "Copper cade in recessione; spread salgono nello stesso momento"]
 
-  TED_SPREAD:
-    ontology: >
-      Il TED Spread è la differenza tra il LIBOR a 3 mesi (ora SOFR) e il T-Bill a 3 mesi.
-      Misura lo stress nel mercato interbancario: quando le banche non si fidano l'una dell'altra
-      (come durante Lehman 2008), il LIBOR sale mentre i T-Bill scendono per flight-to-safety.
-      Storicamente uno dei migliori early warning di crisi bancarie sistemiche.
-      Nota: con la transizione da LIBOR a SOFR (2023) il calcolo è cambiato.
-    correlations:
-      US_HY_SPREAD:        [+1, "Entrambi stress creditizi, diverso mercato"]
-      FIN_STRESS_INDEX:    [+1, "TED è componente diretta dello stress index"]
-      VIX:                 [+1, "Crisi sistemica → VIX e TED salgono insieme"]
-      SP500:               [-1, "TED alto segnala crisi bancaria → equity crolla"]
-      US_2Y_YIELD:         [+1, "Stress bancario → SOFR/LIBOR salgono vs T-Bill"]
-      GOLD:                [+1, "Crisis hedge: TED alto → domanda gold"]
+  # TED_SPREAD rimosso: LIBOR→SOFR transition 2023, serie degradata
 
   FIN_STRESS_INDEX:
     ontology: >
@@ -600,7 +546,6 @@ indicators:
     correlations:
       VIX:                 [+1, "Alta correlazione: entrambi aggregatori dello stress di mercato"]
       US_HY_SPREAD:        [+1, "Componente diretta dell'indice"]
-      TED_SPREAD:          [+1, "Componente diretta dell'indice"]
       YIELD_CURVE_10Y_2Y:  [-1, "Curva invertita → stress index alto"]
       SP500:               [-1, "Stress finanziario alto → equity in pressione"]
       GOLD:                [+1, "Safe haven: stress alto → domanda gold"]
@@ -681,4 +626,3 @@ indicators:
       VIX:                 [-1, "Risk-off → BTC scende"]
       DOLLAR_INDEX:        [-1, "Narrativa de-dollarizzazione: dollaro debole favorisce BTC"]
       US_HY_SPREAD:        [-1, "Spread ampi = risk-off = BTC in pressione"]
-      EPU_GLOBAL:          [+1, "Incertezza istituzionale → interesse in alternative al sistema tradizionale"]
