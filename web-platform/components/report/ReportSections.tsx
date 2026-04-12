@@ -86,7 +86,36 @@ function SectionContent({
     ">
       <ReactMarkdown
         components={{
-          // Intercept text nodes to find [Article N] references
+          // Intercept <a> elements produced by [Article N](url) links (Phase 2 linkification).
+          // If the link text matches "Article N", render the styled badge with hover behavior
+          // AND keep it as a real link pointing to the article URL.
+          // For all other links, render normally.
+          a: ({ href, children, ...props }) => {
+            const text = typeof children === 'string' ? children : '';
+            const articleMatch = text.match(/^Article\s+(\d+)$/i);
+            if (articleMatch && href) {
+              const idx = parseInt(articleMatch[1], 10);
+              return (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono bg-[#00A8E8]/10 text-[#00A8E8] cursor-pointer hover:bg-[#00A8E8]/20 transition-colors no-underline"
+                  onMouseEnter={() => onHoverArticle(idx)}
+                  onMouseLeave={() => onHoverArticle(null)}
+                  {...props}
+                >
+                  {children}
+                </a>
+              );
+            }
+            return (
+              <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                {children}
+              </a>
+            );
+          },
+          // Intercept text nodes to find plain [Article N] references (no URL)
           p: ({ children, ...props }) => {
             return (
               <p {...props}>
