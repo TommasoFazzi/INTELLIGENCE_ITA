@@ -30,20 +30,28 @@ logger = get_logger(__name__)
 
 # Soglie di materialità per categoria — allineate a src/macro/match_convergences.py
 # Usate in screen_anomalies() per normalizzare i delta e produrre un ranking
-# indipendente dalla scala dell'indicatore (VIX vs %, bps, ecc.)
+# indipendente dalla scala dell'indicatore (VIX vs %, bps, ecc.).
+#
+# IMPORTANTE: per RATES e CREDIT_RISK le soglie sono in DELTA ASSOLUTO (pp/punti),
+# non in delta relativo %. Esempio: RATES=0.10 significa "10bp significativi".
+# Per queste categorie screen_anomalies() usa |value - prev_value| invece di delta%.
+# Per tutte le altre categorie usa il delta relativo % (standard).
 _MATERIALITY_SIGNIFICANT: Dict[str, float] = {
-    "RATES":       0.10,
-    "VOLATILITY":  3.0,
-    "COMMODITIES": 2.0,
-    "FX":          1.0,
-    "INDICES":     1.5,
-    "CREDIT_RISK": 0.15,
-    "INFLATION":   0.08,
-    "ECONOMY":     0.3,
-    "SHIPPING":    1.5,
-    "CRYPTO":      5.0,
+    "RATES":       0.10,   # 10bp assoluti (delta pp)
+    "VOLATILITY":  3.0,    # 3 punti VIX (delta assoluto)
+    "COMMODITIES": 2.0,    # 2% relativo
+    "FX":          1.0,    # 1% relativo
+    "INDICES":     1.5,    # 1.5% relativo
+    "CREDIT_RISK": 0.15,   # 15bp assoluti (delta pp)
+    "INFLATION":   0.08,   # 8bp assoluti (delta pp)
+    "ECONOMY":     0.3,    # 0.3% relativo
+    "SHIPPING":    1.5,    # 1.5% relativo
+    "CRYPTO":      5.0,    # 5% relativo
 }
 _MATERIALITY_SIGNIFICANT_DEFAULT = 1.5
+
+# Categorie che usano delta assoluto (valore - prev_valore) invece del delta relativo %
+_ABSOLUTE_DELTA_CATEGORIES = {"RATES", "CREDIT_RISK", "INFLATION"}
 
 # Indicatori esclusi dai top movers (reliability='restricted' o segnale ambiguo)
 _EXCLUDED_FROM_TOP_MOVERS = {"USD_CNH"}
@@ -237,11 +245,17 @@ class OntologyManager:
                 continue
 
             delta_pct = ((value - prev_value) / abs(prev_value)) * 100
+            absolute_delta = value - prev_value
 
-            # Materiality-normalized anomaly score
+            # Materiality-normalized anomaly score.
+            # RATES/CREDIT_RISK/INFLATION: threshold in absolute pp → use |value - prev|
+            # All others: threshold in relative % → use |delta_pct|
             category = ind.get('category', 'COMMODITIES')
             mat_sig = _MATERIALITY_SIGNIFICANT.get(category, _MATERIALITY_SIGNIFICANT_DEFAULT)
-            anomaly_score = abs(delta_pct) / mat_sig
+            if category in _ABSOLUTE_DELTA_CATEGORIES:
+                anomaly_score = abs(absolute_delta) / mat_sig
+            else:
+                anomaly_score = abs(delta_pct) / mat_sig
 
             scored.append({
                 'key': key,
@@ -249,6 +263,7 @@ class OntologyManager:
                 'prev_value': prev_value,
                 'delta_pct': round(delta_pct, 2),
                 'abs_delta': abs(delta_pct),
+                'absolute_delta': round(absolute_delta, 4),
                 'anomaly_score': round(anomaly_score, 3),
                 'category': category,
             })
