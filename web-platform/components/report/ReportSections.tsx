@@ -138,7 +138,7 @@ function SectionContent({
   );
 }
 
-/** Replace [Article N] text with interactive hover elements */
+/** Replace [Article N] and [Article N, M, ...] text with interactive hover elements */
 function processArticleRefs(
   children: React.ReactNode,
   onHover: (idx: number | null) => void
@@ -146,26 +146,32 @@ function processArticleRefs(
   if (!children) return children;
 
   if (typeof children === 'string') {
-    const parts = children.split(/(\[Article\s+\d+\])/gi);
+    // Match both [Article 1, 2, 3] (multi) and [Article N] (single)
+    const parts = children.split(/(\[Articles?\s+[\d,\s]+\])/gi);
     if (parts.length === 1) return children;
 
-    return parts.map((part, i) => {
-      const refMatch = part.match(/\[Article\s+(\d+)\]/i);
-      if (refMatch) {
-        const idx = parseInt(refMatch[1], 10);
-        return (
-          <span
-            key={i}
-            className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono bg-[#00A8E8]/10 text-[#00A8E8] cursor-pointer hover:bg-[#00A8E8]/20 transition-colors"
-            onMouseEnter={() => onHover(idx)}
-            onMouseLeave={() => onHover(null)}
-          >
-            {part}
-          </span>
-        );
+    const result: React.ReactNode[] = [];
+    parts.forEach((part, i) => {
+      const multiMatch = part.match(/\[Articles?\s+([\d,\s]+)\]/i);
+      if (multiMatch) {
+        const nums = multiMatch[1].split(',').map((n) => parseInt(n.trim(), 10)).filter((n) => !isNaN(n));
+        nums.forEach((num, j) => {
+          result.push(
+            <span
+              key={`${i}-${j}`}
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono bg-[#00A8E8]/10 text-[#00A8E8] cursor-pointer hover:bg-[#00A8E8]/20 transition-colors"
+              onMouseEnter={() => onHover(num)}
+              onMouseLeave={() => onHover(null)}
+            >
+              {`[Article ${num}]`}
+            </span>
+          );
+        });
+      } else {
+        result.push(part);
       }
-      return part;
     });
+    return result;
   }
 
   // For React elements, recurse into children arrays

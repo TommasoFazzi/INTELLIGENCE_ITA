@@ -1840,14 +1840,23 @@ Se fonti di tier diverso riportano posizioni divergenti sullo stesso evento, seg
             # Phase 2: Linkify [Article N] citations to actual article URLs
             import re
             def linkify_citations(text: str, links_map: Dict[int, str]) -> str:
-                """Convert [Article N] to Markdown links [Article N](url)"""
-                def replace_citation(match):
-                    num = int(match.group(1))
+                """Convert [Article N] and [Article N, M, ...] to Markdown links."""
+                def _link(num: int) -> str:
                     url = links_map.get(num, '')
-                    if url:
-                        return f"[Article {num}]({url})"
-                    return match.group(0)
-                return re.sub(r'\[Article\s+(\d+)\]', replace_citation, text)
+                    return f"[Article {num}]({url})" if url else f"[Article {num}]"
+
+                def replace_multi(match):
+                    nums = [int(n.strip()) for n in match.group(1).split(',')]
+                    return ' '.join(_link(n) for n in nums)
+
+                def replace_single(match):
+                    return _link(int(match.group(1)))
+
+                # Multi first: [Article 1, 2, 3] or [Articles 1, 2, 3]
+                text = re.sub(r'\[Articles?\s+(\d+(?:\s*,\s*\d+)+)\]', replace_multi, text)
+                # Then single: [Article N]
+                text = re.sub(r'\[Article\s+(\d+)\]', replace_single, text)
+                return text
 
             report_text = linkify_citations(report_text, article_links)
             logger.debug("✓ Article citations linkified")
