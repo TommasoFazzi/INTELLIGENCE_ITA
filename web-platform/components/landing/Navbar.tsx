@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Menu, X, BookOpen, LogIn } from 'lucide-react';
+import { Menu, X, BookOpen } from 'lucide-react';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -83,17 +83,11 @@ export default function Navbar() {
             >
               Contact
             </button>
-            <Button asChild variant="ghost" className="text-gray-400 hover:text-white hover:bg-white/5 border border-white/10">
-              <Link href="/access" className="flex items-center gap-2">
-                <LogIn size={16} />
-                Client Login
-              </Link>
-            </Button>
             <Button
               asChild
               className="bg-[#FF6B35] hover:bg-[#F77F00] text-white"
             >
-              <a href="#waitlist">Get Access</a>
+              <Link href="/dashboard">Open Platform</Link>
             </Button>
           </div>
 
@@ -137,14 +131,10 @@ export default function Navbar() {
               >
                 Contact
               </button>
-              <Button asChild variant="ghost" className="w-full mt-2 border border-white/10 text-gray-400 hover:text-white">
-                <Link href="/access" className="flex items-center justify-center gap-2">
-                  <LogIn size={16} />
-                  Client Login
+              <Button asChild className="w-full mt-2 bg-[#FF6B35] hover:bg-[#F77F00] text-white">
+                <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                  Open Platform
                 </Link>
-              </Button>
-              <Button type="button" className="w-full mt-2 bg-[#FF6B35] hover:bg-[#F77F00] text-white" onClick={() => { scrollToSection('waitlist'); setMobileMenuOpen(false); }}>
-                Get Access
               </Button>
             </div>
           </div>

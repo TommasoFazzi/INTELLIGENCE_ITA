@@ -122,9 +122,9 @@ RSS Feeds (33) → Ingestion → NLP Processing → PostgreSQL+pgvector → Narr
 
 Located in `web-platform/`. Uses Next.js 16 App Router, React 19, Tailwind CSS 4, Shadcn/ui (Radix), Mapbox GL for intelligence map, **react-force-graph-2d** for narrative graph visualization, SWR for data fetching, Framer Motion for animations.
 
-**Routes:** `/` (landing), `/access` (JWT code entry), `/insights` (public briefings), `/dashboard` (reports list), `/dashboard/report/[id]` (detail), `/map` (geospatial intelligence map + Tier 3 layers), **`/stories` (narrative storyline graph)**, **`/oracle` (Oracle 2.0 chat)**
+**Routes:** `/` (landing), `/insights` (public briefings), `/dashboard` (reports list), `/dashboard/report/[id]` (detail), `/map` (geospatial intelligence map + Tier 3 layers), **`/stories` (narrative storyline graph)**, **`/oracle` (Oracle 2.0 chat)**. `/access` redirects to `/dashboard` (legacy).
 
-**Auth:** `middleware.ts` protects `/dashboard`, `/map`, `/stories`, `/oracle` with JWT (`macrointel_access` cookie). Access codes configured via `ACCESS_CODES` + `JWT_SECRET` env vars. Oracle BYOK enforced when `ORACLE_REQUIRE_GEMINI_KEY=true`.
+**Auth:** Platform is fully public — `middleware.ts` is a no-op passthrough with empty matcher. No JWT, no access codes. Oracle BYOK still enforced when `ORACLE_REQUIRE_GEMINI_KEY=true`.
 
 **API communication:** Frontend → FastAPI backend (`src/api/main.py`) with `X-API-Key` header authentication (server-side proxy at `/api/proxy/[...path]`).
 
@@ -225,7 +225,7 @@ When updating documentation, always check for and update context.md files in sub
 - **Ingestion article extraction timeout & per-domain concurrency (2026-04-09):** Each article extraction is wrapped in `asyncio.wait_for(..., timeout=PER_ARTICLE_TIMEOUT)` with `PER_ARTICLE_TIMEOUT=30s`. This prevents indefinite hangs on Cloudflare challenges or unresponsive servers. Additionally, per-domain concurrency is limited to max 2 concurrent requests per domain (`DOMAIN_MAX_CONCURRENT=2`) to reduce anti-bot triggering. These fixes escape the fatal timeout issue when Times of Israel hits Cloudflare blocking.
 - **Scrapling StealthyFetcher concurrency:** Uses Chromium headlessly — max 2 concurrent instances (`scrapling_stealth_semaphore = asyncio.Semaphore(2)`) to avoid OOM on GitHub Actions. Tier 2 domains: `rusi.org`. Tier 1 (curl_cffi, no browser): `understandingwar.org`, `chathamhouse.org`, `timesofisrael.com` (added 2026-04-09 for Cloudflare anti-bot bypass).
 - **GeoNames geocoder requires `geo_gazetteer` table:** `scripts/geocode_geonames.py` needs migration 023 applied AND `scripts/load_geonames.py` run first (one-time, ~15 min). Without it, geocoding silently returns no results.
-- **JWT middleware blocks all protected routes without `JWT_SECRET`:** If `JWT_SECRET` is not set, `middleware.ts` uses `__no_secret_configured__` as secret, causing all tokens to fail verification — all protected routes redirect to `/access`. Always set `JWT_SECRET` in production.
+- **JWT middleware removed:** `middleware.ts` is now a no-op passthrough (empty matcher). All routes are public. `JWT_SECRET` and `ACCESS_CODES` env vars are no longer used by the frontend.
 - **Oracle 6 intents (not 5):** `query_router.py` classifies into FACTUAL / ANALYTICAL / NARRATIVE / MARKET / COMPARATIVE / **OVERVIEW**. OVERVIEW uses very low time-decay (k=0.005) for panoramic queries that should return broad recent context. Using vector-only search (no FTS) to avoid AND-matching issues.
 - **community_name populated by compute_communities.py:** The `community_name` field (migration 022) is populated by Gemini inside `compute_communities.py`, not by `narrative_processor.py`. Must re-run `compute_communities.py` after large storyline changes to refresh names.
 
