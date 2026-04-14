@@ -60,7 +60,8 @@ Strato intermedio tra `src/integrations/openbb_service.py` (fetch dei dati macro
 
 ## Integration Points
 - **Input da**: `src/llm/report_generator.py._get_macro_metadata()` (metadata staleness), `src/integrations/openbb_service.py` (indicator data)
-- **Output a**: `report_generator.py._generate_macro_analysis()` (Phase 3: log-only; Phase 4+: injected into prompt)
+- **Output a**: `report_generator.py._generate_macro_analysis()` (Phase 3 data via `_phase3` key); `_generate_macro_analysis_v2()` (Phase 4, LLM call #1); `_generate_strategic_report()` (Phase 5, LLM call #2)
+- **Phase 5**: `build_strategic_intelligence_prompt()` from `strategic_intelligence_prompt.py` assembles the user prompt for LLM call #2. `MacroRegimePersistence.get_regime_history_summary(60d)` provides regime context XML. Both called inside `_generate_strategic_report()`.
 - **Dipende da**: `config/macro_convergences.yaml`, `config/sc_sector_map.yaml` (entrambi devono esistere)
 
 ## Critical Pitfalls

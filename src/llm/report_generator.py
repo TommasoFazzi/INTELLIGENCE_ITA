@@ -8,6 +8,7 @@ Generates daily intelligence reports using:
 """
 
 import os
+import re
 import json
 from pathlib import Path
 from datetime import datetime
@@ -51,6 +52,76 @@ def get_openbb_service():
         return None
 
 logger = get_logger(__name__)
+
+
+# =============================================================================
+# Module-level helpers — used by both v1 and v2 report paths
+# =============================================================================
+
+def _format_regime_history_xml(history: list) -> str:
+    """Convert get_regime_history_summary() output to XML for strategic prompt."""
+    if not history:
+        return "<regime_history>No historical data available.</regime_history>"
+    lines = ["<regime_history>"]
+    for entry in history:
+        conv_str = ", ".join(entry.get("convergences") or [])
+        sc_str = ", ".join(entry.get("sc_sectors") or [])
+        narrative = (entry.get("narrative") or "").replace("<", "&lt;").replace(">", "&gt;")
+        lines.append(
+            f'  <entry date="{entry["date"]}" regime="{entry["regime"]}"'
+            f' confidence="{entry["confidence"]:.2f}">'
+        )
+        if conv_str:
+            lines.append(f"    <convergences>{conv_str}</convergences>")
+        if sc_str:
+            lines.append(f"    <sc_sectors>{sc_str}</sc_sectors>")
+        if narrative:
+            lines.append(f"    <narrative>{narrative}</narrative>")
+        lines.append("  </entry>")
+    lines.append("</regime_history>")
+    return "\n".join(lines)
+
+
+def _build_data_quality_flags(metadata: dict) -> list:
+    """Extract stale indicator warnings from Phase 3 metadata."""
+    flags = []
+    for key, meta in metadata.items():
+        if meta.get("is_stale"):
+            last_updated = meta.get("last_updated", "unknown")
+            staleness = meta.get("staleness_days", 0)
+            freq = meta.get("expected_frequency", "daily")
+            flags.append(
+                f"{key}: data from {last_updated}"
+                f" ({staleness:.0f}d stale, expected {freq})"
+            )
+    return flags
+
+
+def _adapt_articles_for_strategic_prompt(articles: list) -> list:
+    """Map recent_articles DB dicts to the format expected by _build_articles_section."""
+    result = []
+    for a in articles:
+        pub_date = a.get("published_date", "")
+        if hasattr(pub_date, "strftime"):
+            pub_date = pub_date.strftime("%Y-%m-%d")
+        result.append({
+            "title": a.get("title", ""),
+            "source": a.get("source", ""),
+            "category": a.get("category", ""),
+            "subcategory": a.get("subcategory", ""),
+            "date": str(pub_date),
+            "summary": (a.get("summary") or a.get("full_text") or "")[:500],
+        })
+    return result
+
+
+def _linkify_citations(text: str, links_map: dict) -> str:
+    """Convert [Article N] to Markdown links [Article N](url)."""
+    def _replace(match):
+        num = int(match.group(1))
+        url = links_map.get(num, "")
+        return f"[Article {num}]({url})" if url else match.group(0)
+    return re.sub(r'\[Article\s+(\d+)\]', _replace, text)
 
 
 class ReportGenerator:
@@ -1719,6 +1790,65 @@ Respond with JSON only:"""
                     return text
         return '\n'.join(lines)
 
+    def _generate_strategic_report(
+        self,
+        macro_analysis_json: dict,
+        articles: list,
+        storylines_xml: str,
+        target_date,
+        data_quality_flags: list,
+    ) -> Dict[str, Any]:
+        """
+        LLM call #2: 7-section strategic intelligence report.
+        Phase 5: active path when v2 analysis succeeded.
+
+        Assembles system + user prompt via build_strategic_intelligence_prompt(),
+        fetches 60-day regime history for narrative context, and calls
+        gemini-2.5-flash with system_instruction.
+
+        Falls back to v1 path if this raises or returns success=False.
+        """
+        from src.macro.strategic_intelligence_prompt import build_strategic_intelligence_prompt
+        from src.macro.macro_regime_persistence import get_macro_regime_persistence_singleton
+
+        date_str = (target_date.strftime('%Y-%m-%d')
+                    if hasattr(target_date, 'strftime') else str(target_date))
+
+        # Fetch 60-day regime history for narrative context
+        try:
+            persistence = get_macro_regime_persistence_singleton()
+            history = persistence.get_regime_history_summary(days=60, as_of=target_date)
+            regime_context_xml = _format_regime_history_xml(history)
+        except Exception as hist_err:
+            logger.warning(f"[v2] regime history fetch failed (non-blocking): {hist_err}")
+            regime_context_xml = "<regime_history>No historical data available.</regime_history>"
+
+        adapted_articles = _adapt_articles_for_strategic_prompt(articles)
+
+        system_prompt, user_prompt = build_strategic_intelligence_prompt(
+            macro_analysis_json=macro_analysis_json,
+            macro_regime_context_xml=regime_context_xml,
+            storylines_xml=storylines_xml,
+            articles=adapted_articles,
+            target_date=date_str,
+            data_quality_flags=data_quality_flags,
+        )
+
+        try:
+            model = genai.GenerativeModel(
+                model_name="gemini-2.5-flash",
+                system_instruction=system_prompt,
+                generation_config=genai.GenerationConfig(temperature=0.35),
+            )
+            response = model.generate_content(
+                user_prompt,
+                request_options={"timeout": 120},
+            )
+            return {'success': True, 'report_text': response.text}
+        except Exception as e:
+            logger.warning(f"[v2] _generate_strategic_report failed: {e}")
+            return {'success': False, 'error': str(e)}
+
     def _generate_report_title(self, report_date: str, focus_areas: list, bluf: str) -> str:
         """Generate a concise descriptive headline for the report using Gemini 2.0 Flash."""
         if not bluf and not focus_areas:
@@ -1791,6 +1921,8 @@ Respond with JSON only:"""
         macro_context_text = ""
         macro_dashboard_text = ""
         macro_analysis_result = None
+        macro_v2_result = None
+        phase3_data: dict = {}
         today = None
 
         OpenBBMarketService = get_openbb_service()
@@ -1819,7 +1951,7 @@ Respond with JSON only:"""
                     else:
                         logger.warning("  Macro analysis generation failed, using raw context")
 
-                    # ── Phase 4 shadow: v2 regime analysis (non-blocking, log only) ──
+                    # ── Phase 5: v2 regime analysis → feeds LLM call #2 ────────
                     phase3_data = macro_analysis_result.get('_phase3', {}) if macro_analysis_result else {}
                     if phase3_data.get('indicators_delta') and macro_context_text:
                         try:
@@ -1835,14 +1967,14 @@ Respond with JSON only:"""
                             if macro_v2_result.get('success'):
                                 regime = macro_v2_result['result']['risk_regime']
                                 logger.info(
-                                    f"[v2 shadow] regime={regime['label']}"
+                                    f"[v2] regime={regime['label']}"
                                     f" confidence={regime['confidence']:.2f}"
-                                    f" narrative_len={len(macro_v2_result['result'].get('macro_narrative', ''))}"
+                                    f" convergences={len(macro_v2_result['result'].get('active_convergences', []))}"
                                 )
                             else:
-                                logger.warning(f"[v2 shadow] failed: {macro_v2_result.get('error')}")
+                                logger.warning(f"[v2] analysis failed: {macro_v2_result.get('error')}")
                         except Exception as v2_err:
-                            logger.warning(f"[v2 shadow] exception (non-blocking): {v2_err}")
+                            logger.warning(f"[v2] exception (falling back to v1): {v2_err}")
                 else:
                     logger.info("  No macro data available for today")
             except Exception as e:
@@ -1970,33 +2102,58 @@ Use them to:
             narrative_section = ""
             logger.info("  No active storylines found, skipping narrative context")
 
-        # Step 3: Format context for LLM
-        logger.info(f"\n[STEP 3] Preparing prompt for LLM...")
-
-        # Build article link map for citation linkification (Phase 2 Smart Delta)
-        article_links = {i: article.get('link', '') for i, article in enumerate(recent_articles, 1)}
-
-        recent_articles_text = self.format_recent_articles(recent_articles)
-        rag_context_text = self.format_rag_context(unique_rag_results)
-
-        # Step 4: Construct prompt (with macro dashboard + raw data for reference)
+        # Phase 5 branch: variables shared by both v1 and v2 paths
         report_date = datetime.now().strftime('%Y-%m-%d')
+        article_links = {i: article.get('link', '') for i, article in enumerate(recent_articles, 1)}
+        use_strategic_v2 = bool(macro_v2_result and macro_v2_result.get('success'))
 
-        # Build header section for prompt context (raw macro data only — LLM reference)
-        # The formatted macro dashboard is prepended programmatically AFTER generation
-        # to guarantee consistent ticker format regardless of LLM output variability.
-        header_section = ""
-        if macro_context_text:
-            header_section = f"""
+        # ── Phase 5: v2 strategic report (LLM call #2) ──────────────────────
+        if use_strategic_v2:
+            logger.info("\n[STEP 3/4] Generating strategic intelligence report (v2)...")
+            dq_flags = _build_data_quality_flags(phase3_data.get('metadata', {}))
+            strategic_result = self._generate_strategic_report(
+                macro_analysis_json=macro_v2_result['result'],
+                articles=recent_articles,
+                storylines_xml=narrative_xml,
+                target_date=today,
+                data_quality_flags=dq_flags,
+            )
+            if strategic_result.get('success'):
+                report_text = strategic_result['report_text']
+                report_text = _linkify_citations(report_text, article_links)
+                report_text = f"# Intelligence Briefing — {report_date}\n\n" + report_text
+                logger.info(f"✓ Strategic report (v2) generated ({len(report_text)} chars)")
+            else:
+                logger.warning(
+                    f"[v2] strategic report failed ({strategic_result.get('error')}), "
+                    "falling back to v1"
+                )
+                use_strategic_v2 = False
+
+        if not use_strategic_v2:
+            # ── v1 fallback: original 5-section prompt ───────────────────────
+            # Step 3: Format context for LLM
+            logger.info(f"\n[STEP 3] Preparing prompt for LLM (v1)...")
+
+            recent_articles_text = self.format_recent_articles(recent_articles)
+            rag_context_text = self.format_rag_context(unique_rag_results)
+
+            # Build header section for prompt context (raw macro data only — LLM reference)
+            # The formatted macro dashboard is prepended programmatically AFTER generation
+            # to guarantee consistent ticker format regardless of LLM output variability.
+            header_section = ""
+            if macro_context_text:
+                header_section = f"""
 === MACRO DATA CONTEXT (for LLM reference only - DO NOT reproduce in output) ===
 {macro_context_text}
 
 ---
 
 """
-            logger.info("  Macro context injected as reference for LLM")
+                logger.info("  Macro context injected as reference for LLM")
 
-        prompt = f"""{header_section}You are an intelligence analyst generating a daily intelligence briefing.
+            # Step 4: Construct prompt
+            prompt = f"""{header_section}You are an intelligence analyst generating a daily intelligence briefing.
 
 **YOUR TASK:**
 Analyze today's news articles and provide a comprehensive intelligence report focused on strategic relevance and actionable investment implications. Prioritize events that represent breaking points in existing trends and competition between major powers, even in seemingly peripheral regions.
@@ -2102,47 +2259,35 @@ Se fonti di tier diverso riportano posizioni divergenti sullo stesso evento, seg
 **Now generate the intelligence report body. Start DIRECTLY from `## 1. Executive Summary` — do NOT include a title line, do NOT reproduce the macro dashboard (it is pre-built and will be prepended automatically):**
 """
 
-        # Step 5: Generate report with Gemini (temperature 0.35 for narrative quality)
-        logger.info(f"\n[STEP 4] Generating report with Gemini (temperature: 0.35)...")
-        try:
-            response = self.model.generate_content(
-                prompt,
-                generation_config={
-                    "temperature": 0.35,  # Slightly higher for narrative flow
+            # Step 5: Generate report with Gemini (temperature 0.35 for narrative quality)
+            logger.info(f"\n[STEP 4] Generating report with Gemini (temperature: 0.35)...")
+            try:
+                response = self.model.generate_content(
+                    prompt,
+                    generation_config={
+                        "temperature": 0.35,  # Slightly higher for narrative flow
+                    }
+                )
+                report_text = response.text
+                logger.info(f"✓ Report generated successfully ({len(report_text)} characters)")
+
+                report_text = _linkify_citations(report_text, article_links)
+                logger.debug("✓ Article citations linkified")
+
+                # Prepend pre-built title + macro dashboard programmatically
+                # This guarantees consistent ticker format regardless of LLM variability.
+                if macro_dashboard_text:
+                    report_header = f"# 🌍 Daily Intelligence Briefing - {report_date}\n\n{macro_dashboard_text}\n\n---\n\n"
+                else:
+                    report_header = f"# 🌍 Daily Intelligence Briefing - {report_date}\n\n"
+                report_text = report_header + report_text
+            except Exception as e:
+                logger.error(f"Failed to generate report: {e}")
+                return {
+                    'success': False,
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
                 }
-            )
-            report_text = response.text
-            logger.info(f"✓ Report generated successfully ({len(report_text)} characters)")
-
-            # Phase 2: Linkify [Article N] citations to actual article URLs
-            import re
-            def linkify_citations(text: str, links_map: Dict[int, str]) -> str:
-                """Convert [Article N] to Markdown links [Article N](url)"""
-                def replace_citation(match):
-                    num = int(match.group(1))
-                    url = links_map.get(num, '')
-                    if url:
-                        return f"[Article {num}]({url})"
-                    return match.group(0)
-                return re.sub(r'\[Article\s+(\d+)\]', replace_citation, text)
-
-            report_text = linkify_citations(report_text, article_links)
-            logger.debug("✓ Article citations linkified")
-
-            # Prepend pre-built title + macro dashboard programmatically
-            # This guarantees consistent ticker format regardless of LLM variability.
-            if macro_dashboard_text:
-                report_header = f"# 🌍 Daily Intelligence Briefing - {report_date}\n\n{macro_dashboard_text}\n\n---\n\n"
-            else:
-                report_header = f"# 🌍 Daily Intelligence Briefing - {report_date}\n\n"
-            report_text = report_header + report_text
-        except Exception as e:
-            logger.error(f"Failed to generate report: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
 
         # Step 6: Compile results
         # Generate a descriptive title for the report (non-critical, falls back to "")
@@ -2165,7 +2310,8 @@ Se fonti di tier diverso riportano posizioni divergenti sullo stesso evento, seg
                     'risk_regime': macro_analysis_result.get('result', {}).get('risk_regime') if macro_analysis_result else None,
                     'dashboard_items_count': len(macro_analysis_result.get('result', {}).get('dashboard_items', [])) if macro_analysis_result else 0,
                     'temperature_step1': 0.45,
-                    'temperature_step2': 0.35
+                    'temperature_step2': 0.35,
+                    'strategic_v2': use_strategic_v2,
                 } if macro_analysis_result else None,
                 'narrative_context': {
                     'storylines_count': len(narrative_ctx.get('storylines', [])),
