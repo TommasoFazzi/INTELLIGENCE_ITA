@@ -138,7 +138,41 @@ function SectionContent({
   );
 }
 
-/** Replace [Article N] and [Article N, M, ...] text with interactive hover elements */
+/**
+ * Render a single article citation badge.
+ * Used by processArticleRefs for both single and multiple citations.
+ */
+function ArticleBadge({
+  idx,
+  label,
+  onHover,
+}: {
+  idx: number;
+  label: string;
+  onHover: (idx: number | null) => void;
+}) {
+  return (
+    <span
+      className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono bg-[#00A8E8]/10 text-[#00A8E8] cursor-pointer hover:bg-[#00A8E8]/20 transition-colors"
+      onMouseEnter={() => onHover(idx)}
+      onMouseLeave={() => onHover(null)}
+    >
+      {label}
+    </span>
+  );
+}
+
+/**
+ * Match patterns:
+ *   [Article 1]
+ *   [Article 1, 2, 3]          — numbers only after first article
+ *   [Articles 1, 2]            — plural form
+ *   [Article 1, Article 2]     — repeated keyword
+ *   [Article 1][Article 2]     — back-to-back (caught by split)
+ */
+const ARTICLE_REF_REGEX = /(\[Articles?\s+(?:\d+(?:\s*,\s*(?:Article\s+)?\d+)*)\])/gi;
+
+/** Replace [Article N] / [Article N, M] text with interactive hover elements */
 function processArticleRefs(
   children: React.ReactNode,
   onHover: (idx: number | null) => void
@@ -146,32 +180,37 @@ function processArticleRefs(
   if (!children) return children;
 
   if (typeof children === 'string') {
-    // Match both [Article 1, 2, 3] (multi) and [Article N] (single)
-    const parts = children.split(/(\[Articles?\s+[\d,\s]+\])/gi);
+    const parts = children.split(ARTICLE_REF_REGEX);
     if (parts.length === 1) return children;
 
-    const result: React.ReactNode[] = [];
-    parts.forEach((part, i) => {
-      const multiMatch = part.match(/\[Articles?\s+([\d,\s]+)\]/i);
-      if (multiMatch) {
-        const nums = multiMatch[1].split(',').map((n) => parseInt(n.trim(), 10)).filter((n) => !isNaN(n));
-        nums.forEach((num, j) => {
-          result.push(
-            <span
-              key={`${i}-${j}`}
-              className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono bg-[#00A8E8]/10 text-[#00A8E8] cursor-pointer hover:bg-[#00A8E8]/20 transition-colors"
-              onMouseEnter={() => onHover(num)}
-              onMouseLeave={() => onHover(null)}
-            >
-              {`[Article ${num}]`}
-            </span>
-          );
-        });
-      } else {
-        result.push(part);
+    return parts.map((part, i) => {
+      const isRef = /^\[Articles?\s+/i.test(part);
+      if (!isRef) return part;
+
+      const nums = Array.from(part.matchAll(/\d+/g), (m) => parseInt(m[0], 10));
+      if (nums.length === 0) return part;
+
+      // Single citation: render as one badge preserving original text
+      if (nums.length === 1) {
+        return (
+          <ArticleBadge key={i} idx={nums[0]} label={part} onHover={onHover} />
+        );
       }
+
+      // Multiple citations: render one badge per number, space-separated
+      return (
+        <span key={i} className="inline-flex items-center gap-0.5">
+          {nums.map((num, j) => (
+            <ArticleBadge
+              key={j}
+              idx={num}
+              label={`[Article ${num}]`}
+              onHover={onHover}
+            />
+          ))}
+        </span>
+      );
     });
-    return result;
   }
 
   // For React elements, recurse into children arrays
