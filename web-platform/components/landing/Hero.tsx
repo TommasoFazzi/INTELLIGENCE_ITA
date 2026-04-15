@@ -80,10 +80,10 @@ export default function Hero() {
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fadeInUp animation-delay-300">
             <Button size="lg" className="group bg-[#FF6B35] hover:bg-[#F77F00] text-white" asChild>
-              <a href="#waitlist">
-                Get Access
+              <Link href="/dashboard">
+                Open Platform
                 <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </a>
+              </Link>
             </Button>
             <Button variant="outline" size="lg" asChild className="border-white/20 hover:bg-white/5 group">
               <a href="#product-showcase">

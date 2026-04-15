@@ -11,14 +11,14 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
 ### App Structure
 - `app/layout.tsx` - Root Next.js layout (Google Analytics, GSC verification)
 - `app/globals.css` - Global styles with animations
-- `app/page.tsx` - Landing page (Hero, Features, ProductShowcase, ICPSection, StatsCounter, AboutSection, CTASection, waitlist). Exports canonical metadata.
+- `app/page.tsx` - Landing page (Hero, Features, ProductShowcase, ICPSection, StatsCounter, AboutSection, CTASection). Exports canonical metadata.
 - `app/map/page.tsx` - Tactical map route (SSR metadata + dynamic import)
 - `app/dashboard/page.tsx` - Dashboard route (SWR data fetching)
 - `app/dashboard/report/[id]/page.tsx` - **Report detail route (updated with comparison UI)**
-- `app/access/page.tsx` - **Access code entry form**: validates code against `ACCESS_CODES` env var via `app/api/access/verify/route.ts`, issues JWT signed with `JWT_SECRET`, sets `macrointel_access` cookie, redirects to original route. Open to all.
+- `app/access/page.tsx` - Legacy route — redirects to `/dashboard` (platform is now fully public).
 - `app/insights/page.tsx` - **Public intelligence briefings list**: fetches from `/api/v1/insights`, renders briefings with category badges and summaries. No auth required — public SEO page.
 - `app/insights/[slug]/page.tsx` - **Briefing detail**: renders full executive summary. No auth required.
-- `middleware.ts` - **JWT access control**: protects `/dashboard`, `/map`, `/stories`, `/oracle` — verifies `macrointel_access` cookie via `jose.jwtVerify`; redirects to `/access?from=<path>` on missing/invalid token.
+- `middleware.ts` - **No-op passthrough**: platform is fully public, all routes accessible without authentication.
 - `lib/communityColors.ts` - **Shared 15-color palette**: used by both `TacticalMap` (COLOR: COMM toggle) and `StorylineGraph` for visual consistency across pages.
   - State: `compareId` (nullable) to track which report is being compared
   - Fetches: `report` detail, `compareReport` detail (when `compareId` is set), `comparison` delta (LLM-synthesized)
