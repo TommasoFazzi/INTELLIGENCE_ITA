@@ -15,6 +15,8 @@ jobs:
   update-imports:
     name: Python import graph
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,6 +40,8 @@ jobs:
   update-frontend-deps:
     name: Frontend dependency graph
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -73,6 +77,8 @@ jobs:
   update-schema:
     name: Database ERD (tbls via SSH)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     # Only runs when migrations change
     if: |
       contains(join(github.event.commits.*.modified, ' '), 'migrations/')
