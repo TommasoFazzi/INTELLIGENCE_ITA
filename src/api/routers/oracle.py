@@ -4,8 +4,10 @@ import asyncio
 import logging
 import os
 from datetime import datetime, time as dt_time
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from slowapi.util import get_remote_address
 
 from ..limiter import limiter
 from ..oracle_auth import UserContext, verify_oracle_user
@@ -15,11 +17,11 @@ from ...llm.oracle_orchestrator import get_oracle_orchestrator_singleton
 _ORACLE_ADMIN_KEY = os.getenv("ORACLE_ADMIN_KEY")
 
 
-def _oracle_rate_limit(request: Request) -> str:
-    """Admin key bypasses the public rate limit."""
+def _oracle_key_func(request: Request) -> Optional[str]:
+    # slowapi skips rate limiting when key_func returns None
     if _ORACLE_ADMIN_KEY and request.headers.get("X-API-Key") == _ORACLE_ADMIN_KEY:
-        return "10000/day"
-    return "5/day"
+        return None
+    return get_remote_address(request)
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ router = APIRouter(prefix="/api/v1/oracle", tags=["Oracle"])
 
 
 @router.post("/chat")
-@limiter.limit(_oracle_rate_limit)
+@limiter.limit("5/day", key_func=_oracle_key_func)
 async def oracle_chat(
     request: Request,
     body: OracleChatRequest,
