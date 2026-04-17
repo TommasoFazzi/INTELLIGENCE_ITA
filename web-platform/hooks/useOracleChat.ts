@@ -52,7 +52,7 @@ export function useOracleChat() {
       try {
         const timeoutId = setTimeout(
           () => abortControllerRef.current?.abort(),
-          120000
+          240000
         );
 
         const response = await fetch('/api/proxy/oracle/chat', {
