@@ -123,32 +123,24 @@ class TestMergeFilters:
 
 
 class TestQueryAnalyzerMocked:
-    """Test QueryAnalyzer with mocked Gemini responses."""
+    """Test QueryAnalyzer with mocked LLM responses."""
 
-    @pytest.fixture
-    def mock_gemini_response(self):
-        """Create a mock Gemini response."""
-        mock_response = Mock()
-        mock_response.text = '''
-        {
-            "start_date": "2024-12-08",
-            "end_date": "2024-12-15",
-            "categories": ["CYBER"],
-            "gpe_filter": ["Russia"],
-            "sources": null,
-            "semantic_query": "cyber attacks infrastructure",
-            "extraction_confidence": 0.85
-        }
-        '''
-        return mock_response
+    _VALID_JSON = '''{
+        "start_date": "2024-12-08",
+        "end_date": "2024-12-15",
+        "categories": ["CYBER"],
+        "gpe_filter": ["Russia"],
+        "sources": null,
+        "semantic_query": "cyber attacks infrastructure",
+        "extraction_confidence": 0.85
+    }'''
 
-    @patch('src.llm.query_analyzer.genai')
-    def test_analyze_success(self, mock_genai, mock_gemini_response):
+    @patch('src.llm.query_analyzer.LLMFactory')
+    def test_analyze_success(self, mock_factory):
         """Test successful query analysis."""
-        # Setup mock
-        mock_model = Mock()
-        mock_model.generate_content.return_value = mock_gemini_response
-        mock_genai.GenerativeModel.return_value = mock_model
+        mock_client = Mock()
+        mock_client.generate.return_value = self._VALID_JSON
+        mock_factory.get.return_value = mock_client
 
         analyzer = QueryAnalyzer()
         result = analyzer.analyze("Quali attacchi cyber dalla Russia negli ultimi 7 giorni?")
@@ -160,13 +152,12 @@ class TestQueryAnalyzerMocked:
         # Dates should be converted to datetime
         assert isinstance(result['filters']['start_date'], datetime)
 
-    @patch('src.llm.query_analyzer.genai')
-    def test_analyze_fallback_on_error(self, mock_genai):
-        """Test fallback when Gemini fails."""
-        # Setup mock to raise exception
-        mock_model = Mock()
-        mock_model.generate_content.side_effect = Exception("API Error")
-        mock_genai.GenerativeModel.return_value = mock_model
+    @patch('src.llm.query_analyzer.LLMFactory')
+    def test_analyze_fallback_on_error(self, mock_factory):
+        """Test fallback when LLM call fails."""
+        mock_client = Mock()
+        mock_client.generate.side_effect = Exception("API Error")
+        mock_factory.get.return_value = mock_client
 
         analyzer = QueryAnalyzer()
         result = analyzer.analyze("Test query")
@@ -176,15 +167,12 @@ class TestQueryAnalyzerMocked:
         assert result['filters']['extraction_confidence'] == 0.0
         assert 'error' in result
 
-    @patch('src.llm.query_analyzer.genai')
-    def test_analyze_invalid_json_fallback(self, mock_genai):
-        """Test fallback when Gemini returns invalid JSON."""
-        mock_response = Mock()
-        mock_response.text = "This is not valid JSON"
-
-        mock_model = Mock()
-        mock_model.generate_content.return_value = mock_response
-        mock_genai.GenerativeModel.return_value = mock_model
+    @patch('src.llm.query_analyzer.LLMFactory')
+    def test_analyze_invalid_json_fallback(self, mock_factory):
+        """Test fallback when LLM returns invalid JSON."""
+        mock_client = Mock()
+        mock_client.generate.return_value = "This is not valid JSON"
+        mock_factory.get.return_value = mock_client
 
         analyzer = QueryAnalyzer()
         result = analyzer.analyze("Test query")
@@ -204,8 +192,7 @@ class TestQueryAnalyzerDateParsing:
             'semantic_query': 'test'
         }
 
-        # Create analyzer with mock
-        with patch('src.llm.query_analyzer.genai'):
+        with patch('src.llm.query_analyzer.LLMFactory'):
             analyzer = QueryAnalyzer()
             processed = analyzer._post_process_dates(filters)
 
@@ -222,7 +209,7 @@ class TestQueryAnalyzerDateParsing:
             'semantic_query': 'test'
         }
 
-        with patch('src.llm.query_analyzer.genai'):
+        with patch('src.llm.query_analyzer.LLMFactory'):
             analyzer = QueryAnalyzer()
             processed = analyzer._post_process_dates(filters)
 
@@ -233,8 +220,8 @@ class TestQueryAnalyzerDateParsing:
 class TestSingletonFactory:
     """Test the singleton factory function."""
 
-    @patch('src.llm.query_analyzer.genai')
-    def test_singleton_returns_same_instance(self, mock_genai):
+    @patch('src.llm.query_analyzer.LLMFactory')
+    def test_singleton_returns_same_instance(self, mock_factory):
         """get_query_analyzer should return the same instance."""
         # Reset singleton
         import src.llm.query_analyzer as qa_module

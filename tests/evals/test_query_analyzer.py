@@ -176,16 +176,25 @@ class TestQueryAnalyzerGraderLogic:
             "extraction_confidence": 0.9,
         })
 
-        with patch("google.generativeai.GenerativeModel.generate_content", return_value=mock_resp):
-            import google.generativeai as genai
-            genai.configure(api_key="ci-fake-key-for-unit-tests", transport="rest")
+        from unittest.mock import Mock
+        from src.llm.query_analyzer import QueryAnalyzer
 
-            from src.llm.query_analyzer import QueryAnalyzer
-            analyzer = QueryAnalyzer.__new__(QueryAnalyzer)
-            analyzer.model = genai.GenerativeModel("gemini-2.5-flash")
-            analyzer.model_name = "gemini-2.5-flash"
+        mock_client = Mock()
+        mock_client.generate.return_value = json.dumps({
+            "start_date": "2026-03-20",
+            "end_date": "2026-03-27",
+            "categories": None,
+            "gpe_filter": ["Iran"],
+            "sources": None,
+            "semantic_query": "Iran news",
+            "extraction_confidence": 0.9,
+        })
 
-            result = analyzer.analyze("Articoli Iran ultimi 7 giorni", reference_date="2026-03-27")
+        analyzer = QueryAnalyzer.__new__(QueryAnalyzer)
+        analyzer.model = mock_client
+        analyzer.model_name = "mock"
+
+        result = analyzer.analyze("Articoli Iran ultimi 7 giorni", reference_date="2026-03-27")
 
         assert result["success"] is True
         # Verifica che la reference_date sia stata effettivamente usata nel prompt
