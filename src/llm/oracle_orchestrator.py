@@ -297,7 +297,6 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
                 tools=self._anthropic_tools,
                 system=self._system_for_api,
                 temperature=0.4,
-                top_p=0.95,
                 max_tokens=8192,
             )
         except Exception as e:
@@ -397,7 +396,6 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
                     tools=self._anthropic_tools,
                     system=self._system_for_api,
                     temperature=0.4,
-                    top_p=0.95,
                     max_tokens=8192,
                 )
             except Exception as e:
