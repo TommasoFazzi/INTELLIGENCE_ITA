@@ -47,6 +47,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: deploy
           key: ${{ secrets.VPS_SSH_KEY }}
+          known_hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
           command_timeout: 30m
           script: |
             cd /opt/intelligence-ita/repo
