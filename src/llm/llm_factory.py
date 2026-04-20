@@ -207,8 +207,11 @@ class ClaudeClient(BaseLLMClient):
             kwargs["system"] = system
         if top_p is not None:
             kwargs["top_p"] = top_p
-        # Prompt caching: list-form system triggers the beta header
-        if isinstance(system, list):
+        # Prompt caching: list-form system with cache_control requires beta header
+        if isinstance(system, list) and any(
+            isinstance(block, dict) and block.get("cache_control")
+            for block in system
+        ):
             kwargs["extra_headers"] = {"anthropic-beta": "prompt-caching-2024-07-31"}
 
         # Retry with exponential backoff on rate limit and timeout errors
