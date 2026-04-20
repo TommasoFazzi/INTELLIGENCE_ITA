@@ -63,6 +63,7 @@ SESSION_TTL_SECONDS = 7200       # 2 hours
 SESSION_CLEANUP_INTERVAL = 600   # 10 minutes
 MAX_AGENTIC_ITERATIONS = 4       # Max tool-call rounds before forcing synthesis
 MAX_TOTAL_TOOL_CALLS = 6         # Hard cap on total tool calls across all iterations (rate limit protection)
+_SUMMARY_THRESHOLD = 1500        # chars; below this, tool results go into history verbatim
 
 
 class OracleOrchestrator:
@@ -101,6 +102,9 @@ class OracleOrchestrator:
 
         # Claude client (T2 — Claude Sonnet 4.6)
         self._claude_client: ClaudeClient = LLMFactory.get("t2")
+
+        # Compression client (T5 — Flash-Lite, summarizes tool results for chat history)
+        self._t5_client = LLMFactory.get("t5")
 
         # Session storage: {session_id: (ConversationContext, last_active_ts)}
         self._sessions: Dict[str, Tuple[ConversationContext, datetime]] = {}
@@ -319,33 +323,6 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
                 # No tool calls — Claude produced a final text answer
                 break
 
-            # Check hard cap: if we've already made MAX_TOTAL_TOOL_CALLS, force synthesis
-            total_tool_calls += len(tool_use_blocks)
-            if total_tool_calls >= MAX_TOTAL_TOOL_CALLS:
-                # Append Claude's assistant response, then inject a user message forcing synthesis
-                messages.append({
-                    "role": "assistant",
-                    "content": self._serialize_content(response.content),
-                })
-                messages.append({
-                    "role": "user",
-                    "content": f"Hai raggiunto il limite di {MAX_TOTAL_TOOL_CALLS} ricerche. Sintetizza ora con le informazioni raccolte."
-                })
-                # Force synthesis on next call without tools
-                try:
-                    response = self._claude_client.generate_with_tools(
-                        messages=messages,
-                        tools=[],  # Empty tools forces text-only response
-                        system=self._system_for_api,
-                        temperature=0.4,
-                        max_tokens=8192,
-                    )
-                except Exception as e:
-                    logger.error(f"Claude API call failed on final synthesis: {e}")
-                    break
-                # Exit loop — we have the final response
-                break
-
             # Append Claude's assistant response (with tool_use blocks) to messages
             messages.append({
                 "role": "assistant",
@@ -383,7 +360,10 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
                         tool_results_log.append((tool_name, cached))
                         tool = self.tool_registry.get_tool(tool_name)
                         tool_result_blocks.append(
-                            self._make_fn_response(tool_use_id, tool.format_for_history(cached))
+                            self._make_fn_response(
+                                tool_use_id,
+                                self._summarize_for_history(tool_name, tool.format_for_history(cached)),
+                            )
                         )
                         continue
 
@@ -409,14 +389,35 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
                         result.data.get("chunks", []),
                     )
 
-                # Format compressed result for chat history
+                # Summarize result for chat history (T5 if too long, verbatim otherwise)
                 tool = self.tool_registry.get_tool(tool_name)
-                compressed = tool.format_for_history(result)
-                tool_result_blocks.append(self._make_fn_response(tool_use_id, compressed))
+                history_content = self._summarize_for_history(tool_name, tool.format_for_history(result))
+                tool_result_blocks.append(self._make_fn_response(tool_use_id, history_content))
 
             # Append tool results as a user message
             if tool_result_blocks:
                 messages.append({"role": "user", "content": tool_result_blocks})
+
+            # Hard cap: tools already executed and results appended — now check if we should
+            # force synthesis instead of continuing. This ordering ensures every tool_use block
+            # always has a corresponding tool_result (Anthropic API requirement).
+            total_tool_calls += len(tool_use_blocks)
+            if total_tool_calls >= MAX_TOTAL_TOOL_CALLS:
+                messages.append({
+                    "role": "user",
+                    "content": f"Hai raggiunto il limite di {MAX_TOTAL_TOOL_CALLS} ricerche. Sintetizza ora con le informazioni raccolte.",
+                })
+                try:
+                    response = self._claude_client.generate_with_tools(
+                        messages=messages,
+                        tools=[],  # Empty tools forces text-only response
+                        system=self._system_for_api,
+                        temperature=0.4,
+                        max_tokens=8192,
+                    )
+                except Exception as e:
+                    logger.error(f"Claude API call failed on forced synthesis: {e}")
+                break
 
             # Next API call
             try:
@@ -517,22 +518,31 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
 
     # ── Helpers ────────────────────────────────────────────────────────────────
 
-    @staticmethod
-    def _truncate_for_history(content: str, max_chars: int = 2000) -> str:
-        """Compress tool result for chat history. ~2000 chars ≈ 500 tokens.
+    def _summarize_for_history(self, tool_name: str, content: str) -> str:
+        """Compress a tool result for chat history using T5 (Flash-Lite).
 
-        Preserves readability by respecting newlines and avoiding mid-word cuts.
+        Only invoked when content exceeds _SUMMARY_THRESHOLD. Falls back to
+        hard truncation if the LLM call fails, so the agentic loop never stalls.
         """
-        if len(content) <= max_chars:
+        if len(content) <= _SUMMARY_THRESHOLD:
             return content
 
-        # Try to cut at a newline boundary
-        truncated = content[:max_chars]
-        last_newline = truncated.rfind('\n')
-        if last_newline > max_chars * 0.8:  # if newline is recent enough
-            truncated = truncated[:last_newline]
-
-        return truncated.rstrip() + "\n[... result truncated for context management]"
+        prompt = (
+            f"The tool '{tool_name}' returned the following output:\n\n"
+            f"{content}\n\n"
+            "Write a concise summary (max 400 words) that preserves ALL of:\n"
+            "- Numbers, percentages, monetary values, dates\n"
+            "- Names of countries, people, organisations, tickers\n"
+            "- Key findings and factual statements\n"
+            "- Any errors or empty-result notices\n"
+            "Do NOT add interpretation or commentary. Output only the summary."
+        )
+        try:
+            return self._t5_client.generate(prompt=prompt, temperature=0.1, max_tokens=600)
+        except Exception as e:
+            logger.warning(f"Tool result summarization failed for '{tool_name}': {e} — falling back to truncation")
+            cutoff = content[:_SUMMARY_THRESHOLD].rstrip()
+            return cutoff + "\n[... truncated: summarization unavailable]"
 
     @staticmethod
     def _make_fn_response(tool_use_id: str, content: str) -> Dict:
@@ -540,7 +550,7 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
         return {
             "type": "tool_result",
             "tool_use_id": tool_use_id,
-            "content": OracleOrchestrator._truncate_for_history(content),
+            "content": content,
         }
 
     @staticmethod

@@ -62,7 +62,9 @@ Intelligence synthesis layer that consumes context from the vector database and 
   - `_build_system_prompt()` — encodes 9 Standard Operating Procedures (PATH FACTUAL / ANALYTICAL / OVERVIEW / MARKET / REFERENCE / NARRATIVE / TICKER / SPATIAL / COMPARATIVE) with intent-based time decay K values
   - `_process_agentic()` — builds messages list from history, calls `ClaudeClient.generate_with_tools()`, loops on `tool_use` blocks; appends `_serialize_content(response.content)` as assistant message; tool results as user message with `tool_result` blocks
   - `_serialize_content()` — converts Anthropic `TextBlock`/`ToolUseBlock` objects to plain dicts for messages history
-  - `_make_fn_response(tool_use_id, content)` — returns `{"type": "tool_result", "tool_use_id": ..., "content": ...}` dict
+  - `_make_fn_response(tool_use_id, content)` — returns `{"type": "tool_result", "tool_use_id": ..., "content": ...}` dict (content is pre-processed by `_summarize_for_history`)
+  - `_summarize_for_history(tool_name, content)` — if `len(content) > _SUMMARY_THRESHOLD` (1500 chars), calls T5 (Flash-Lite) to produce a ≤400-word summary preserving all numbers, names, and facts; falls back to hard truncation on LLM error so the loop never stalls
+  - `_t5_client` — `LLMFactory.get("t5")` instance, initialized in `__init__` alongside `_claude_client`
   - `_extract_text_from_response(response)` — extracts text from `response.content` blocks where `block.type == "text"`
   - Forced synthesis on max-iterations: calls `ClaudeClient.generate()` directly (no tool_choice manipulation)
   - **BYOK removed**: Oracle uses server-side `ANTHROPIC_API_KEY` exclusively (breaking change 2026-04-17)
