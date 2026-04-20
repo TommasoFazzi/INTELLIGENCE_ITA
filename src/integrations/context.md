@@ -49,7 +49,9 @@ Data acquisition layer for financial intelligence. Used by `src/finance/` for tr
     - `_save_macro_indicator()` updated to populate `previous_value` column inline via scalar subquery — no extra round-trip. ON CONFLICT also updates `previous_value`. Prerequisite for Phase 3 indicator delta calculation (`_get_macro_indicators_for_screening`).
   - **Class-level constants**:
     - `FRED_SERIES_FREQUENCY` — maps FRED series ID to frequency (daily/weekly/monthly)
-    - `MAX_STALENESS_BY_FREQUENCY` — max acceptable gap per frequency
+    - `MAX_STALENESS_BY_FREQUENCY` — max acceptable gap per frequency: `daily=2, weekly=10, monthly=75, 24_7=1`
+      - Monthly raised from 45→75 to account for FRED publication lag (Cass Freight, Nickel: up to 60d lag)
+      - Daily staleness for `frequency='daily'` uses NYSE business days (not calendar days) to avoid false stale flags on weekends/US holidays. Uses `last_nyse_trading_day(target_date)` from `market_calendar.py` as reference.
   - **Company Fundamentals** (7-day cache):
     - P/E ratio, forward P/E
     - Debt/Equity ratio

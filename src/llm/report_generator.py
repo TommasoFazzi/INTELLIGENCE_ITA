@@ -1522,43 +1522,52 @@ Respond with JSON only:"""
             f'data_date must be "{date_str}".\n'
         )
 
-        try:
-            response_text = self._reasoning_model.generate_content_raw(
-                prompt,
-                generation_config={
-                    "temperature": 0.3,
-                    "response_mime_type": "application/json",
-                },
-            ).strip()
-
-            # Parse + Pydantic validation
-            raw_json = json.loads(response_text)
-            validated = MacroAnalysisResultV2.model_validate(raw_json)
-
-            # Persist to macro_regime_history (non-blocking)
-            weekday = target_date.weekday() if hasattr(target_date, 'weekday') else 0
-            freshness_gap = 3 if weekday == 0 else 0
+        last_exc: Optional[Exception] = None
+        for attempt in range(2):
             try:
-                persistence = get_macro_regime_persistence_singleton()
-                saved = persistence.save(target_date, validated.model_dump(), freshness_gap)
-                if saved:
-                    logger.info(
-                        f"[v2] macro_regime_history saved:"
-                        f" regime={validated.risk_regime.label}"
-                        f" confidence={validated.risk_regime.confidence:.2f}"
-                        f" convergences={[c.id for c in validated.active_convergences]}"
-                    )
-            except Exception as save_err:
-                logger.warning(f"[v2] regime_history save failed (non-blocking): {save_err}")
+                response_text = self._reasoning_model.generate_content_raw(
+                    prompt,
+                    generation_config={
+                        "temperature": 0.3,
+                        "response_mime_type": "application/json",
+                    },
+                    request_options={"timeout": 180},
+                ).strip()
 
-            return {'success': True, 'result': validated.model_dump()}
+                # Parse + Pydantic validation
+                raw_json = json.loads(response_text)
+                validated = MacroAnalysisResultV2.model_validate(raw_json)
 
-        except ValidationError as ve:
-            logger.warning(f"[v2] Pydantic validation failed: {ve}")
-            return {'success': False, 'error': str(ve)}
-        except Exception as e:
-            logger.warning(f"[v2] _generate_macro_analysis_v2 failed: {e}")
-            return {'success': False, 'error': str(e)}
+                # Persist to macro_regime_history (non-blocking)
+                weekday = target_date.weekday() if hasattr(target_date, 'weekday') else 0
+                freshness_gap = 3 if weekday == 0 else 0
+                try:
+                    persistence = get_macro_regime_persistence_singleton()
+                    saved = persistence.save(target_date, validated.model_dump(), freshness_gap)
+                    if saved:
+                        logger.info(
+                            f"[v2] macro_regime_history saved:"
+                            f" regime={validated.risk_regime.label}"
+                            f" confidence={validated.risk_regime.confidence:.2f}"
+                            f" convergences={[c.id for c in validated.active_convergences]}"
+                        )
+                except Exception as save_err:
+                    logger.warning(f"[v2] regime_history save failed (non-blocking): {save_err}")
+
+                return {'success': True, 'result': validated.model_dump()}
+
+            except ValidationError as ve:
+                logger.warning(f"[v2] Pydantic validation failed (attempt {attempt + 1}): {ve}")
+                return {'success': False, 'error': str(ve)}
+            except Exception as e:
+                last_exc = e
+                if attempt == 0:
+                    logger.warning(f"[v2] attempt 1 failed ({e}), retrying in 10s")
+                    import time
+                    time.sleep(10)
+                else:
+                    logger.warning(f"[v2] _generate_macro_analysis_v2 failed after 2 attempts: {e}")
+                    return {'success': False, 'error': str(e)}
 
     def _format_macro_dashboard(
         self,

@@ -155,7 +155,33 @@ MATERIALITY FILTER:
   Significant: commodities > 2%, rates > 10bp, FX > 1%, VIX > 3pt
 
 === OUTPUT FORMAT ===
-Return ONLY a JSON object. No markdown, no preamble, no explanation outside JSON.
+Return ONLY a valid JSON object with EXACTLY these fields and types:
+{
+  "risk_regime": {
+    "label": "<one of the 7 regime labels above>",
+    "confidence": 0.70,
+    "drivers": ["<driver phrase 1>", "<driver phrase 2>", "<driver phrase 3>"]
+  },
+  "active_convergences": [
+    {"id": "...", "label": "...", "confidence": 0.75, "narrative": "...", "disambiguation_applied": null}
+  ],
+  "macro_narrative": "<80-120 word paragraph — MUST be at the TOP LEVEL of the JSON object>",
+  "key_divergences": [
+    {"description": "...", "severity": "notable"}
+  ],
+  "supply_chain_signals": [
+    {"sector": "energy", "signal": "<description of signal>", "confidence": "medium", "monitor_sources": ["energy"]}
+  ],
+  "dashboard_items": [
+    {"key": "BRENT_OIL", "value": 92.5, "delta_pct": -3.8, "materiality": "significant", "label": "Brent Oil", "note": null}
+  ],
+  "freshness_note": null,
+  "data_date": "YYYY-MM-DD"
+}
+CRITICAL: "drivers" MUST be a JSON array of strings, never a single string.
+CRITICAL: "macro_narrative" MUST be a top-level field, NOT nested inside "risk_regime".
+CRITICAL: Each supply_chain_signals item MUST include a "signal" field with the description text.
+No markdown, no preamble, no explanation outside the JSON object.
 """.strip()
 
 

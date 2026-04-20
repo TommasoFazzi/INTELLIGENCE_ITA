@@ -699,7 +699,7 @@ class OpenBBMarketService:
     MAX_STALENESS_BY_FREQUENCY = {
         'daily':   2,
         'weekly':  10,
-        'monthly': 45,
+        'monthly': 75,  # FRED monthly lag can reach 60d+ (Cass Freight, Nickel)
         '24_7':    1,
     }
 
@@ -771,8 +771,18 @@ class OpenBBMarketService:
             if isinstance(data_date, str):
                 data_date = date_type.fromisoformat(data_date[:10])
 
-            # Staleness check against the real data date
-            staleness_days = (target_date - data_date).days
+            # Staleness check: FRED daily indicators only publish on NYSE trading days,
+            # so use last NYSE business day as reference instead of calendar days.
+            # This prevents false stale flags on weekends and US federal holidays.
+            if frequency == 'daily':
+                try:
+                    from src.integrations.market_calendar import last_nyse_trading_day
+                    last_biz = last_nyse_trading_day(target_date)
+                    staleness_days = max(0, (last_biz - data_date).days) if last_biz else (target_date - data_date).days
+                except Exception:
+                    staleness_days = (target_date - data_date).days
+            else:
+                staleness_days = (target_date - data_date).days
 
             if staleness_days > max_staleness:
                 logger.warning(

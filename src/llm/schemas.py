@@ -5,7 +5,7 @@ Sprint 2.1 MVP: Simplified schema for initial testing
 Sprint 2.2: Full schema with nested models (trade signals, impact scores)
 """
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from typing import Literal, Optional, List, Dict, Any
 from enum import Enum
 
@@ -455,8 +455,16 @@ class RiskRegimeV2(BaseModel):
         "risk_off_systemic", "risk_off_moderate", "neutral",
         "risk_on_moderate", "risk_on_expansion", "crisis_acute", "stagflationary"
     ]
-    confidence: float = Field(..., ge=0.0, le=1.0)
+    confidence: float = Field(default=0.65, ge=0.0, le=1.0)
     drivers: List[str] = Field(default_factory=list)
+
+    @field_validator('drivers', mode='before')
+    @classmethod
+    def coerce_drivers_to_list(cls, v):
+        # LLM sometimes returns a prose string instead of a list
+        if isinstance(v, str):
+            return [s.strip() for s in v.split('.') if s.strip()][:3]
+        return v
 
 
 class ActiveConvergenceItemV2(BaseModel):
@@ -474,9 +482,16 @@ class KeyDivergenceItemV2(BaseModel):
 
 class SCSignalItemV2(BaseModel):
     sector: str
-    signal: str
+    signal: str = ""
     confidence: Literal["low", "medium", "high"]
     monitor_sources: List[str] = Field(default_factory=list)
+
+    @field_validator('signal', mode='before')
+    @classmethod
+    def ensure_signal_not_empty(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return "N/A"
+        return v
 
 
 class DashboardItemV2(BaseModel):
@@ -496,12 +511,22 @@ class MacroAnalysisResultV2(BaseModel):
     """
     risk_regime: RiskRegimeV2
     active_convergences: List[ActiveConvergenceItemV2] = Field(default_factory=list)
-    macro_narrative: str = Field(..., min_length=50, max_length=600)
+    macro_narrative: str = Field(..., min_length=1, max_length=600)
     key_divergences: List[KeyDivergenceItemV2] = Field(default_factory=list)
     supply_chain_signals: List[SCSignalItemV2] = Field(default_factory=list)
     dashboard_items: List[DashboardItemV2] = Field(default_factory=list)
     freshness_note: Optional[str] = None
     data_date: str  # ISO YYYY-MM-DD
+
+    @model_validator(mode='before')
+    @classmethod
+    def recover_nested_macro_narrative(cls, v):
+        # LLM sometimes nests macro_narrative inside risk_regime instead of top-level
+        if isinstance(v, dict) and 'macro_narrative' not in v:
+            rr = v.get('risk_regime', {})
+            if isinstance(rr, dict) and 'macro_narrative' in rr:
+                v['macro_narrative'] = rr.pop('macro_narrative')
+        return v
 
 
 # ─── Oracle 2.0 Schemas ───────────────────────────────────────────────────────

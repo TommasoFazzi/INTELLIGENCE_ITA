@@ -98,7 +98,7 @@ DEFAULT_STEPS = [
         name="market_data",
         command="python scripts/fetch_daily_market_data.py",
         description="Fetch dati di mercato via OpenBB",
-        timeout_seconds=300,  # 5 min
+        timeout_seconds=600,  # 10 min — FRED/OpenBB può essere lento su rete Hetzner
         continue_on_failure=True  # Opzionale, non blocca la pipeline
     ),
     PipelineStep(
