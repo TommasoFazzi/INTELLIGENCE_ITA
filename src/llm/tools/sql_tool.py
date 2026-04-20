@@ -58,7 +58,7 @@ class SQLTool(BaseTool):
         "v_active_storylines, v_storyline_graph, country_profiles, v_sanctions_public, "
         "conflict_events, country_boundaries, strategic_infrastructure, macro_forecasts, trade_flow_indicators. "
         "\n\nKEY SCHEMA:\n"
-        "- articles: id, title, source, category, published_date DATE, url, content\n"
+        "- articles: id, title, link, source, category, subcategory, published_date TIMESTAMPTZ, summary, full_text, content_hash\n"
         "- storylines: id, title, summary, momentum_score, narrative_status, community_id\n"
         "- trade_signals: id, ticker, signal (BULLISH/BEARISH/NEUTRAL/WATCHLIST), timeframe, rationale, confidence, signal_date\n"
         "- entities: id, name, entity_type, intelligence_score\n"

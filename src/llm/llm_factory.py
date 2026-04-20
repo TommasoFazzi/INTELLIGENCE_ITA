@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -193,6 +194,8 @@ class ClaudeClient(BaseLLMClient):
         top_p: float | None = None,
         max_tokens: int = 4096,
     ) -> Any:
+        import anthropic
+
         kwargs: dict[str, Any] = {
             "model": self._model_name,
             "max_tokens": max_tokens,
@@ -208,10 +211,24 @@ class ClaudeClient(BaseLLMClient):
         if isinstance(system, list):
             kwargs["extra_headers"] = {"anthropic-beta": "prompt-caching-2024-07-31"}
 
-        return self._client.messages.create(
-            **kwargs,
-            timeout=self._timeout,
-        )
+        # Retry with exponential backoff on rate limit and timeout errors
+        for attempt in range(3):
+            try:
+                return self._client.messages.create(
+                    **kwargs,
+                    timeout=self._timeout,
+                )
+            except anthropic.RateLimitError as e:
+                if attempt == 2:
+                    raise
+                wait_time = 2 ** attempt  # 1s, 2s
+                logger.warning(f"Rate limit on attempt {attempt + 1}/3, backing off {wait_time}s: {e}")
+                time.sleep(wait_time)
+            except anthropic.APITimeoutError as e:
+                if attempt == 2:
+                    raise
+                logger.warning(f"Timeout on attempt {attempt + 1}/3, backing off 1s: {e}")
+                time.sleep(1)
 
     def __repr__(self) -> str:
         return f"ClaudeClient(model={self._model_name!r})"
