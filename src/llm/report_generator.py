@@ -494,7 +494,7 @@ Output ONLY the {self.expansion_variants} variant queries, one per line, without
         self,
         articles: List[Dict],
         focus_areas: List[str],
-        top_n: int = 60,
+        top_n: int = 100,
         min_similarity: float = 0.30,
         min_fallback: int = 10
     ) -> List[Dict]:
@@ -1914,7 +1914,7 @@ Respond with JSON only:"""
         to_time: Optional[datetime] = None,
         rag_queries: Optional[List[str]] = None,
         rag_top_k: int = 5,
-        top_articles: int = 60,
+        top_articles: int = 100,
         min_similarity: float = 0.30,
         min_fallback: int = 10
     ) -> Dict[str, Any]:
@@ -2286,7 +2286,8 @@ Se fonti di tier diverso riportano posizioni divergenti sullo stesso evento, seg
                     prompt,
                     generation_config={
                         "temperature": 0.35,  # Slightly higher for narrative flow
-                    }
+                    },
+                    request_options={"timeout": 240},
                 )
                 logger.info(f"✓ Report generated successfully ({len(report_text)} characters)")
 
@@ -2420,7 +2421,7 @@ Se fonti di tier diverso riportano posizioni divergenti sullo stesso evento, seg
         save: bool = True,
         save_to_db: bool = True,
         output_dir: str = "reports",
-        top_articles: int = 60,
+        top_articles: int = 100,
         min_similarity: float = 0.30,
         min_fallback: int = 10
     ) -> Dict[str, Any]:
@@ -3145,7 +3146,7 @@ Respond with JSON only:"""
         save: bool = True,
         save_to_db: bool = True,
         output_dir: str = "reports",
-        top_articles: int = 60,
+        top_articles: int = 100,
         min_similarity: float = 0.30,
         min_fallback: int = 10,
         skip_article_signals: bool = False

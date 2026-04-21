@@ -116,20 +116,21 @@ class GeminiClient(BaseLLMClient):
         )
         return response.text
 
-    def generate_content_raw(self, prompt: str, generation_config: dict) -> str:
+    def generate_content_raw(
+        self, prompt: str, generation_config: dict, request_options: dict | None = None
+    ) -> str:
         """Compatibility shim: passthrough to genai.GenerativeModel.generate_content().
 
         For gradual migration of report_generator.py call sites that pass complex
         generation_config dicts. Remove once all T1 call sites use generate().
+        request_options overrides the default timeout when provided.
         """
         model = self._genai.GenerativeModel(
             self._model_name,
             generation_config=generation_config,
         )
-        response = model.generate_content(
-            prompt,
-            request_options={"timeout": self._timeout},
-        )
+        opts = request_options if request_options is not None else {"timeout": self._timeout}
+        response = model.generate_content(prompt, request_options=opts)
         return response.text
 
     def __repr__(self) -> str:
