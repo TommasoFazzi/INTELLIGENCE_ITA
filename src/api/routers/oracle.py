@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import secrets
 from datetime import datetime, time as dt_time
 from typing import Optional
 
@@ -19,7 +20,10 @@ _ORACLE_ADMIN_KEY = os.getenv("ORACLE_ADMIN_KEY")
 
 def _oracle_key_func(request: Request) -> Optional[str]:
     # slowapi skips rate limiting when key_func returns None
-    if _ORACLE_ADMIN_KEY and request.headers.get("X-API-Key") == _ORACLE_ADMIN_KEY:
+    # Use secrets.compare_digest to prevent timing side-channel on admin key
+    if _ORACLE_ADMIN_KEY and secrets.compare_digest(
+        request.headers.get("X-API-Key", ""), _ORACLE_ADMIN_KEY
+    ):
         return None
     return get_remote_address(request)
 
