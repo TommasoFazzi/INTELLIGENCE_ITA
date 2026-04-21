@@ -303,7 +303,7 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
                 tools=self._anthropic_tools,
                 system=self._system_for_api,
                 temperature=0.4,
-                max_tokens=8192,
+                max_tokens=4096,
             )
         except Exception as e:
             logger.error(f"Initial Claude API call failed: {e}")
@@ -413,7 +413,7 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
                         tools=[],  # Empty tools forces text-only response
                         system=self._system_for_api,
                         temperature=0.4,
-                        max_tokens=8192,
+                        max_tokens=4096,
                     )
                 except Exception as e:
                     logger.error(f"Claude API call failed on forced synthesis: {e}")
@@ -426,7 +426,7 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
                     tools=self._anthropic_tools,
                     system=self._system_for_api,
                     temperature=0.4,
-                    max_tokens=8192,
+                    max_tokens=4096,
                 )
             except Exception as e:
                 logger.error(f"Claude API call failed on iteration {iterations_done}: {e}")
@@ -444,7 +444,7 @@ Se i dati sono insufficienti o assenti, usa comunque il formato <DOCUMENTO> e di
                     prompt=forced_prompt,
                     system=self._system_for_api,
                     temperature=0.4,
-                    max_tokens=8192,
+                    max_tokens=4096,
                 )
             except Exception as e:
                 logger.error(f"Forced synthesis failed: {e}")

@@ -7,7 +7,7 @@ tiers:
   t2:
     provider: anthropic
     model: claude-sonnet-4-6
-    timeout: 60
+    timeout: 120
 
   t3:
     provider: openai_compatible
