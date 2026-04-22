@@ -379,7 +379,7 @@ class MacroDashboardItem(BaseModel):
     label: str = Field(
         ...,
         description="Interpretive label (e.g., 'Calm', 'Elevated Fear', 'Supply Concern')",
-        max_length=30
+        max_length=60
     )
     emoji: str = Field(
         default="",
@@ -412,11 +412,38 @@ class MacroAnalysisResult(BaseModel):
         description="Overall market risk regime based on indicator synthesis"
     )
 
+    @field_validator('risk_regime', mode='before')
+    @classmethod
+    def normalize_risk_regime(cls, v):
+        _VALID = {
+            "RISK_ON", "RISK_OFF", "MIXED", "TRANSITION",
+            "CAUTIOUS", "CAUTIOUS_RISK_ON", "CAUTIOUS_RISK_OFF",
+            "NEUTRAL", "DEFENSIVE",
+        }
+        if v in _VALID:
+            return v
+        u = str(v).upper()
+        if u in _VALID:
+            return u
+        if "RISK_ON" in u and "CAUTIOUS" in u:
+            return "CAUTIOUS_RISK_ON"
+        if "RISK_OFF" in u and "CAUTIOUS" in u:
+            return "CAUTIOUS_RISK_OFF"
+        if "RISK_ON" in u:
+            return "RISK_ON"
+        if "RISK_OFF" in u:
+            return "RISK_OFF"
+        if "MIXED" in u or "NEUTRAL" in u:
+            return "MIXED"
+        if "CAUTIOUS" in u:
+            return "CAUTIOUS"
+        return "NEUTRAL"
+
     macro_narrative: str = Field(
         ...,
         description="3-4 sentence interpretation of the macro environment",
         min_length=100,
-        max_length=1500  # Increased for more detailed narratives
+        max_length=3000
     )
 
     key_divergences: Optional[list[str]] = Field(
@@ -511,7 +538,7 @@ class MacroAnalysisResultV2(BaseModel):
     """
     risk_regime: RiskRegimeV2
     active_convergences: List[ActiveConvergenceItemV2] = Field(default_factory=list)
-    macro_narrative: str = Field(..., min_length=1, max_length=600)
+    macro_narrative: str = Field(..., min_length=1, max_length=1200)
     key_divergences: List[KeyDivergenceItemV2] = Field(default_factory=list)
     supply_chain_signals: List[SCSignalItemV2] = Field(default_factory=list)
     dashboard_items: List[DashboardItemV2] = Field(default_factory=list)
