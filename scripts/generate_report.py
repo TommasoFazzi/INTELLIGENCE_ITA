@@ -67,8 +67,8 @@ def main():
     parser.add_argument(
         '--top-articles',
         type=int,
-        default=60,
-        help='Maximum number of top relevant articles to include (default: 60)'
+        default=100,
+        help='Maximum number of top relevant articles to include (default: 100)'
     )
     parser.add_argument(
         '--min-similarity',
