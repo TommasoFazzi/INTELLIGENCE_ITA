@@ -70,7 +70,7 @@ Data acquisition layer for financial intelligence. Used by `src/finance/` for tr
   - Backed by `pandas_market_calendars` NYSE calendar (accurate US holiday schedule)
   - Used by `scripts/fetch_daily_market_data.py` backfill logic and `ensure_daily_macro_data()` for holiday logging
   - **MACRO_INDICATORS `fetch_category` field**: each of the 38 indicators has a `fetch_category` key:
-    - `equity_etf` — NYSE-listed (SP500, VIX, NASDAQ, URA)
+    - `equity_etf` — NYSE/OTC-listed (SP500, VIX, NASDAQ, SRUUF — Sprott Physical Uranium Trust)
     - `commodities` — CME futures that follow NYSE holidays (Oil, Gold, Copper, Gas, Silver)
     - `fred` — Federal Reserve data (available every weekday regardless of holidays)
     - `fx` — Forex 24/5 (EUR/USD, DXY, RUB, CNH; unaffected by NYSE holidays)

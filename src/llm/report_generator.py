@@ -1635,6 +1635,132 @@ Respond with JSON only:"""
 {narrative}{divergence_section}{watch_section}
 """
 
+    # Unit formatting for V2 dashboard items (key → format type)
+    _KEY_UNIT_FORMAT: Dict[str, str] = {
+        # Commodities → USD price
+        'BRENT_OIL': 'usd', 'WTI_OIL': 'usd', 'NATURAL_GAS': 'usd',
+        'GOLD': 'usd', 'SILVER': 'usd', 'COPPER': 'usd',
+        'ALUMINUM': 'usd', 'WHEAT': 'usd', 'NICKEL': 'usd',
+        'URANIUM': 'usd', 'BITCOIN': 'usd',
+        # Rates / Yields → percentage
+        'US_10Y_YIELD': 'pct', 'US_2Y_YIELD': 'pct',
+        'YIELD_CURVE_10Y_2Y': 'pct', 'REAL_RATE_10Y': 'pct',
+        'BREAKEVEN_10Y': 'pct', 'INFLATION_EXPECTATION_5Y': 'pct',
+        'US_HY_SPREAD': 'pct', 'US_UNEMPLOYMENT': 'pct',
+        # Equity / Vol → bare number (1 decimal)
+        'SP500': 'pts', 'NASDAQ': 'pts', 'VIX': 'pts', 'DOLLAR_INDEX': 'pts',
+        # Indices → 1 decimal with comma
+        'FIN_STRESS_INDEX': 'pts', 'CASS_FREIGHT_INDEX': 'pts',
+        'US_CPI': 'pts', 'US_INDUSTRIAL_PROD': 'pts',
+        # FX → 4 decimals
+        'EUR_USD': 'fx', 'USD_JPY': 'fx', 'USD_GBP': 'fx',
+        'USD_CNY': 'fx', 'USD_CNH': 'fx',
+    }
+
+    _REGIME_EMOJI: Dict[str, str] = {
+        'risk_on_expansion': '🟢', 'risk_on_moderate': '🟢',
+        'neutral': '🟡',
+        'risk_off_moderate': '🟠', 'risk_off_systemic': '🔴',
+        'stagflationary': '⚠️', 'crisis_acute': '🚨',
+    }
+
+    _SEVERITY_PREFIX: Dict[str, str] = {
+        'critical': '🔴', 'significant': '⚠️', 'notable': '📌',
+    }
+
+    def _fmt_v2_value(self, key: str, value: float) -> str:
+        fmt = self._KEY_UNIT_FORMAT.get(key, 'pts')
+        if fmt == 'usd':
+            return f"${value:,.1f}" if value >= 100 else f"${value:.2f}"
+        if fmt == 'pct':
+            return f"{value:.2f}%"
+        if fmt == 'fx':
+            return f"{value:.4f}"
+        return f"{value:,.1f}"  # pts / default
+
+    def _format_macro_dashboard_v2(
+        self,
+        macro_v2: Dict[str, Any],
+        target_date,
+    ) -> str:
+        """
+        Render MacroAnalysisResultV2 as a visual pre-report header (Option B).
+
+        Mirrors _format_macro_dashboard() style but consumes V2 schema:
+        DashboardItemV2 (float value + delta_pct + materiality) and RiskRegimeV2
+        (label + confidence + drivers). 'noise' items are skipped; 'significant'
+        items are bolded in the ticker bar.
+        """
+        date_str = target_date.strftime('%d/%m/%Y') if hasattr(target_date, 'strftime') else str(target_date)
+
+        regime_raw = macro_v2.get('risk_regime', {})
+        regime_label = regime_raw.get('label', 'neutral')
+        confidence = regime_raw.get('confidence', 0.0)
+        drivers = regime_raw.get('drivers', [])
+        regime_emoji = self._REGIME_EMOJI.get(regime_label, '⚪')
+        regime_display = regime_label.replace('_', ' ').title()
+
+        # Ticker bar — skip noise, bold significant
+        ticker_parts = []
+        items = macro_v2.get('dashboard_items', [])
+        for item in items[:8]:
+            materiality = item.get('materiality', 'notable')
+            if materiality == 'noise':
+                continue
+            key = item.get('key', '')
+            value = item.get('value', 0.0)
+            delta_pct = item.get('delta_pct', 0.0)
+            label = item.get('label', '')
+
+            val_str = self._fmt_v2_value(key, value)
+            delta_emoji = '📈' if delta_pct > 0 else '📉'
+            delta_str = f"{delta_emoji}{delta_pct:+.1f}%"
+            display_key = key.replace('_', ' ').replace('BRENT OIL', 'OIL').replace('WTI OIL', 'WTI')
+
+            cell = f"`{display_key}: {val_str} {delta_str}`"
+            if label:
+                cell = f"`{display_key}: {val_str} {delta_str} — {label}`"
+            if materiality == 'significant':
+                cell = f"**{cell}**"
+            ticker_parts.append(cell)
+
+        ticker_bar = " | ".join(ticker_parts) if ticker_parts else "_No indicators available_"
+
+        # Regime line with confidence and top drivers
+        drivers_str = f" — {'; '.join(drivers[:2])}" if drivers else ""
+        regime_line = f"{regime_emoji} *Risk Regime: {regime_display} ({confidence:.0%}){drivers_str}*"
+
+        # Narrative
+        narrative = macro_v2.get('macro_narrative', '')
+
+        # Divergences sorted by severity
+        divergences = macro_v2.get('key_divergences', [])
+        div_section = ""
+        if divergences:
+            severity_order = {'critical': 0, 'significant': 1, 'notable': 2}
+            sorted_divs = sorted(divergences, key=lambda d: severity_order.get(d.get('severity', 'notable'), 2))
+            div_lines = [
+                f"{self._SEVERITY_PREFIX.get(d.get('severity', 'notable'), '📌')} {d.get('description', '')}"
+                for d in sorted_divs
+            ]
+            div_section = "\n\n**Divergences:** " + " · ".join(div_lines)
+
+        # Supply chain signals (high/medium confidence only)
+        sc_signals = [s for s in macro_v2.get('supply_chain_signals', []) if s.get('confidence') in ('high', 'medium')]
+        sc_section = ""
+        if sc_signals:
+            sc_parts = [f"{s.get('sector', '')}: {s.get('signal', '')}" for s in sc_signals[:3]]
+            sc_section = f"\n\n**Supply Chain:** {' · '.join(sc_parts)}"
+
+        return f"""🌍 **MACRO DASHBOARD** ({date_str})
+
+{ticker_bar}
+
+{regime_line}
+
+{narrative}{div_section}{sc_section}
+"""
+
     # =====================================================================
     # Narrative Storyline Context
     # =====================================================================
@@ -2141,7 +2267,12 @@ Use them to:
             )
             if strategic_result.get('success'):
                 report_text = strategic_result['report_text']
-                report_text = f"# Intelligence Briefing — {report_date}\n\n" + report_text
+                v2_dashboard = self._format_macro_dashboard_v2(macro_v2_result['result'], today)
+                report_text = (
+                    f"# 🌍 Intelligence Briefing — {report_date}\n\n"
+                    f"{v2_dashboard}\n\n---\n\n"
+                    + report_text
+                )
                 logger.info(f"✓ Strategic report (v2) generated ({len(report_text)} chars)")
             else:
                 logger.warning(

@@ -350,15 +350,19 @@ indicators:
 
   URANIUM:
     ontology: >
-      URA è un ETF proxy dell'interesse per il nucleare come fonte di energia low-carbon ad alta densità.
-      Il mercato fisico dell'uranio (U3O8) è opaco e illiquido — dominato da contratti a lungo termine.
-      Guidato da: politiche di energy security post-2022, piani di espansione nucleare cinesi,
-      moratorie vs riattivazioni di reattori, e supply da Kazakhstan.
+      SRUUF (Sprott Physical Uranium Trust) detiene U₃O₈ fisico (yellowcake) in custodia certificata
+      e si muove direttamente con il prezzo spot dell'uranio — non con le equity dei minatori.
+      Il mercato fisico è dominato da contratti a lungo termine tra utility e produttori; il prezzo spot
+      riflette la domanda incrementale fuori contratto e le aspettative di nuova capacità reattori.
+      Guidato da: politiche di energy security e nuclear renaissance (UE, Giappone, Corea del Sud),
+      piani di espansione reattori cinesi, moratorie vs riattivazioni post-Fukushima, concentrazione
+      dell'offerta (Kazakhstan ~45% produzione globale, Canada, Australia), e ritiro ESG-linked.
     correlations:
-      SILVER:              [+1, "Entrambi beneficiano della transizione energetica"]
-      NICKEL:              [+1, "Metalli critici per l'energia pulita"]
-      NATURAL_GAS:         [-1, "Nucleare è sostituto del gas per generazione baseload"]
-      BRENT_OIL:           [-1, "Energy security spinge verso alternative"]
+      NATURAL_GAS:         [+1, "Gas costoso rende il nucleare più competitivo → aumento domanda U₃O₈; sostituti nella generazione baseload"]
+      BRENT_OIL:           [-1, "Energy security spinge verso indipendenza da fossili → preferenza nucleare"]
+      DOLLAR_INDEX:        [-1, "U₃O₈ prezzato in USD; DXY alto comprime prezzo in termini reali"]
+      GOLD:                [+1, "Entrambi beneficiano di risk-off su energia e de-dollarizzazione"]
+      COPPER:              [+1, "Segnale correlato di energy transition e infrastruttura elettrica"]
 
   # =========================================================================
   # FX

@@ -343,10 +343,10 @@ class OpenBBMarketService:
             'fetch_category': 'commodities',
         },
         'URANIUM': {
-            'symbol': 'URA',
+            'symbol': 'SRUUF',
             'unit': 'USD',
             'category': 'COMMODITIES',
-            'description': 'Global X Uranium ETF (Nuclear energy proxy)',
+            'description': 'Sprott Physical Uranium Trust (U₃O₈ spot price proxy)',
             'fetch_category': 'equity_etf',
         },
         # TED_SPREAD removed: LIBOR→SOFR transition 2023, series degraded
