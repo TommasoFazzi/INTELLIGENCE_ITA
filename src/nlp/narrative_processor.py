@@ -168,6 +168,7 @@ class NarrativeProcessor:
             'orphans_buffered': 0,
             'new_storylines': 0,
             'summaries_evolved': 0,
+            'summaries_backfilled': 0,
             'validated_on_scope': 0,
             'archived_off_topic': 0,
             'graph_edges_updated': 0,
@@ -304,10 +305,17 @@ class NarrativeProcessor:
         # 9. Apply decay to inactive storylines
         stats['decay_stats'] = self._apply_decay()
 
+        # 9.5. Backfill summaries for active/emerging storylines still missing them.
+        # Processes up to 50 per run (priority: most articles first) to clear the
+        # backlog without significantly extending pipeline runtime.
+        if not self.skip_llm and self.gemini_available:
+            backfilled = self._backfill_missing_summaries(limit=50)
+            stats['summaries_backfilled'] = backfilled
+
         logger.info(f"=== Narrative Processing Complete ===")
         logger.info(f"  Events: {stats['micro_clusters']} ({stats['events_matched']} matched, {stats['events_orphaned']} orphaned)")
         logger.info(f"  New storylines: {stats['new_storylines']}")
-        logger.info(f"  Summaries evolved: {stats['summaries_evolved']}")
+        logger.info(f"  Summaries evolved: {stats['summaries_evolved']}, backfilled: {stats['summaries_backfilled']}")
         logger.info(f"  Relevance validation: {stats['validated_on_scope']} on-scope, {stats['archived_off_topic']} archived off-topic")
         logger.info(f"  Graph edges updated: {stats['graph_edges_updated']}")
         logger.info(f"  Decay: {stats['decay_stats']}")
@@ -1061,21 +1069,58 @@ ENTITIES: [5-10 key proper nouns — People, Organizations, Locations — comma-
             # Parse response
             new_title = current_title
             new_summary = current_summary or ""
+            summary_parsed = False
 
             for line in text.split('\n'):
                 line = line.strip()
                 if line.upper().startswith('TITLE:'):
                     new_title = line[6:].strip().strip('"\'')[:100]
 
-            # Extract EXECUTIVE SUMMARY block (multiline bullets)
+            def _extract_summary_block(marker: str, full_text: str) -> Optional[str]:
+                """Extract text after marker, stopping at ENTITIES:. Returns None if empty."""
+                parts = re.split(marker, full_text, flags=re.IGNORECASE, maxsplit=1)
+                if len(parts) == 2:
+                    block = parts[1]
+                    if 'ENTITIES:' in block.upper():
+                        block = re.split(r'ENTITIES:', block, flags=re.IGNORECASE)[0]
+                    candidate = block.strip()
+                    return candidate if candidate else None
+                return None
+
+            # PRIMARY: EXECUTIVE SUMMARY:
             if 'EXECUTIVE SUMMARY:' in text.upper():
-                summary_parts = re.split(r'EXECUTIVE SUMMARY:', text, flags=re.IGNORECASE, maxsplit=1)
-                if len(summary_parts) == 2:
-                    summary_block = summary_parts[1]
-                    # Stop at ENTITIES: if present
-                    if 'ENTITIES:' in summary_block.upper():
-                        summary_block = re.split(r'ENTITIES:', summary_block, flags=re.IGNORECASE)[0]
-                    new_summary = summary_block.strip()
+                candidate = _extract_summary_block(r'EXECUTIVE SUMMARY:', text)
+                if candidate:
+                    new_summary = candidate
+                    summary_parsed = True
+
+            # FALLBACK 1: plain SUMMARY: marker (Gemini sometimes omits "EXECUTIVE")
+            if not summary_parsed and re.search(r'\bSUMMARY:', text, re.IGNORECASE):
+                candidate = _extract_summary_block(r'\bSUMMARY:', text)
+                if candidate and any(
+                    l.strip().startswith(('-', '•', '*'))
+                    for l in candidate.splitlines()
+                ):
+                    new_summary = candidate
+                    summary_parsed = True
+
+            # FALLBACK 2: extract raw bullet lines from the full response
+            if not summary_parsed:
+                bullet_lines = [
+                    l.strip() for l in text.splitlines()
+                    if l.strip().startswith(('-', '•', '*'))
+                    and len(l.strip()) > 15
+                    and not re.search(r'\bENTITIES\b', l, re.IGNORECASE)
+                ]
+                if bullet_lines:
+                    new_summary = '\n'.join(bullet_lines[:3])
+                    summary_parsed = True
+
+            if not summary_parsed:
+                logger.warning(
+                    f"Storyline #{storyline_id}: could not parse summary from LLM response "
+                    f"(format unexpected). Preserving existing value."
+                )
 
             # Parse ENTITIES: line
             new_entities = None
@@ -1092,13 +1137,15 @@ ENTITIES: [5-10 key proper nouns — People, Organizations, Locations — comma-
                         new_entities = parsed[:15]
                     break
 
-            # Encode summary → summary_vector
-            summary_vector = self.embedding_model.encode(new_summary).tolist()
+            # Encode summary → summary_vector only when we have parseable content
+            summary_vector = self.embedding_model.encode(new_summary).tolist() if new_summary else None
 
             # Update DB
+            # Only write summary+vector when parsing succeeded — never overwrite with "".
+            # Always write title (parsed or unchanged) and entities if available.
             with self.db.get_connection() as conn:
                 with conn.cursor() as cur:
-                    if new_entities:
+                    if summary_vector is not None and new_entities:
                         cur.execute("""
                             UPDATE storylines SET
                                 title = %s,
@@ -1107,7 +1154,7 @@ ENTITIES: [5-10 key proper nouns — People, Organizations, Locations — comma-
                                 key_entities = %s
                             WHERE id = %s
                         """, (new_title, new_summary, summary_vector, Json(new_entities), storyline_id))
-                    else:
+                    elif summary_vector is not None:
                         cur.execute("""
                             UPDATE storylines SET
                                 title = %s,
@@ -1115,10 +1162,23 @@ ENTITIES: [5-10 key proper nouns — People, Organizations, Locations — comma-
                                 summary_vector = %s::vector
                             WHERE id = %s
                         """, (new_title, new_summary, summary_vector, storyline_id))
+                    elif new_entities:
+                        cur.execute("""
+                            UPDATE storylines SET title = %s, key_entities = %s WHERE id = %s
+                        """, (new_title, Json(new_entities), storyline_id))
+                    else:
+                        cur.execute(
+                            "UPDATE storylines SET title = %s WHERE id = %s",
+                            (new_title, storyline_id)
+                        )
                 conn.commit()
 
             entities_log = f", entities={len(new_entities)}" if new_entities else ""
-            logger.debug(f"Evolved storyline #{storyline_id}: '{new_title[:60]}'{entities_log}")
+            summary_log = "ok" if summary_parsed else "preserved"
+            logger.debug(
+                f"Evolved storyline #{storyline_id}: '{new_title[:60]}' "
+                f"[summary={summary_log}{entities_log}]"
+            )
             time.sleep(self.LLM_RATE_LIMIT_SECONDS)
 
         except Exception as e:
@@ -1401,6 +1461,46 @@ ENTITIES: [5-10 key proper nouns — People, Organizations, Locations — comma-
             )
 
         return stats
+
+    def _backfill_missing_summaries(self, limit: int = 50) -> int:
+        """
+        Backfill up to `limit` active/emerging storylines whose summary is NULL or empty.
+
+        Called once per pipeline run after decay. Processes highest-article-count
+        storylines first so the most visible ones recover summary coverage earliest.
+        Errors per storyline are logged but never propagate — the batch continues.
+        """
+        if not self.gemini_available:
+            return 0
+
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT id FROM storylines
+                        WHERE narrative_status IN ('active', 'emerging')
+                        AND (summary IS NULL OR summary = '')
+                        ORDER BY article_count DESC, momentum_score DESC
+                        LIMIT %s
+                    """, (limit,))
+                    ids = [row[0] for row in cur.fetchall()]
+        except Exception as e:
+            logger.error(f"Backfill query failed: {e}")
+            return 0
+
+        if not ids:
+            return 0
+
+        logger.info(f"Backfilling summaries for {len(ids)} storyline(s) with missing summary")
+        count = 0
+        for sid in ids:
+            try:
+                self._evolve_narrative_summary(sid)
+                count += 1
+            except Exception as e:
+                logger.warning(f"Backfill skipped storyline #{sid}: {e}")
+
+        return count
 
     # =========================================================================
     # HELPERS

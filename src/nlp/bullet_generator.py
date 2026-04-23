@@ -33,6 +33,51 @@ BULLET_GENERATION_PROMPT = (
 RATE_LIMIT_SECONDS = 0.1
 
 
+def _parse_bullets(response: str) -> Optional[List[str]]:
+    """
+    Parse bullet points from LLM response — handles multiple formats:
+    - JSON array: ["b1", "b2", "b3"]
+    - JSON object: {"bullets": ["b1", ...]} or {"bullet_points": [...]}
+    - Markdown-wrapped JSON: ```json\n[...]\n```
+    - Plain text: lines starting with -, *, or numbers
+    """
+    text = response.strip()
+
+    # Strip markdown code fences if present
+    if text.startswith("```"):
+        lines = text.splitlines()
+        text = "\n".join(l for l in lines if not l.startswith("```")).strip()
+
+    # Try JSON parse
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, list):
+            items = [str(b).strip() for b in parsed if b]
+            return items[:3] if items else None
+        if isinstance(parsed, dict):
+            for key in ("bullets", "bullet_points", "items", "punti", "risultati"):
+                val = parsed.get(key)
+                if isinstance(val, list):
+                    items = [str(b).strip() for b in val if b]
+                    return items[:3] if items else None
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Fallback: parse plain-text bullet lines
+    lines = [l.strip() for l in response.splitlines()]
+    bullets = []
+    for line in lines:
+        if not line:
+            continue
+        # Strip leading -, *, •, or "1." / "1)"
+        clean = line.lstrip("-*•").strip()
+        if len(clean) > 2 and len(clean) < 10 and clean[0].isdigit():
+            clean = clean.lstrip("0123456789.)").strip()
+        if len(clean) > 10:
+            bullets.append(clean)
+    return bullets[:3] if bullets else None
+
+
 class BulletGenerator:
     """Generates 3 bullet point summaries for articles using T5 (Gemini 2.5 Flash-Lite)."""
 
@@ -85,21 +130,12 @@ class BulletGenerator:
                 logger.warning(f"Empty response for article '{title[:50]}...'")
                 return None
 
-            bullets = json.loads(response.strip())
+            bullets = _parse_bullets(response)
+            if bullets:
+                logger.debug(f"Generated {len(bullets)} bullet(s) for '{title[:50]}...'")
+                return bullets
 
-            # Validate format: should be list of strings
-            if isinstance(bullets, list) and len(bullets) >= 1:
-                bullets = bullets[:3]
-                bullets = [str(b).strip() for b in bullets if b]
-                if bullets:
-                    logger.debug(f"Generated {len(bullets)} bullet(s) for '{title[:50]}...'")
-                    return bullets
-
-            logger.warning(f"Invalid JSON format from model for '{title[:50]}...'")
-            return None
-
-        except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse JSON response for '{title[:50]}...': {e}")
+            logger.warning(f"Invalid JSON format from model for '{title[:50]}...': {response[:100]}")
             return None
         except Exception as e:
             logger.warning(f"Error generating bullets for '{title[:50]}...': {e}")
