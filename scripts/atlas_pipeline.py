@@ -73,7 +73,7 @@ def _run_script(module_name: str, main_fn: str = "main"):
     return fn()
 
 
-# ── Task Definitions ────────────────────────────────────────────────────────────
+# ── Task Definitions ────────────────────────────────────────────────
 
 # Static tasks are idempotent: skip if table already populated.
 STATIC_TASKS = {
@@ -81,7 +81,7 @@ STATIC_TASKS = {
         "table": "country_boundaries",
         "loader": "scripts.load_natural_earth",
         "description": "Natural Earth 50m boundaries (via ogr2ogr shell script)",
-        "shell_cmd": "bash scripts/load_natural_earth.sh",
+        "shell_cmd": ["bash", "scripts/load_natural_earth.sh"],
     },
     "world_bank": {
         "table": "country_profiles",
@@ -124,7 +124,7 @@ def run_task(db: DatabaseManager, name: str, config: dict, force: bool = False) 
         # Execute the loader
         if config.get("shell_cmd"):
             import subprocess
-            result = subprocess.run(config["shell_cmd"], shell=True, capture_output=True, text=True)
+            result = subprocess.run(config["shell_cmd"], shell=False, capture_output=True, text=True)
             if result.returncode != 0:
                 raise RuntimeError(f"Shell command failed: {result.stderr}")
         else:
