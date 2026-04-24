@@ -420,6 +420,23 @@ class OpenBBMarketService:
             'description': 'USD/CNH Exchange Rate (Offshore Yuan — free market rate)',
             'fetch_category': 'fx',
         },
+        # --- EUROPEAN ENERGY ---
+        'TTF_GAS': {
+            'symbol': 'TTF=F',
+            'unit': 'EUR',
+            'category': 'COMMODITIES',
+            'description': 'TTF Natural Gas Futures (European energy benchmark, EUR/MWh)',
+            'fetch_category': 'commodities',
+        },
+        # --- YIELD CURVE (FED NY RECESSION INDICATOR) ---
+        'YIELD_CURVE_10Y_3M': {
+            'fred_series': 'T10Y3M',
+            'unit': '%',
+            'category': 'RATES',
+            'description': '10Y-3M Spread (Fed NY recession probability indicator)',
+            'fetch_category': 'fred',
+        },
+        # CFETS_RMB: deferred to B3 — no public API found (PBOC weekly, scraping non-goal)
     }
 
     def __init__(self, db: Optional[DatabaseManager] = None):
@@ -684,6 +701,7 @@ class OpenBBMarketService:
         'DGS10':             'daily',
         'DGS2':              'daily',
         'T10Y2Y':            'daily',
+        'T10Y3M':            'daily',
         'DFII10':            'daily',
         'T10YIE':            'daily',
         'T5YIFR':            'daily',

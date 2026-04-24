@@ -21,16 +21,17 @@ Data acquisition layer for financial intelligence. Used by `src/finance/` for tr
 
 - `openbb_service.py` - OpenBB v4+ integration
   - `OpenBBMarketService` class - Macro and fundamentals
-  - **Macro Indicators** — 30 active indicators (stored daily):
-    - FRED daily: US_10Y_YIELD, US_2Y_YIELD, YIELD_CURVE_10Y_2Y, REAL_RATE_10Y, BREAKEVEN_10Y, INFLATION_EXPECTATION_5Y, US_HY_SPREAD
+  - **Macro Indicators** — 34 active indicators (stored daily):
+    - FRED daily: US_10Y_YIELD, US_2Y_YIELD, YIELD_CURVE_10Y_2Y, YIELD_CURVE_10Y_3M (T10Y3M — Fed NY recession indicator), REAL_RATE_10Y, BREAKEVEN_10Y, INFLATION_EXPECTATION_5Y, US_HY_SPREAD
     - FRED weekly: FIN_STRESS_INDEX
     - FRED monthly (structural context): NICKEL, US_CPI, US_UNEMPLOYMENT, US_INDUSTRIAL_PROD, CASS_FREIGHT_INDEX
-    - yfinance daily futures: BRENT_OIL, WTI_OIL, GOLD, COPPER, SILVER, NATURAL_GAS, URANIUM, ALUMINUM (ALI=F), WHEAT (ZW=F)
+    - yfinance daily futures: BRENT_OIL, WTI_OIL, GOLD, COPPER, SILVER, NATURAL_GAS, TTF_GAS (TTF=F — European gas benchmark, EUR/MWh), URANIUM, ALUMINUM (ALI=F), WHEAT (ZW=F)
     - yfinance equity/indices: SP500, NASDAQ, VIX
     - yfinance FX: EUR_USD, USD_JPY, DOLLAR_INDEX, USD_GBP (GBPUSD=X), USD_CNY (CNYUSD=X), USD_CNH (⚠️ restricted)
     - yfinance crypto: BITCOIN
     - **Removed**: TED_SPREAD (LIBOR→SOFR degraded), EPU_GLOBAL (4-6w lag), USD_RUB (bimodal post-sanctions)
     - **Fixed (Phase 1)**: ALUMINUM and WHEAT switched from FRED monthly to daily CME futures; USD_GBP and USD_CNY switched from FRED to yfinance daily
+    - **Added (B2)**: TTF_GAS (European energy benchmark, separato da Henry Hub NG=F) and YIELD_CURVE_10Y_3M (Fed NY recession probability indicator). CFETS_RMB deferred to B3 — no public API found.
   - `ensure_daily_macro_data()` - Fetch and persist macro indicators
     - FRED branch now uses `_fetch_indicator_openbb_fixed()` — saves with real `data_date` (not `target_date`). Fixes NICKEL/monthly mislabeling bug.
     - All fetch paths call `_upsert_indicator_metadata()` to track staleness and reliability.
@@ -69,7 +70,7 @@ Data acquisition layer for financial intelligence. Used by `src/finance/` for tr
   - `fetch_mode(target_date)` — returns `'normal'` | `'holiday'` | `'skip'` (weekend)
   - Backed by `pandas_market_calendars` NYSE calendar (accurate US holiday schedule)
   - Used by `scripts/fetch_daily_market_data.py` backfill logic and `ensure_daily_macro_data()` for holiday logging
-  - **MACRO_INDICATORS `fetch_category` field**: each of the 38 indicators has a `fetch_category` key:
+  - **MACRO_INDICATORS `fetch_category` field**: each of the 34 indicators has a `fetch_category` key:
     - `equity_etf` — NYSE/OTC-listed (SP500, VIX, NASDAQ, SRUUF — Sprott Physical Uranium Trust)
     - `commodities` — CME futures that follow NYSE holidays (Oil, Gold, Copper, Gas, Silver)
     - `fred` — Federal Reserve data (available every weekday regardless of holidays)

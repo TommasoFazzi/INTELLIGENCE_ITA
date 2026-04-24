@@ -15,7 +15,7 @@ INTELLIGENCE_ITA is an end-to-end geopolitical intelligence news analysis platfo
 | `src/llm/report_generator.py` | ~3385 lines | [src/llm/context.md](src/llm/context.md) |
 | `src/storage/database.py` | ~2708 lines | [src/storage/context.md](src/storage/context.md) |
 | `src/nlp/narrative_processor.py` | ~1517 lines | [src/nlp/context.md](src/nlp/context.md) |
-| `src/integrations/openbb_service.py` | ~1026 lines | [src/integrations/context.md](src/integrations/context.md) |
+| `src/integrations/openbb_service.py` | ~1040 lines, 34 MACRO_INDICATORS | [src/integrations/context.md](src/integrations/context.md) |
 | `src/llm/oracle_orchestrator.py` | ~566 lines | [src/llm/context.md](src/llm/context.md) |
 | `src/nlp/processing.py` | ~603 lines | [src/nlp/context.md](src/nlp/context.md) |
 | `src/api/` | routers + main | [src/api/context.md](src/api/context.md) |

@@ -87,6 +87,25 @@ indicators:
       US_UNEMPLOYMENT:     [-1, "Curva piatta/invertita anticipa deterioramento del mercato del lavoro"]
       COPPER:              [+1, "Entrambi riflettono aspettative di crescita; si muovono nella stessa direzione ciclica"]
       BITCOIN:             [+1, "In risk-on (curva positiva) anche crypto beneficiano dell'appetito al rischio"]
+      YIELD_CURVE_10Y_3M:  [+1, "Misure complementari; 10Y-3M è più affidabile come recession predictor"]
+
+  YIELD_CURVE_10Y_3M:
+    ontology: >
+      Lo spread 10Y-3M è la misura preferita dalla Federal Reserve Bank di New York
+      per il suo modello di probabilità recessione. Ogni inversione sostenuta sotto zero
+      ha preceduto una recessione USA negli ultimi 50 anni con lead time di 6-18 mesi.
+      Differisce da YIELD_CURVE_10Y_2Y perché il 3M cattura il tasso Fed Funds corrente
+      (non le aspettative a 2 anni), rendendo lo spread più sensibile alla politica
+      monetaria attuale e meno alle aspettative forward. Track record più pulito.
+      Guidato da: Fed Funds rate (il 3M segue strettamente), aspettative crescita
+      e inflazione a lungo termine (il 10Y), premio a termine, domanda estera di Treasury.
+    correlations:
+      YIELD_CURVE_10Y_2Y:  [+1, "Misure complementari; 10Y-3M è leading indicator più affidabile, 10Y-2Y più usato dai mercati"]
+      US_UNEMPLOYMENT:     [-1, "Inversione della curva precede recessione che precede aumento disoccupazione (lead 12-18 mesi)"]
+      SP500:               [+1, "Re-steepening rapido post-inversione = recessione imminente, precede sell-off azionario"]
+      US_CPI:              [-1, "Inasprimento monetario che comprime la curva coincide con calo inflazione attesa"]
+      FIN_STRESS_INDEX:    [-1, "Inversione profonda → stress bancario (NIM banche compresso) → stress finanziario"]
+      REAL_RATE_10Y:       [+1, "Entrambi guidati dal tasso reale atteso a lungo termine"]
 
   REAL_RATE_10Y:
     ontology: >
@@ -208,6 +227,7 @@ indicators:
     correlations:
       WTI_OIL:             [+1, "Spread Brent-WTI solitamente stretto (3-5$)"]
       NATURAL_GAS:         [+1, "Sostituti parziali nell'energia; correlazione aumenta in crisi energetiche"]
+      TTF_GAS:             [+1, "Correlazione alta in crisi energetica; sostituzione nelle utilities"]
       BREAKEVEN_10Y:       [+1, "Oil è il principale driver di breve dell'inflazione"]
       DOLLAR_INDEX:        [-1, "Oil prezzato in USD: dollaro forte → prezzo Brent scende in USD terms"]
       US_CPI:              [+1, "Componente energetica nel paniere CPI"]
@@ -245,6 +265,25 @@ indicators:
       ALUMINUM:            [+1, "Alluminio è energy-intensive: gas alto → costi produzione alluminio salgono"]
       US_CPI:              [+1, "Utility bills e heating oil trasmettono il gas al CPI"]
       EUR_USD:             [-1, "Gas alto danneggia Europa (importatrice netta) → EUR debole"]
+      TTF_GAS:             [+1, "Henry Hub e TTF correlano; TTF è il termometro geopolitico europeo"]
+
+  TTF_GAS:
+    ontology: >
+      Il TTF (Title Transfer Facility) è il principale hub europeo per il gas naturale,
+      prezzato in EUR/MWh. Dal 2021-2022 è il termometro geopolitico energetico più
+      rilevante per l'Europa — cattura disruption supply (Russia, LNG USA/Qatar),
+      decisioni di stoccaggio, e la transizione energetica europea.
+      Differisce strutturalmente da Henry Hub (NG=F, USA): prezzato in EUR/MWh vs
+      USD/MMBtu, alta sensibilità a forniture russe/LNG, stagionalità amplificata.
+      Guidato da: forniture LNG (USA, Qatar), riempimento stoccaggi EU, temperature,
+      geopolitica Russia-Europa, policy REPowerEU, domanda industriale tedesca.
+    correlations:
+      NATURAL_GAS:         [+1, "Henry Hub e TTF correlano; TTF è il termometro geopolitico europeo"]
+      EUR_USD:             [-1, "TTF alto → deficit commerciale EU → EUR sotto pressione (importatrice netta di gas)"]
+      BRENT_OIL:           [+1, "In crisi energetiche gas e oil si muovono insieme; sostituzione nelle utilities"]
+      WHEAT:               [+1, "Gas europeo è input fertilizzanti azotati; TTF alto → costi agricoltura EU salgono"]
+      ALUMINUM:            [+1, "Produzione alluminio EU è energy-intensive; TTF alto → smelter EU offline → alluminio sale"]
+      US_HY_SPREAD:        [+1, "Crisi energetica EU → stress creditizio utilities europee → spread HY allargano"]
 
   GOLD:
     ontology: >
@@ -379,6 +418,7 @@ indicators:
       GOLD:                [+1, "EUR forte = USD debole = gold più economico per non-USD"]
       BRENT_OIL:           [-1, "Oil alto danneggia l'Europa importatrice → EUR si indebolisce"]
       NATURAL_GAS:         [-1, "Gas alto è shock negativo per l'Europa → EUR debole"]
+      TTF_GAS:             [-1, "TTF alto danneggia l'Europa (importatrice netta) → EUR debole"]
       US_10Y_YIELD:        [-1, "Yield USA alti attraggono capitali da EUR → EUR/USD scende"]
       SP500:               [+1, "Risk-on globale tende a indebolire il dollaro e rafforzare EUR"]
 
@@ -433,6 +473,7 @@ indicators:
       NICKEL:              [-1, "Domanda cinese di metalli industriali"]
       ALUMINUM:            [-1, "Cina domina la produzione e il consumo"]
       SP500:               [-1, "Tensioni USA-Cina (che deprezzano CNY) sono risk-off per equity"]
+      CFETS_RMB:           [-1, "CFETS cattura la strategia basket PBOC; divergenza vs USD/CNY segnala gestione attiva"]
 
   USD_CNH:
     ontology: >
@@ -459,6 +500,24 @@ indicators:
       VIX:                 [+1, "Risk-off globale → deflussi da Cina → CNH si indebolisce vs USD"]
       SP500:               [-1, "Stress CNH segnala risk-off con epicentro cinese → equity globale soffre"]
       BRENT_OIL:           [-1, "Yuan debole riduce potere d'acquisto energetico cinese → domanda oil scende"]
+      CFETS_RMB:           [-1, "Spread CNH vs CFETS misura la pressione speculativa sul basket RMB"]
+
+  CFETS_RMB:
+    ontology: >
+      L'indice CFETS RMB (China Foreign Exchange Trade System) misura il valore
+      del renminbi rispetto a un paniere di 24 valute commerciali (USD 22.4%, EUR 16.3%,
+      JPY 11.5%, HKD 4.3%, altri), ponderato per gli scambi commerciali PBOC.
+      A differenza di USD_CNY e USD_CNH (misure bilaterali), CFETS cattura la strategia
+      di de-dollarizzazione parziale della PBOC: CFETS stabile mentre USD_CNY sale
+      indica che la PBOC lascia svalutare il RMB vs USD ma lo mantiene stabile vs le altre valute.
+      Frequenza: settimanale (pubblicazione PBOC ogni venerdì).
+      NOTA IMPLEMENTATIVA: nessuna API pubblica verificata — dati differiti a B3.
+    correlations:
+      USD_CNY:             [-1, "CFETS e USD/CNY divergono quando PBOC gestisce il basket separatamente dal bilaterale USD"]
+      USD_CNH:             [-1, "CNH è il mercato libero; divergenza CNH vs CFETS segnala pressione speculativa sul basket"]
+      GOLD:                [-1, "Acquisti oro PBOC come riserva alternativa a USD rafforzano CFETS vs solo USD/CNY"]
+      DOLLAR_INDEX:        [-1, "DXY forte pesa sul CFETS basket (componente USD è 22.4% del paniere)"]
+      BITCOIN:             [-1, "Controllo capitali: CFETS debole può aumentare domanda crypto da residenti cinesi"]
       NICKEL:              [-1, "Yuan debole = domanda cinese di metalli in calo"]
 
   USD_GBP:
