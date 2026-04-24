@@ -54,6 +54,7 @@ Operational layer that orchestrates the core modules. Scripts tie together inges
 ### Market Data
 - `backfill_market_data.py` - Backfill Yahoo Finance OHLCV data
 - `fetch_daily_market_data.py` - Daily market data fetch
+- `backfill_sruuf.py` - **One-shot ticker switch recovery**: deletes all URANIUM rows (URA history), downloads SRUUF daily closes via yfinance (last 90 days), reinserts with correct `previous_value` chain, and flags today's report as `draft` so it doesn't enter the knowledge base. Idempotent. Run after any equity/ETF ticker substitution in `MACRO_INDICATORS`.
 
 ### Entity Management
 - `extract_entities.py` - Run NER extraction on articles
