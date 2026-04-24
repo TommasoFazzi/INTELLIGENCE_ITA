@@ -1059,8 +1059,8 @@ ENTITIES: [5-10 key proper nouns — People, Organizations, Locations — comma-
             raw_text = self.model.generate_content_raw(
                 prompt,
                 generation_config={
-                    "max_output_tokens": 400,  # title(~15t) + 3 bullets(~150t) + entities(~60t) + margin
-                    "temperature": 0.3,        # low variance for consistent structured output
+                    "max_output_tokens": 2000,  # Gemini 2.5 Flash is a thinking model; ~300-500 thinking tokens
+                    "temperature": 0.3,         # consumed before output — 400 was too low, only TITLE returned
                 },
             )
             # Strip markdown formatting that Gemini may emit despite instructions
