@@ -47,6 +47,11 @@ ANALYTICAL STANDARDS:
     Use instead: "likely" (>60%), "probable" (>70%), "high confidence" (>80%)
     with explicit basis.
   - If today is genuinely low-signal: say so. Do not pad with generic analysis.
+  - When assessing central bank response, distinguish between
+    (a) orthodox reaction function (CPI deviation → rate adjustment) and
+    (b) political constraint (executive pressure on central bank independence).
+    State both explicitly in any scenario or Early Warning signal that hinges
+    on interest rate trajectory.
 """.strip()
 
 
@@ -66,7 +71,14 @@ Apply these rules before writing any section.
 
 2. DIVERGENCE FLAG [CHECK THIS FIRST — highest priority]
    If an article CONTRADICTS active convergences or expected correlations:
-   Flag as: "DIVERGENCE: [market signal] vs [OSINT evidence from Article N]"
+   Flag as a structured hypothesis fan with ≥2 competing causal hypotheses:
+
+     DIVERGENCE: [market signal] vs [OSINT/data evidence]
+     Hypothesis A: [causal explanation] → confirmed by [specific observable]
+     Hypothesis B: [causal explanation] → confirmed by [specific observable]
+
+   A single-cause explanation for a divergence is not permitted.
+   Each hypothesis must name one specific observable event that would confirm it.
    Divergences are often more strategically valuable than confirmations.
 
 3. SUPPLY CHAIN CROSS-CHECK
@@ -116,11 +128,42 @@ State the current risk regime and whether it differs from recent days.
 ---
 
 ## Key Developments
-Max 5 developments. Each as a short paragraph (3-4 sentences).
-Format:
-  **[CATEGORY | REGION]** Title
-  What happened + what it means + macro connection + [Article N]
-Skip routine news. Only include items with strategic significance.
+Max 5 developments. Group under category headers (### GEOPOLITICS, ### ENERGY,
+### DEFENSE, ### CYBERSECURITY, ### TECH, ### ECONOMICS) when ≥2 items share
+a domain. CYBERSECURITY and TECH are distinct categories:
+  - CYBERSECURITY: attacks, espionage, vulnerabilities, state-sponsored operations
+  - TECH: AI, semiconductors, industrial policy, commercial technology
+
+Each development: 80-120 words, prose only, no sub-bullets.
+
+Required elements per development:
+  - Named actors: specific individuals, organizations, governments
+    (never "authorities" or "officials")
+  - Causal chain: what caused this, who decided it, why now
+    (avoid "tensions are rising" → say who is escalating and why)
+  - Relationship context: how the actors involved relate to each other
+    (allies, adversaries, dependency, leverage)
+  - Macro connection: link to today's active regime, a convergence, or an indicator
+  - [Article N] for every specific factual claim
+
+When only one event exists in a domain, omit the category header — use a flat
+paragraph with the domain noted inline instead.
+Skip events without named actors or without a plausible macro connection.
+
+---
+
+=== DRIVER INVENTORY (internal step — do not output) ===
+Before writing Macro Dashboard through Scenario Analysis:
+List every causal driver named so far in Key Developments.
+For any market indicator explained by >1 driver across sections:
+  - If drivers are complementary (e.g., real yields + dollar strength both reducing
+    gold's relative value): state both together in the section where the indicator
+    first appears.
+  - If drivers are contradictory (e.g., risk-off in one section, risk-on in another):
+    flag inline at first occurrence with an explicit reconciliation statement before
+    continuing.
+Do not include this inventory in the report output.
+===
 
 ---
 
@@ -167,10 +210,15 @@ Only include if genuinely identified — do not speculate.
 
 ## Scenario Analysis
 Time horizon: 3-12 MONTHS ONLY.
-Produce EXACTLY 2-3 scenarios. No more — quality over quantity.
+Produce EXACTLY 3 scenarios: BASE + BEAR + BULL-contrarian.
+  - BASE: dominant thesis consistent with current regime and active convergences.
+  - BEAR: amplified downside — same drivers accelerating toward worst-case.
+  - BULL-contrarian: explicit falsification of the BASE thesis — the observable
+    resolution sequence that would deny BASE within the 3-12 month horizon.
+    BULL must NOT be an optimistic mirror of BASE; it is a falsification exercise.
 
 Format per scenario:
-  ### Scenario [N]: [Name] — [BASE | BEAR | BULL | TAIL RISK]
+  ### Scenario [N]: [Name] — [BASE | BEAR | BULL-contrarian]
   Probability: [Low <20% | Medium 20-50% | High >50%]
   Thesis: 2-3 sentences on the core narrative.
   Assumes: what must remain true for this to play out.

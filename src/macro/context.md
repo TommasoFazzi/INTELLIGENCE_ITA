@@ -46,9 +46,12 @@ Strato intermedio tra `src/integrations/openbb_service.py` (fetch dei dati macro
   - `CROSS_VALIDATION_BLOCK` — regole cross-validation macro-news per LLM call #2 (Phase 5)
 
 - `strategic_intelligence_prompt.py` — Prompt assembler per LLM call #2 (Phase 5)
-  - `STRATEGIC_INTELLIGENCE_SYSTEM_PROMPT` — system prompt per report strategico 3 orizzonti
-  - `CROSS_VALIDATION_BLOCK` — cross-validation rules
-  - `build_output_instructions(target_date)` — 7 sezioni output: Executive Summary, Key Developments, Macro Dashboard, Early Warning (1-4w), Strategic Positioning (1-6m), Scenario Analysis (3-12m), Supply Chain Monitor, Strategic Storyline Tracker
+  - `STRATEGIC_INTELLIGENCE_SYSTEM_PROMPT` — system prompt per report strategico 3 orizzonti. ANALYTICAL STANDARDS include il distinguished central bank constraint: (a) orthodox reaction function vs (b) political pressure — entrambi devono essere esplicitati in qualsiasi scenario o EW signal che dipende da rate trajectory.
+  - `CROSS_VALIDATION_BLOCK` — cross-validation rules. Rule #2 (DIVERGENCE FLAG) ora richiede hypothesis fan con ≥2 competing hypotheses in formato `Hypothesis A/B: [cause] → confirmed by [observable]`. Single-cause explanation per una divergenza è vietata.
+  - `build_output_instructions(target_date)` — 7 sezioni output con 5 analytical quality improvements:
+    - **Key Developments**: category headers (### GEOPOLITICS, ENERGY, DEFENSE, CYBERSECURITY, TECH, ECONOMICS), 80-120 words/item, named actors, causal chains, relationship context, macro connection. CYBERSECURITY (attacks/espionage/state ops) distinta da TECH (AI/semiconductors/industrial policy). Header omesso se un solo evento nel dominio.
+    - **Driver Inventory** (internal step — non incluso nell'output): blocco tra Key Developments e Macro Dashboard che elenca tutti i driver causali nominati e li riconcilia se contraddittori o complementari.
+    - **Scenario Analysis**: EXACTLY 3 scenarios (BASE + BEAR + BULL-contrarian). BULL-contrarian è falsificazione esplicita della tesi BASE, non un mirror ottimistico.
   - `build_strategic_intelligence_prompt(macro_analysis_json, macro_regime_context_xml, storylines_xml, articles, target_date, data_quality_flags)` → `(system_prompt, user_prompt)`
 
 ### Phase 6 (futura)
