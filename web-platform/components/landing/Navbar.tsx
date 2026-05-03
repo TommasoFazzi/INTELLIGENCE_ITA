@@ -1,144 +1,94 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Menu, X, BookOpen } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
-export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+const NAV_LINKS: Array<[string, string]> = [
+  ['Features', '/#features'],
+  ['FAQ', '/#faq'],
+  ['Insights', 'https://macrointel.net/insights'],
+  ['About', '/about'],
+];
+
+type NavbarProps = { solid?: boolean };
+
+export default function Navbar({ solid = false }: NavbarProps) {
+  const [scrolled, setScrolled] = useState(solid);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 100);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    setMobileMenuOpen(false);
-  };
+    if (solid) return;
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [solid]);
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-[1000] border-b border-white/5 transition-all duration-300 ${
-        scrolled
-          ? 'bg-[#0A1628]/95 shadow-lg'
-          : 'bg-[#0A1628]/80'
-      } backdrop-blur-md`}
+      className={scrolled ? 'scrolled' : ''}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        height: 60,
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 32px',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        transition: 'background 0.3s ease, backdrop-filter 0.3s ease',
+        background: scrolled ? 'rgba(10,22,40,0.95)' : 'transparent',
+        backdropFilter: scrolled ? 'blur(12px)' : 'none',
+        WebkitBackdropFilter: scrolled ? 'blur(12px)' : 'none',
+      }}
     >
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex items-center justify-between h-20">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3">
-            <div className="relative w-10 h-10">
-              <svg viewBox="0 0 40 40" fill="none" className="w-full h-full">
-                <circle cx="20" cy="20" r="18" stroke="#FF6B35" strokeWidth="2" />
-                <circle cx="20" cy="20" r="12" stroke="#00A8E8" strokeWidth="1.5" />
-                <circle cx="20" cy="20" r="6" stroke="#FF6B35" strokeWidth="1.5" />
-                <circle cx="20" cy="20" r="2" fill="#FF6B35" />
-                <line x1="20" y1="2" x2="20" y2="10" stroke="#00A8E8" strokeWidth="1" />
-                <line x1="20" y1="30" x2="20" y2="38" stroke="#00A8E8" strokeWidth="1" />
-                <line x1="2" y1="20" x2="10" y2="20" stroke="#00A8E8" strokeWidth="1" />
-                <line x1="30" y1="20" x2="38" y2="20" stroke="#00A8E8" strokeWidth="1" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold tracking-tight">
-              <span className="text-[#FF6B35]">MACRO</span>
-              <span className="text-white">INTEL</span>
-            </span>
-          </Link>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
-            <Link
-              href="/insights"
-              className="text-sm font-medium text-gray-300 hover:text-[#FF6B35] transition-colors flex items-center gap-1.5"
-            >
-              <BookOpen size={14} />
-              Insights
-            </Link>
-            <button
-              onClick={() => scrollToSection('features')}
-              className="text-sm font-medium text-gray-300 hover:text-[#FF6B35] transition-colors"
-            >
-              Features
-            </button>
-            <button
-              onClick={() => scrollToSection('about')}
-              className="text-sm font-medium text-gray-300 hover:text-[#FF6B35] transition-colors"
-            >
-              About
-            </button>
-            <button
-              onClick={() => scrollToSection('contact')}
-              className="text-sm font-medium text-gray-300 hover:text-[#FF6B35] transition-colors"
-            >
-              Contact
-            </button>
-            <Button
-              asChild
-              className="bg-[#FF6B35] hover:bg-[#F77F00] text-white"
-            >
-              <Link href="/dashboard">Open Platform</Link>
-            </Button>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden p-2 text-gray-300 hover:text-white"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 'auto' }}>
+        <span
+          style={{
+            fontFamily: 'var(--font-geist-mono), monospace',
+            fontWeight: 700,
+            fontSize: 16,
+            letterSpacing: '0.05em',
+            color: '#ededed',
+          }}
+        >
+          MACRO<span style={{ color: '#FF6B35' }}>INTEL</span>
+        </span>
+        <span
+          style={{
+            fontFamily: 'var(--font-geist-mono), monospace',
+            fontSize: 9,
+            color: '#64748b',
+            letterSpacing: '0.1em',
+            marginTop: 2,
+          }}
+        >
+          OSINT PLATFORM
+        </span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
+        {NAV_LINKS.map(([label, href]) => (
+          <a
+            key={label}
+            href={href}
+            style={{ color: '#94a3b8', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
           >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-white/10">
-            <div className="flex flex-col gap-4">
-              <Link
-                href="/insights"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-[#FF6B35] transition-colors py-2"
-              >
-                <BookOpen size={14} />
-                Insights
-              </Link>
-              <button
-                onClick={() => scrollToSection('features')}
-                className="text-left text-sm font-medium text-gray-300 hover:text-[#FF6B35] transition-colors py-2"
-              >
-                Features
-              </button>
-              <button
-                onClick={() => scrollToSection('about')}
-                className="text-left text-sm font-medium text-gray-300 hover:text-[#FF6B35] transition-colors py-2"
-              >
-                About
-              </button>
-              <button
-                onClick={() => scrollToSection('contact')}
-                className="text-left text-sm font-medium text-gray-300 hover:text-[#FF6B35] transition-colors py-2"
-              >
-                Contact
-              </button>
-              <Button asChild className="w-full mt-2 bg-[#FF6B35] hover:bg-[#F77F00] text-white">
-                <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  Open Platform
-                </Link>
-              </Button>
-            </div>
-          </div>
-        )}
+            {label}
+          </a>
+        ))}
+      </div>
+      <div style={{ marginLeft: 32 }}>
+        <Link
+          className="btn-primary"
+          href="https://macrointel.net/dashboard"
+          style={{ padding: '8px 18px', fontSize: 13 }}
+        >
+          Open Platform
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </Link>
       </div>
     </nav>
   );
