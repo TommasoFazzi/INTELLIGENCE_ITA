@@ -176,6 +176,33 @@
   50% { background-position: 100% 50%; }
 }
 
+/* Landing redesign keyframes (prototipo Landing Page.html) */
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes borderGlow {
+  0%, 100% { border-color: rgba(255, 107, 53, 0.3); }
+  50% { border-color: rgba(255, 107, 53, 0.7); }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 /* ============================================
    Animation Utility Classes
    ============================================ */
@@ -219,10 +246,13 @@
    Gradient Utilities
    ============================================ */
 .gradient-text {
-  background: linear-gradient(135deg, var(--color-orange-500), var(--color-blue-500));
+  background: linear-gradient(135deg, #FF6B35 0%, #FF9B35 40%, #00A8E8 100%);
+  background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShift 4s ease infinite;
 }
 
 .gradient-border {
@@ -250,6 +280,166 @@
     linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 50px 50px;
+}
+
+/* Alias for landing redesign (prototipo nomenclatura) */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* ============================================
+   Landing redesign — utility classes (prototipo)
+   ============================================ */
+.orange-glow {
+  box-shadow: 0 0 30px rgba(255, 107, 53, 0.3);
+}
+
+.card {
+  background: #1a2332;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #FF6B35;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-primary:hover {
+  background: #e85a24;
+  box-shadow: 0 0 24px rgba(255, 107, 53, 0.4);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-ghost:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ededed;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.label {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #FF6B35;
+  margin-bottom: 16px;
+}
+.section-label::before {
+  content: '';
+  display: block;
+  width: 20px;
+  height: 1px;
+  background: #FF6B35;
+}
+
+.tab-btn {
+  padding: 8px 18px;
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  background: none;
+  color: #64748b;
+}
+.tab-btn:hover { color: #94a3b8; }
+.tab-btn.active {
+  background: rgba(255, 107, 53, 0.1);
+  border-color: rgba(255, 107, 53, 0.25);
+  color: #FF6B35;
+}
+
+.ticker-wrap {
+  overflow: hidden;
+  width: 100%;
+  position: relative;
+}
+.ticker-wrap::before,
+.ticker-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  z-index: 2;
+}
+.ticker-wrap::before {
+  left: 0;
+  background: linear-gradient(90deg, #0A1628, transparent);
+}
+.ticker-wrap::after {
+  right: 0;
+  background: linear-gradient(-90deg, #0A1628, transparent);
+}
+.ticker-track {
+  display: flex;
+  gap: 0;
+  animation: ticker 60s linear infinite;
+  width: max-content;
+}
+.ticker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 32px;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  color: #94a3b8;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+.ticker-item .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* ============================================
@@ -304,28 +494,34 @@
     @apply border-border outline-ring/50;
   }
 
-  body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+  html {
+    scroll-behavior: smooth;
   }
 
-  /* Custom scrollbar */
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-geist-sans), sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    overflow-x: hidden;
+  }
+
+  /* Custom scrollbar (landing redesign: 5px) */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 5px;
+    height: 5px;
   }
 
   ::-webkit-scrollbar-track {
-    background: var(--color-navy-900);
+    background: #0A1628;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--color-navy-700);
-    border-radius: 4px;
+    background: #1e293b;
+    border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-orange-500);
+    background: #FF6B35;
   }
 }
 

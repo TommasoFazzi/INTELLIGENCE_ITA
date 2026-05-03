@@ -11,7 +11,8 @@ Advanced visualization layer consuming data from `src/api/` REST endpoints. Prov
 ### App Structure
 - `app/layout.tsx` - Root Next.js layout (Google Analytics, GSC verification)
 - `app/globals.css` - Global styles with animations
-- `app/page.tsx` - Landing page (Hero, Features, ProductShowcase, ICPSection, StatsCounter, AboutSection, CTASection). Exports canonical metadata.
+- `app/page.tsx` - Landing page (Navbar, Hero, Ticker, Products, Pipeline, Personas, Capabilities, **FAQ**, FinalCTA, Footer). Exports canonical metadata + 4 JSON-LD blocks (SoftwareApplication, Organization, WebSite, FAQPage — derived from `FAQS` constant) via inline `<script>` from `lib/landing/schema.ts`. Reference design: `Landing Page.html` alla root del repo.
+- `app/about/page.tsx` - **About page (`/about`)**: RSC, full metadata + JSON-LD `AboutPage`, usa `<Navbar solid />` esistente. Sezioni: `AboutHero`, `MissionVision`, `WhoItsFor` (6 persona dedicate diverse dalla landing), `Coverage` (8 topic 4×2), `AboutCTA`, `AboutFooter`. Reference design: `about.html` alla root del repo.
 - `app/map/page.tsx` - Tactical map route (SSR metadata + dynamic import)
 - `app/dashboard/page.tsx` - Dashboard route (SWR data fetching)
 - `app/dashboard/report/[id]/page.tsx` - **Report detail route (updated with comparison UI)**
@@ -113,15 +114,32 @@ Oracle 2.0 UI fully decomposed into separate components. `app/oracle/page.tsx` i
 - `WaitlistInline.tsx` - Email waitlist signup form embedded in insights pages
 
 #### Landing Components (`components/landing/`)
-- `Navbar.tsx` - Navigation with links to Insights, Features, About, Contact, Client Login, Get Access
-- `Hero.tsx` - Hero section with CTA
-- `Features.tsx` - Feature list (6 capability cards)
-- `ProductShowcase.tsx` - **4-tab** interactive product showcase: Narrative Graph, Intelligence Map, Oracle AI, Intelligence Reports
-- `AboutSection.tsx` - About section (`id="about"`) with mission text + 4 business-value pillars (OSINT Ingestion, Neural Search, LLM Synthesis, Pattern Recognition)
-- `ICPSection.tsx` - Ideal customer profile section (4 persona cards)
-- `StatsCounter.tsx` - Live dashboard statistics counter (total articles, reports, entities)
-- `CTASection.tsx` - Contact + waitlist section (`id="contact"`, inner `id="waitlist"`): "Request Access & Enterprise Inquiries"
-- `Footer.tsx` - Footer with links
+Refactor 2026 → segue il prototipo `Landing Page.html` alla root del repo (cinematic / tactical HUD). Data e JSON-LD in `lib/landing/`.
+
+- `Navbar.tsx` (`'use client'`) — fixed top 60px, logo MACRO+INTEL, link Insights/Features/About, CTA "Open Platform"; scroll-aware (background blur dopo 40px)
+- `Hero.tsx` (RSC) — split 2-col, classification tag LIVE, headline 2-righe (seconda con `.gradient-text`), 2 CTA + stats row 4 KPI; preview destra "Narrative Graph" con HUD frame + chip "LAST SYNC ZULU"; background `next/image` `world-map-hero.jpg` cinematic
+- `Ticker.tsx` (`'use client'`) — live signal feed orizzontale infinito (8 SIGNALS), prop `show` (default `false`)
+- `Products.tsx` (`'use client'`) — `id="products"`, 4 tab (Map/Graph/Oracle/Briefings), demo dinamica + info card con CTA al `href` del prodotto
+- `Pipeline.tsx` (RSC) — `id="features"`, 3 step (INGEST/PROCESS/DELIVER) con cerchi numerati colorati e linea connettrice gradient
+- `Personas.tsx` (RSC) — 2-col (titolo+CTA / 4 carte persona)
+- `Capabilities.tsx` (RSC) — grid 3×2 di 6 capability con icona simbolica
+- `FinalCTA.tsx` (RSC) — `id="about"`, badge "NOW FULLY PUBLIC", headline 52px gradient, 3 CTA
+- `FAQ.tsx` (`'use client'`) — accordion 7 voci, `+ → ×` rotante 45°, `max-height: 0 ↔ 240px` con transizione. Dati da `FAQS` in `lib/landing/schema.ts`
+- `Footer.tsx` (RSC) — 3-col (brand+desc | Platform: dashboard/stories/map/oracle | Resources: insights/features/about) + bottom bar
+- `AppFrame.tsx` (RSC) — chrome stile macOS (3 dot semaforo + label colorata + badge); fallback gradient se `src` mancante
+- `DemoMap.tsx` / `DemoGraph.tsx` / `DemoBriefing.tsx` (RSC) — wrapper `AppFrame` con screenshot statico
+- `DemoOracle.tsx` (`'use client'`) — chat animata 4 fasi (delay 900ms → bubble domanda → typewriter 18ms/char → 3 source chips)
+
+**Asset richiesti** in `public/assets/`: `world-map-hero.jpg`, `narrative-graph-hero.png`, `map-screenshot.png`, `dashboard-screenshot.png`. Senza asset i componenti renderizzano placeholder gradient (no broken image).
+
+**Data + JSON-LD** in `lib/landing/`:
+- `data.ts` — costanti tipate `SIGNALS`, `PRODUCTS`, `PERSONAS`, `PIPELINE`, `CAPS`
+- `schema.ts` — esporta `FAQS` (7 Q&A) + 5 oggetti JSON-LD: `softwareApplicationSchema`, `organizationSchema`, `websiteSchema` (con SearchAction su `/oracle?q={search_term_string}`), `faqSchema` (derivato da `FAQS`), `aboutPageSchema` (per `/about`)
+
+**About page** (`components/about/` + `lib/about/`):
+- Componenti dedicati (RSC): `AboutHero`, `MissionVision` (2 card side-stripe), `WhoItsFor` (6 persona DIVERSE dalla landing), `Coverage` (8 topic 4×2), `AboutCTA`, `AboutFooter` (footer minimale 1-riga)
+- `lib/about/data.ts` — `ABOUT_PERSONAS` (6) e `ABOUT_COVERAGE` (8) tipati `as const`
+- Riusa `Navbar` della landing con prop `solid` (sempre opaco, no scroll listener)
 
 #### UI Components (`components/ui/`)
 - Shadcn components: Button, Card, Skeleton, Table, Badge

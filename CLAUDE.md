@@ -21,6 +21,7 @@ INTELLIGENCE_ITA is an end-to-end geopolitical intelligence news analysis platfo
 | `src/api/` | routers + main | [src/api/context.md](src/api/context.md) |
 | `scripts/` | pipeline + tooling | [scripts/context.md](scripts/context.md) |
 | `web-platform/` | Next.js frontend | [web-platform/context.md](web-platform/context.md) |
+| `Landing Page.html` | Landing design reference (cinematic / tactical HUD) — authoritative spec for `web-platform/components/landing/` | — |
 | `migrations/` | 42 SQL files | [migrations/context.md](migrations/context.md) |
 
 ## Architecture Diagrams
