@@ -31,11 +31,11 @@ export const metadata: Metadata = {
     google: "yYcTCxeGtyPr8lqge6DnoCV5kKSs-p7BGCAibulzoaw",
   },
   title: {
-    default: "MACROINTEL | AI-Powered OSINT & Threat Intelligence Platform",
+    default: "MACROINTEL | AI-Powered OSINT & Geopolitical Intelligence Platform",
     template: "%s | MACROINTEL",
   },
   description:
-    "Monitor geopolitical risks, cyber threats, and macro-economic signals in real time. AI-powered OSINT platform processing 33+ intelligence sources daily into actionable intelligence.",
+    "MACROINTEL is an AI-powered OSINT platform monitoring geopolitical risks, cyber threats, and macro-economic signals in real time. 40+ sources processed daily into structured intelligence briefs, narrative graphs, and trade signal alerts.",
   keywords: [
     "OSINT automation tool",
     "AI threat intelligence platform",
