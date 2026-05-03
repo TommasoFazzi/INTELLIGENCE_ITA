@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html lang="en" prefix="og: https://ogp.me/ns#">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Primary SEO -->
+  <title>MACROINTEL | AI-Powered OSINT &amp; Geopolitical Intelligence Platform</title>
+  <meta name="description" content="MACROINTEL is an AI-powered OSINT platform monitoring geopolitical risks, cyber threats, and macro-economic signals in real time. 40+ sources processed daily into structured intelligence briefs, narrative graphs, and trade signal alerts.">
+  <meta name="keywords" content="OSINT platform, AI threat intelligence, geopolitical risk monitoring, open source intelligence, narrative tracking, intelligence briefings, cyber threat monitoring, macro intelligence, geopolitical analysis tool, OSINT automation, intelligence map, RAG intelligence">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="author" content="MACROINTEL">
+  <link rel="canonical" href="https://macrointel.net/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://macrointel.net/">
+  <meta property="og:site_name" content="MACROINTEL">
+  <meta property="og:title" content="MACROINTEL | AI-Powered OSINT &amp; Geopolitical Intelligence Platform">
+  <meta property="og:description" content="Monitor geopolitical risks, cyber threats, and macro-economic signals in real time. AI-powered OSINT platform processing 40+ intelligence sources daily into actionable intelligence.">
+  <meta property="og:image" content="https://macrointel.net/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="MACROINTEL Intelligence Dashboard — geopolitical risk monitoring platform">
+  <meta property="og:locale" content="en_US">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="MACROINTEL | AI-Powered OSINT &amp; Geopolitical Intelligence Platform">
+  <meta name="twitter:description" content="Monitor geopolitical risks, cyber threats, and macro-economic signals in real time. 40+ sources. Daily briefs. Oracle AI.">
+  <meta name="twitter:image" content="https://macrointel.net/og-image.jpg">
+  <meta name="twitter:image:alt" content="MACROINTEL Intelligence Dashboard">
+
+  <!-- Performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link rel="dns-prefetch" href="https://unpkg.com">
+
+  <!-- Structured Data: SoftwareApplication -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "MACROINTEL",
+    "url": "https://macrointel.net",
+    "applicationCategory": "SecurityApplication",
+    "operatingSystem": "Web",
+    "description": "AI-powered OSINT platform monitoring geopolitical risks, cyber threats, and macro-economic signals in real time. Processes 40+ intelligence sources daily into structured briefs, narrative graphs, and an interactive intelligence map.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "description": "Free access — no registration required" },
+    "featureList": ["Real-time geopolitical intelligence monitoring","AI-powered narrative graph and community detection","Interactive global intelligence map","Oracle AI — RAG-based intelligence Q&A","Daily and weekly intelligence briefings","40+ monitored OSINT sources"],
+    "screenshot": "https://macrointel.net/og-image.jpg",
+    "publisher": { "@type": "Organization", "name": "MACROINTEL", "url": "https://macrointel.net" }
+  }
+  </script>
+
+  <!-- Structured Data: Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "MACROINTEL",
+    "url": "https://macrointel.net",
+    "logo": "https://macrointel.net/logo.png",
+    "description": "AI-powered OSINT and geopolitical intelligence platform"
+  }
+  </script>
+
+  <!-- Structured Data: WebSite -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "MACROINTEL",
+    "url": "https://macrointel.net",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": { "@type": "EntryPoint", "urlTemplate": "https://macrointel.net/oracle?q={search_term_string}" },
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+
+  <!-- Structured Data: FAQPage -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "What is MACROINTEL?", "acceptedAnswer": { "@type": "Answer", "text": "MACROINTEL is an AI-powered OSINT platform that monitors geopolitical risks, cyber threats, and macro-economic signals in real time, processing 40+ intelligence sources daily into structured intelligence briefs, a narrative graph, and an interactive global intelligence map." } },
+      { "@type": "Question", "name": "What is Oracle AI?", "acceptedAnswer": { "@type": "Answer", "text": "Oracle AI is MACROINTEL's RAG-powered intelligence assistant. It answers natural language questions about geopolitical events, grounding every response in real source articles with full citation traceability — no hallucinations." } },
+      { "@type": "Question", "name": "Is MACROINTEL free to use?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. MACROINTEL is currently fully public and requires no registration. You can access the dashboard, intelligence map, narrative graph, Oracle AI, and daily briefings without creating an account." } },
+      { "@type": "Question", "name": "What sources does MACROINTEL monitor?", "acceptedAnswer": { "@type": "Answer", "text": "MACROINTEL monitors 40+ open-source intelligence sources including news wires, think-tanks, government publications, and official feeds across geopolitical, cyber, and macro-economic domains." } }
+    ]
+  }
+  </script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: #0A1628;
+      color: #ededed;
+      font-family: 'Geist', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #0A1628; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #FF6B35; }
+
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(100vh); }
+    }
+    @keyframes ticker {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes borderGlow {
+      0%, 100% { border-color: rgba(255, 107, 53, 0.3); }
+      50% { border-color: rgba(255, 107, 53, 0.7); }
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 50px 50px;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #FF6B35 0%, #FF9B35 40%, #00A8E8 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradientShift 4s ease infinite;
+    }
+    .orange-glow {
+      box-shadow: 0 0 30px rgba(255,107,53,0.3);
+    }
+    .card {
+      background: #1a2332;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+    }
+    .glass {
+      background: rgba(10,22,40,0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #FF6B35;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-family: 'Geist', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn-primary:hover { background: #e85a24; box-shadow: 0 0 24px rgba(255,107,53,0.4); }
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.04);
+      color: #94a3b8;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-family: 'Geist', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.25); color: #ededed; background: rgba(255,255,255,0.07); }
+    .label {
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #FF6B35;
+      margin-bottom: 16px;
+    }
+    .section-label::before {
+      content: '';
+      display: block;
+      width: 20px;
+      height: 1px;
+      background: #FF6B35;
+    }
+
+    /* Ticker */
+    .ticker-wrap {
+      overflow: hidden;
+      width: 100%;
+      position: relative;
+    }
+    .ticker-wrap::before, .ticker-wrap::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 80px;
+      z-index: 2;
+    }
+    .ticker-wrap::before { left: 0; background: linear-gradient(90deg, #0A1628, transparent); }
+    .ticker-wrap::after { right: 0; background: linear-gradient(-90deg, #0A1628, transparent); }
+    .ticker-track {
+      display: flex;
+      gap: 0;
+      animation: ticker 60s linear infinite;
+      width: max-content;
+    }
+    .ticker-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 32px;
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px;
+      color: #94a3b8;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      white-space: nowrap;
+    }
+    .ticker-item .dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Nav */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      padding: 0 32px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      transition: background 0.3s ease;
+    }
+    nav.scrolled {
+      background: rgba(10,22,40,0.95);
+      backdrop-filter: blur(12px);
+    }
+
+    /* Product tabs */
+    .tab-btn {
+      padding: 8px 18px;
+      font-family: 'Geist', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      background: none;
+      color: #64748b;
+    }
+    .tab-btn:hover { color: #94a3b8; }
+    .tab-btn.active {
+      background: rgba(255,107,53,0.1);
+      border-color: rgba(255,107,53,0.25);
+      color: #FF6B35;
+    }
+
+    /* Cinematic mode */
+    .cinematic .hero-bg {
+      filter: brightness(0.55) saturate(1.3);
+    }
+    .cinematic nav.scrolled {
+      background: rgba(5,10,20,0.97);
+    }
+
+    /* Signal mode — more HUD */
+    .signal-mode .hero-section {
+      background: #050d1a;
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+
+
+const { useState, useEffect, useRef } = React;
+
+/* ─── Tweaks ─── */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "tone": "cinematic",
+  "heroHeadline": "Global risk intelligence",
+  "ctaLabel": "Open Platform",
+  "showTicker": false,
+  "accentColor": "#FF6B35"
+}/*EDITMODE-END*/;
+
+/* ─── Data ─── */
+const SIGNALS = [
+{ dot: '#FF6B35', region: 'MIDDLE EAST', text: 'Hormuz Strait: maritime activity +34% — 3 corroborating sources' },
+{ dot: '#ef4444', region: 'EAST ASIA', text: 'Taiwan Strait: PLA naval exercise detected — high confidence' },
+{ dot: '#f59e0b', region: 'EUROPE', text: 'EU Defence: procurement contracts confirmed across 4 NATO members' },
+{ dot: '#10b981', region: 'MACRO', text: 'Brent Crude: geopolitical premium widening — WATCHLIST signal' },
+{ dot: '#00A8E8', region: 'CYBER', text: 'APT activity: infrastructure targeting correlated to diplomatic escalation' },
+{ dot: '#FF6B35', region: 'AFRICA', text: 'Sahel corridor: armed group movements + logistics activity elevated' },
+{ dot: '#8b5cf6', region: 'LATAM', text: 'Venezuela: capital outflow signals +19% — PBoC parallel response likely' },
+{ dot: '#10b981', region: 'GLOBAL', text: 'Narrative Graph: community detection across active storylines — updated continuously' }];
+
+
+const PRODUCTS = [
+{
+  id: 'map',
+  name: 'INTELLIGENCE MAP',
+  tag: 'GEOSPATIAL',
+  tagColor: '#FF6B35',
+  headline: 'Every entity, every location, mapped.',
+  body: 'An interactive tactical map of geopolitical entities — with cluster scoring, relationship arcs, and real-time activity signals. Filter by entity type, time window, and momentum score.',
+  href: 'https://macrointel.net/map',
+  cta: 'Explore the Map'
+},
+{
+  id: 'graph',
+  name: 'NARRATIVE GRAPH',
+  tag: 'STORYLINES',
+  tagColor: '#00A8E8',
+  headline: 'See how narratives form before they break.',
+  body: 'A force-directed graph of active intelligence storylines, auto-clustered into communities. Watch narratives emerge, converge, and collapse — before the news cycle catches up.',
+  href: 'https://macrointel.net/stories',
+  cta: 'Explore the Graph'
+},
+{
+  id: 'oracle',
+  name: 'ORACLE AI',
+  tag: 'RAG · AI',
+  tagColor: '#10b981',
+  headline: 'Query your entire intelligence database.',
+  body: 'Ask ORACLE anything. Every answer is grounded in real source articles from our indexed knowledge base — no hallucinations, full traceability. Natural language in, structured intelligence out.',
+  href: 'https://macrointel.net/oracle',
+  cta: 'Try Oracle AI',
+},
+{
+  id: 'briefings',
+  name: 'DAILY BRIEFINGS',
+  tag: 'REPORTS',
+  tagColor: '#8b5cf6',
+  headline: 'Intelligence delivered every morning.',
+  body: 'Automated daily and weekly reports distilled from 40+ monitored sources. Geopolitical, cyber, and macro signals synthesised overnight — ready before markets open.',
+  href: 'https://macrointel.net/dashboard',
+  cta: "Read Today's Briefing",
+}];
+
+
+const PERSONAS = [
+{ role: 'Geopolitical Analysts', icon: '◈', desc: 'Stop reading 50 RSS feeds manually. Distilled briefings from 40+ sources — every morning.' },
+{ role: 'CISO & Security Teams', icon: '◉', desc: 'Threat actors don\'t wait. Monitor escalations and cyber incidents before they become incidents.' },
+{ role: 'Macro Fund Managers', icon: '◆', desc: 'Geopolitical risk moves markets. Surface trade signals from raw intelligence — act on signal, not noise.' },
+{ role: 'Investigative Journalists', icon: '◎', desc: 'Find the story before it breaks. Narrative tracking reveals storylines traditional tools miss.' }];
+
+
+const PIPELINE = [
+{ step: '01', label: 'INGEST', title: '40+ Sources. Continuous.', body: 'RSS feeds, think-tanks, official wires, government publications — ingested around the clock with no manual curation.' },
+{ step: '02', label: 'PROCESS', title: 'NLP · Entity Extraction · Clustering', body: 'Named entities extracted, classified, and scored. Narratives auto-clustered via community detection. Three layers of signal filtering.' },
+{ step: '03', label: 'DELIVER', title: 'Structured Intelligence.', body: 'Interactive map, narrative graph, Oracle AI, and daily briefing reports — ready for analysis, not more reading.' }];
+
+
+/* ─── Ticker ─── */
+function Ticker({ show }) {
+  if (!show) return null;
+  const items = [...SIGNALS, ...SIGNALS]; // duplicate for seamless loop
+  return (
+    <div style={{ background: '#0d1520', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '10px 0', position: 'relative' }}>
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 120, display: 'flex', alignItems: 'center', paddingLeft: 16, background: '#0d1520', zIndex: 3, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+        <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', color: '#FF6B35' }}>
+          ● LIVE FEED
+        </span>
+      </div>
+      <div className="ticker-wrap" style={{ paddingLeft: 120 }}>
+        <div className="ticker-track">
+          {items.map((s, i) =>
+          <div key={i} className="ticker-item">
+              <span className="dot" style={{ background: s.dot }}></span>
+              <span style={{ color: s.dot, fontWeight: 600 }}>{s.region}</span>
+              <span>{s.text}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>);
+
+}
+
+/* ─── Nav ─── */
+function Nav({ scrolled, tone }) {
+  return (
+    <nav className={scrolled ? 'scrolled' : ''} style={{ background: scrolled ? undefined : 'transparent' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 'auto' }}>
+        <span style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 700, fontSize: 16, letterSpacing: '0.05em', color: '#ededed' }}>
+          MACRO<span style={{ color: '#FF6B35' }}>INTEL</span>
+        </span>
+        <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 9, color: '#64748b', letterSpacing: '0.1em', marginTop: 2 }}>
+          OSINT PLATFORM
+        </span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
+        {['Insights', 'Features', 'About'].map((l) =>
+        <a key={l} href={`https://macrointel.net/${l.toLowerCase() === 'insights' ? 'insights' : '#' + l.toLowerCase()}`}
+        style={{ color: '#94a3b8', fontSize: 13, fontWeight: 500, textDecoration: 'none', transition: 'color 0.15s' }}
+        onMouseEnter={(e) => e.target.style.color = '#ededed'}
+        onMouseLeave={(e) => e.target.style.color = '#94a3b8'}>
+          {l}</a>
+        )}
+      </div>
+      <div style={{ marginLeft: 32 }}>
+        <a className="btn-primary" href="https://macrointel.net/dashboard" style={{ padding: '8px 18px', fontSize: 13 }}>
+          Open Platform
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+        </a>
+      </div>
+    </nav>);
+
+}
+
+/* ─── Hero ─── */
+function Hero({ tone, headline, ctaLabel }) {
+  const lines = headline.split('\n');
+  const isCinematic = tone === 'cinematic';
+  const isSignal = tone === 'signal';
+
+  return (
+    <section style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden' }}>
+      {/* Background */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <img
+          src="assets/world-map-hero.jpg"
+          alt=""
+          style={{
+            width: '100%', height: '100%', objectFit: 'cover',
+            filter: isCinematic ? 'brightness(0.45) saturate(1.4)' : isSignal ? 'brightness(0.25) saturate(0.8) hue-rotate(10deg)' : 'brightness(0.35) saturate(1.1)',
+            transition: 'filter 0.5s ease'
+          }} />
+        
+        <div style={{ position: 'absolute', inset: 0, background: isSignal ? 'linear-gradient(180deg, rgba(5,13,26,0.6) 0%, rgba(10,22,40,0.97) 70%)' : 'linear-gradient(180deg, rgba(10,22,40,0.3) 0%, rgba(10,22,40,0.97) 65%, #0A1628 100%)' }}></div>
+        {isSignal &&
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(0,168,232,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,168,232,0.04) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+        }
+      </div>
+
+      {/* Scanline effect */}
+      {isSignal &&
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, rgba(0,168,232,0.15), transparent)', animation: 'scanline 8s linear infinite' }}></div>
+        </div>
+      }
+
+      {/* Content */}
+      <div style={{ position: 'relative', zIndex: 2, maxWidth: 1200, margin: '0 auto', padding: '0 40px', paddingTop: 80, width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center' }}>
+        {/* Left */}
+        <div style={{ animation: 'fadeInUp 0.8s ease-out' }}>
+          {/* Classification tag */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 4, padding: '4px 10px' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'pulse-dot 2s ease-in-out infinite' }}></span>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: '#ef4444' }}>LIVE</span>
+            </div>
+            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, color: '#64748b', letterSpacing: '0.1em' }}>SYSTEM OPERATIONAL // MACROINTEL v2.0</span>
+          </div>
+
+          <h1 style={{
+            fontSize: isCinematic ? 72 : 60,
+            fontWeight: 800,
+            lineHeight: 1.05,
+            letterSpacing: '-0.02em',
+            marginBottom: 24,
+            transition: 'font-size 0.3s ease'
+          }}>
+            {lines.map((line, i) =>
+            <span key={i} style={{ display: 'block', color: i === 0 ? '#ededed' : undefined, textAlign: "left" }}>
+                {i === 1 ? <span className="gradient-text">{line}</span> : line}
+              </span>
+            )}
+          </h1>
+
+          <p style={{ fontSize: 16, lineHeight: 1.7, color: '#94a3b8', marginBottom: 36, maxWidth: 460 }}>
+            Geopolitical analysis, cybersecurity monitoring, and macro-economic trends — powered by AI. 40+ sources distilled into structured, actionable intelligence.
+          </p>
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 48 }}>
+            <a className="btn-primary orange-glow" href="https://macrointel.net/dashboard">
+              {ctaLabel}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+            </a>
+            <a className="btn-ghost" href="#products">
+              See How It Works
+            </a>
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
+            {[['40+', 'Intel Sources'], ['24/7', 'Monitoring'], ['4', 'AI Tools'], ['Daily', 'Briefings']].map(([val, lbl]) =>
+            <div key={lbl}>
+                <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 22, fontWeight: 700, color: '#FF6B35', lineHeight: 1 }}>{val}</div>
+                <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, color: '#64748b', letterSpacing: '0.1em', marginTop: 4, textTransform: 'uppercase' }}>{lbl}</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Product preview */}
+        <div style={{ position: 'relative', animation: 'fadeIn 1.2s ease-out' }}>
+          <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,107,53,0.2)', animation: 'borderGlow 3s ease infinite' }}>
+            <div style={{ background: '#0f1a2b', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF6B35', animation: 'pulse-dot 2s ease-in-out infinite' }}></span>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, color: '#FF6B35', fontWeight: 700, letterSpacing: '0.1em' }}>NARRATIVE GRAPH</span>
+              <span style={{ marginLeft: 'auto', fontFamily: "'Geist Mono', monospace", fontSize: 9, color: '#64748b' }}>NODES: 1238 · EDGES: 11760</span>
+            </div>
+            <img src="assets/narrative-graph-hero.png" alt="MACROINTEL Intelligence Map" style={{ width: '100%', display: 'block', maxHeight: 340, objectFit: 'cover', objectPosition: 'top' }} />
+          </div>
+          {/* Floating HUD chip */}
+          <div style={{ position: 'absolute', bottom: -16, left: -16, background: 'rgba(10,22,40,0.92)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 14px', backdropFilter: 'blur(12px)' }}>
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>LAST SYNC</div>
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#ededed', fontWeight: 600 }}>2026-04-29 14:32:07 ZULU</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div style={{ position: 'absolute', bottom: 32, left: '50%', transform: 'translateX(-50%)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 9, color: '#64748b', letterSpacing: '0.15em' }}>SCROLL TO EXPLORE</div>
+        <div style={{ width: 1, height: 40, background: 'linear-gradient(180deg, rgba(255,107,53,0.6), transparent)' }}></div>
+      </div>
+    </section>);
+
+}
+
+/* ─── Screenshot frame component ─── */
+function AppFrame({ src, label, labelColor, badge, children }) {
+  return (
+    <div style={{ width: '100%', borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}>
+      <div style={{ background: '#0d1520', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 5 }}>
+          <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#ef4444', opacity: 0.7 }}></div>
+          <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#f59e0b', opacity: 0.7 }}></div>
+          <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#10b981', opacity: 0.7 }}></div>
+        </div>
+        <span style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10, fontWeight: 700, color: labelColor || '#FF6B35', marginLeft: 4 }}>{label}</span>
+        {badge && <span style={{ fontFamily: "'Geist Mono',monospace", fontSize: 8, color: labelColor || '#FF6B35', background: `${labelColor || '#FF6B35'}15`, border: `1px solid ${labelColor || '#FF6B35'}30`, borderRadius: 3, padding: '2px 6px', marginLeft: 'auto' }}>{badge}</span>}
+      </div>
+      {src
+        ? <img src={src} alt={label} style={{ width: '100%', display: 'block', maxHeight: 300, objectFit: 'cover', objectPosition: 'top' }} />
+        : children}
+    </div>
+  );
+}
+
+/* ─── Demo: Intelligence Map (real screenshot) ─── */
+function DemoMap() {
+  return <AppFrame src="assets/map-screenshot.png" label="INTELLIGENCE MAP" labelColor="#FF6B35" badge="LIVE FEED" />;
+}
+
+/* ─── Demo: Narrative Graph (real screenshot) ─── */
+function DemoGraph() {
+  return <AppFrame src="assets/narrative-graph-hero.png" label="NARRATIVE GRAPH" labelColor="#00A8E8" badge="1238 NODES · 11760 EDGES" />;
+}
+
+/* ─── Demo: Oracle AI (animated chat) ─── */
+function DemoOracle() {
+  const FULL_ANSWER = "The region connecting Central Asia to the Persian Gulf, the Indian Ocean and Europe via Iran, Pakistan and Afghanistan is one of the most strategically critical — and unstable — logistics corridors on the planet. The simultaneous closure of the Strait of Hormuz and the Pakistan-Afghanistan conflict have paralysed or placed at extreme risk virtually all land and maritime corridors of the region, forcing a complete redefinition of alternative routes.";
+  const SOURCES = ['TRACECA Report', 'Middle Corridor Analysis', 'ISW Afghanistan'];
+  const [phase, setPhase] = useState(0);
+  const [typed, setTyped] = useState('');
+  const [charIdx, setCharIdx] = useState(0);
+
+  useEffect(() => {
+    if (phase === 0) { const t = setTimeout(() => setPhase(1), 900); return () => clearTimeout(t); }
+    if (phase === 1) { const t = setTimeout(() => setPhase(2), 700); return () => clearTimeout(t); }
+    if (phase === 2 && charIdx < FULL_ANSWER.length) {
+      const t = setTimeout(() => { setTyped(FULL_ANSWER.slice(0, charIdx + 1)); setCharIdx(c => c + 1); }, 18);
+      return () => clearTimeout(t);
+    }
+    if (phase === 2 && charIdx >= FULL_ANSWER.length) { const t = setTimeout(() => setPhase(3), 400); return () => clearTimeout(t); }
+  }, [phase, charIdx]);
+
+  return (
+    <AppFrame label="ORACLE" labelColor="#10b981" badge="RAG · AI">
+      <div style={{ background: '#060e1c', display: 'flex', flexDirection: 'column', height: 300 }}>
+        <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'hidden' }}>
+          {phase >= 1 && (
+            <div style={{ alignSelf: 'flex-end', background: 'rgba(255,107,53,0.1)', border: '1px solid rgba(255,107,53,0.2)', borderRadius: '8px 8px 2px 8px', padding: '8px 12px', maxWidth: '85%', animation: 'fadeInUp 0.3s ease-out' }}>
+              <span style={{ fontSize: 12, color: '#ededed', lineHeight: 1.5 }}>What are the key commercial routes between Iran, Pakistan, Afghanistan and Central Asia? What are the main chokepoints at risk after the Iran war?</span>
+            </div>
+          )}
+          {phase >= 2 && (
+            <div style={{ alignSelf: 'flex-start', maxWidth: '92%', animation: 'fadeInUp 0.3s ease-out' }}>
+              <div style={{ background: '#1a2332', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px 8px 8px 2px', padding: '10px 13px' }}>
+                <div style={{ fontSize: 12, color: '#ededed', lineHeight: 1.65 }}>
+                  {typed}
+                  {phase === 2 && charIdx < FULL_ANSWER.length && <span style={{ display: 'inline-block', width: 7, height: 13, background: '#10b981', marginLeft: 2, animation: 'pulse-dot 0.7s ease-in-out infinite', verticalAlign: 'middle', borderRadius: 1 }}></span>}
+                </div>
+                {phase >= 3 && (
+                  <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {SOURCES.map(s => (
+                      <span key={s} style={{ fontFamily: "'Geist Mono',monospace", fontSize: 9, color: '#64748b', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 3, padding: '2px 7px' }}>↗ {s}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8 }}>
+          <div style={{ flex: 1, background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 6, padding: '7px 12px', fontSize: 12, color: '#374151', fontFamily: "'Geist',sans-serif" }}>Ask an intelligence question…</div>
+          <div style={{ background: '#10b981', borderRadius: 6, padding: '7px 14px', fontSize: 12, color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Send</div>
+        </div>
+      </div>
+    </AppFrame>
+  );
+}
+
+/* ─── Demo: Daily Briefings (real screenshot) ─── */
+function DemoBriefing() {
+  return <AppFrame src="assets/dashboard-screenshot.png" label="INTELLIGENCE BRIEFING" labelColor="#8b5cf6" badge="DAILY // APR 29" />;
+}
+
+/* ─── Products ─── */
+function Products() {
+  const [active, setActive] = useState(0);
+  const p = PRODUCTS[active];
+  const Demo = active === 0 ? DemoMap : active === 1 ? DemoGraph : active === 2 ? DemoOracle : DemoBriefing;
+
+  return (
+    <section id="products" style={{ padding: '100px 0', background: '#0d1520' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 40px' }}>
+        <div className="section-label">PLATFORM</div>
+        <h2 style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8, lineHeight: 1.1 }}>
+          Four tools. One mission.
+        </h2>
+        <p style={{ color: '#64748b', fontSize: 15, marginBottom: 48, maxWidth: 480 }}>
+          From geopolitical mapping to AI-powered Q&A — no manual aggregation required.
+        </p>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 40, background: '#0A1628', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: 4, width: 'fit-content' }}>
+          {PRODUCTS.map((pr, i) =>
+          <button key={pr.id} className={`tab-btn${active === i ? ' active' : ''}`} onClick={() => setActive(i)}>
+              {pr.name}
+            </button>
+          )}
+        </div>
+
+        {/* Product card */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 48, alignItems: 'center' }} key={p.id}>
+          {/* Info */}
+          <div style={{ animation: 'fadeInUp 0.35s ease-out' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: p.tagColor, background: `${p.tagColor}18`, border: `1px solid ${p.tagColor}30`, borderRadius: 4, padding: '3px 8px' }}>{p.tag}</span>
+            </div>
+            <h3 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 14, lineHeight: 1.2 }}>{p.headline}</h3>
+            <p style={{ fontSize: 14, lineHeight: 1.75, color: '#94a3b8', marginBottom: 28 }}>{p.body}</p>
+            <a className="btn-primary" href={p.href} style={{ background: p.tagColor === '#FF6B35' ? '#FF6B35' : p.tagColor === '#00A8E8' ? '#0086ba' : '#0d9467' }}>
+              {p.cta}
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+            </a>
+          </div>
+
+          {/* Animated demo */}
+          <div style={{ animation: 'fadeIn 0.4s ease-out' }} key={p.id}>
+            <Demo />
+          </div>
+        </div>
+      </div>
+    </section>);
+
+}
+
+/* ─── Pipeline ─── */
+function Pipeline() {
+  return (
+    <section id="features" style={{ padding: '100px 0', background: '#0A1628' }} className="grid-bg">
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 40px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 64 }}>
+          <div className="section-label" style={{ justifyContent: 'center' }}>HOW IT WORKS</div>
+          <h2 style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 12 }}>From raw signal to structured intelligence.</h2>
+          <p style={{ color: '#64748b', fontSize: 15, maxWidth: 480, margin: '0 auto' }}>Three stages. No manual aggregation. No missed signals.</p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, position: 'relative' }}>
+          {/* Connector line */}
+          <div style={{ position: 'absolute', top: 32, left: '16.6%', right: '16.6%', height: 1, background: 'linear-gradient(90deg, rgba(255,107,53,0.4), rgba(0,168,232,0.4))', zIndex: 0 }}></div>
+          {PIPELINE.map((s, i) =>
+          <div key={s.step} className="card" style={{ padding: 28, position: 'relative', zIndex: 1, transition: 'border-color 0.2s', cursor: 'default' }}
+          onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(255,107,53,0.25)'}
+          onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'}>
+            
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: i === 0 ? 'rgba(255,107,53,0.15)' : i === 1 ? 'rgba(0,168,232,0.15)' : 'rgba(16,185,129,0.15)', border: `1px solid ${i === 0 ? 'rgba(255,107,53,0.3)' : i === 1 ? 'rgba(0,168,232,0.3)' : 'rgba(16,185,129,0.3)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, fontWeight: 700, color: i === 0 ? '#FF6B35' : i === 1 ? '#00A8E8' : '#10b981' }}>{s.step}</span>
+                </div>
+                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: i === 0 ? '#FF6B35' : i === 1 ? '#00A8E8' : '#10b981' }}>{s.label}</span>
+              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10, color: '#ededed', lineHeight: 1.3 }}>{s.title}</h3>
+              <p style={{ fontSize: 13, lineHeight: 1.65, color: '#64748b' }}>{s.body}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>);
+
+}
+
+/* ─── Personas ─── */
+function Personas() {
+  return (
+    <section style={{ padding: '100px 0', background: '#0d1520' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 40px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center' }}>
+          <div>
+            <div className="section-label">WHO IT'S FOR</div>
+            <h2 style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: 20 }}>
+              Built for people who cannot afford to miss signals.
+            </h2>
+            <p style={{ color: '#64748b', fontSize: 15, lineHeight: 1.7, marginBottom: 32 }}>
+              Not a generic AI news aggregator. MACROINTEL is purpose-built for high-stakes intelligence work.
+            </p>
+            <a className="btn-primary" href="https://macrointel.net/dashboard">
+              Open the Platform
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+            </a>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {PERSONAS.map((p, i) =>
+            <div key={p.role} className="card" style={{ padding: '20px 22px', display: 'flex', gap: 16, alignItems: 'flex-start', transition: 'border-color 0.2s, background 0.2s', cursor: 'default' }}
+            onMouseEnter={(e) => {e.currentTarget.style.borderColor = 'rgba(255,107,53,0.25)';e.currentTarget.style.background = '#1e2d42';}}
+            onMouseLeave={(e) => {e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';e.currentTarget.style.background = '#1a2332';}}>
+              
+                <span style={{ fontSize: 18, color: '#FF6B35', flexShrink: 0, marginTop: 1 }}>{p.icon}</span>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: '#ededed', marginBottom: 5 }}>{p.role}</div>
+                  <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.55 }}>{p.desc}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>);
+
+}
+
+/* ─── Capabilities grid ─── */
+const CAPS = [
+{ icon: '◈', title: 'Daily Intelligence Briefs', body: 'Automated daily and weekly reports. Geopolitical, cyber, and macro signals distilled while you sleep.' },
+{ icon: '◉', title: '3-Layer Signal Filtering', body: 'Noise eliminated at ingestion, classification, and clustering — only what matters reaches your desk.' },
+{ icon: '◆', title: 'Grounded AI Answers', body: 'Every ORACLE answer cites real sources. No hallucinations. Full traceability to the original article.' },
+{ icon: '◎', title: 'Geospatial Intelligence Map', body: 'Entities plotted on an interactive tactical map with relationship arcs and live intelligence scoring.' },
+{ icon: '●', title: 'Narrative Graph', body: 'Force-directed graph of active storylines. Community detection surfaces hidden clusters and emerging narratives automatically.' },
+{ icon: '◐', title: 'REST API', body: 'Integrate MACROINTEL into your existing security stack or internal tooling via the documented API.' }];
+
+
+function Capabilities() {
+  return (
+    <section style={{ padding: '100px 0', background: '#0A1628' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 40px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <div className="section-label" style={{ justifyContent: 'center' }}>CAPABILITIES</div>
+          <h2 style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em' }}>A complete intelligence platform.</h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
+          {CAPS.map((c, i) =>
+          <div key={c.title} style={{ padding: '28px 28px', border: '1px solid rgba(255,255,255,0.06)', background: i % 2 === 0 ? '#0d1520' : '#0A1628', transition: 'background 0.2s', cursor: 'default' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = '#141f30'}
+          onMouseLeave={(e) => e.currentTarget.style.background = i % 2 === 0 ? '#0d1520' : '#0A1628'}>
+            
+              <span style={{ fontSize: 20, color: '#FF6B35', display: 'block', marginBottom: 12 }}>{c.icon}</span>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#ededed', marginBottom: 8 }}>{c.title}</h3>
+              <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>{c.body}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>);
+
+}
+
+/* ─── FAQ ─── */
+const FAQS = [
+  {
+    q: "What is MACROINTEL?",
+    a: "MACROINTEL is a strategic intelligence platform for geopolitics, geoeconomics, and global security. It brings together daily briefings, interactive maps, narrative tracking, and an AI research assistant to help users understand how global events, markets, and power dynamics connect."
+  },
+  {
+    q: "What can I do on MACROINTEL?",
+    a: "The platform offers four core tools: daily intelligence reports on global developments, an interactive map of geopolitical and economic events, a narrative graph that tracks how strategic stories evolve over time, and Oracle AI, a conversational assistant that answers questions using the platform's full intelligence archive."
+  },
+  {
+    q: "Who is MACROINTEL for?",
+    a: "MACROINTEL is built for analysts, researchers, risk professionals, policy experts, journalists, and decision-makers who need structured strategic context on world affairs. It serves anyone who works with geopolitical risk, international markets, energy, defense, or global security."
+  },
+  {
+    q: "What topics does MACROINTEL cover?",
+    a: "Coverage spans great power competition, the Middle East, the Indo-Pacific, European security, energy and commodity markets, global supply chains, defense and military affairs, technology and dual-use innovation, and state-sponsored cyber activity."
+  },
+  {
+    q: "What is the Intelligence Map?",
+    a: "The Intelligence Map is an interactive geographic interface that displays ongoing geopolitical, economic, and security events around the world. It allows users to explore developments by region, sector, and time, turning raw intelligence into a visual strategic picture."
+  },
+  {
+    q: "What is the Narrative Graph?",
+    a: "The Narrative Graph tracks how major strategic stories develop, connect, and shift over time. It maps relationships between actors, events, and themes, helping users see the bigger picture behind isolated headlines."
+  },
+  {
+    q: "What is Oracle AI?",
+    a: "Oracle AI is the platform's conversational research assistant. Users can ask questions about geopolitical, economic, or strategic topics and receive answers built on MACROINTEL's intelligence archive, including past reports, tracked narratives, and curated sources."
+  },
+];
+
+function FAQ() {
+  const [open, setOpen] = React.useState(null);
+  const toggle = (i) => setOpen(open === i ? null : i);
+  return (
+    <section id="faq" style={{ padding: '100px 0', background: '#0A1628' }}>
+      <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 40px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <div className="section-label" style={{ justifyContent: 'center' }}>FAQ</div>
+          <h2 style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em' }}>Common questions.</h2>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {FAQS.map((faq, i) => (
+            <div key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+              <button
+                onClick={() => toggle(i)}
+                style={{ width: '100%', background: 'none', border: 'none', padding: '20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, cursor: 'pointer', textAlign: 'left' }}
+              >
+                <span style={{ fontSize: 15, fontWeight: 600, color: open === i ? '#FF6B35' : '#ededed', transition: 'color 0.15s', lineHeight: 1.4 }}>{faq.q}</span>
+                <span style={{ color: open === i ? '#FF6B35' : '#64748b', flexShrink: 0, fontSize: 18, transition: 'transform 0.25s, color 0.15s', display: 'inline-block', transform: open === i ? 'rotate(45deg)' : 'rotate(0deg)' }}>+</span>
+              </button>
+              <div style={{ maxHeight: open === i ? 200 : 0, overflow: 'hidden', transition: 'max-height 0.35s ease' }}>
+                <p style={{ fontSize: 14, color: '#94a3b8', lineHeight: 1.75, paddingBottom: 20 }}>{faq.a}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── CTA ─── */
+function FinalCTA() {
+  return (
+    <section id="about" style={{ position: 'relative', padding: '120px 0', background: '#0d1520', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,107,53,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,107,53,0.03) 1px, transparent 1px)', backgroundSize: '60px 60px' }}></div>
+      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,107,53,0.06) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 700, margin: '0 auto', padding: '0 40px', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.2)', borderRadius: 999, padding: '6px 14px', marginBottom: 28 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FF6B35', animation: 'pulse-dot 2s ease-in-out infinite', display: 'inline-block' }}></span>
+          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: '#FF6B35' }}>NOW FULLY PUBLIC — NO REGISTRATION REQUIRED</span>
+        </div>
+        <h2 style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05, marginBottom: 20 }}>
+          Start exploring <span className="gradient-text">now.</span>
+        </h2>
+        <p style={{ fontSize: 16, color: '#64748b', lineHeight: 1.7, marginBottom: 40 }}>
+          Access the dashboard, narrative graph, intelligence map, and ORACLE AI. No login. No waitlist.
+        </p>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <a className="btn-primary orange-glow" href="https://macrointel.net/dashboard" style={{ padding: '14px 28px', fontSize: 15 }}>
+            Open Dashboard
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+          </a>
+          <a className="btn-ghost" href="https://macrointel.net/oracle" style={{ padding: '14px 28px', fontSize: 15 }}>
+            Try Oracle AI
+          </a>
+          <a className="btn-ghost" href="https://macrointel.net/map" style={{ padding: '14px 28px', fontSize: 15 }}>
+            Intelligence Map
+          </a>
+        </div>
+      </div>
+    </section>);
+
+}
+
+/* ─── Footer ─── */
+function Footer() {
+  return (
+    <footer style={{ background: '#070e1a', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '48px 40px 32px' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 40, marginBottom: 40 }}>
+          <div>
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 700, fontSize: 18, letterSpacing: '0.05em', color: '#ededed', marginBottom: 12 }}>
+              MACRO<span style={{ color: '#FF6B35' }}>INTEL</span>
+            </div>
+            <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.65, maxWidth: 320 }}>
+              AI-powered OSINT platform monitoring geopolitical risks, cyber threats, and macro-economic signals — 40+ sources processed daily into actionable intelligence.
+            </p>
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#64748b', marginBottom: 14, textTransform: 'uppercase' }}>Platform</div>
+            {[['Dashboard', 'https://macrointel.net/dashboard'], ['Narrative Graph', 'https://macrointel.net/stories'], ['Intelligence Map', 'https://macrointel.net/map'], ['Oracle AI', 'https://macrointel.net/oracle']].map(([l, h]) =>
+            <a key={l} href={h} style={{ display: 'block', fontSize: 13, color: '#94a3b8', textDecoration: 'none', marginBottom: 8, transition: 'color 0.15s' }}
+            onMouseEnter={(e) => e.target.style.color = '#ededed'}
+            onMouseLeave={(e) => e.target.style.color = '#94a3b8'}>
+              {l}</a>
+            )}
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: '#64748b', marginBottom: 14, textTransform: 'uppercase' }}>Resources</div>
+            {[['Intelligence Briefings', 'https://macrointel.net/insights'], ['Features', '#features'], ['About', 'about.html']].map(([l, h]) =>
+            <a key={l} href={h} style={{ display: 'block', fontSize: 13, color: '#94a3b8', textDecoration: 'none', marginBottom: 8, transition: 'color 0.15s' }}
+            onMouseEnter={(e) => e.target.style.color = '#ededed'}
+            onMouseLeave={(e) => e.target.style.color = '#94a3b8'}>
+              {l}</a>
+            )}
+          </div>
+        </div>
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: '#374151' }}>© 2026 MACROINTEL. All rights reserved.</span>
+          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, color: '#374151' }}>Powered by Next.js · Gemini AI · pgvector</span>
+        </div>
+      </div>
+    </footer>);
+
+}
+
+/* ─── App ─── */
+function App() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return (
+    <div className={tweaks.tone === 'cinematic' ? 'cinematic' : tweaks.tone === 'signal' ? 'signal-mode' : ''}>
+      <Nav scrolled={scrolled} tone={tweaks.tone} />
+      <Hero tone={tweaks.tone} headline={tweaks.heroHeadline} ctaLabel={tweaks.ctaLabel} />
+      <Ticker show={tweaks.showTicker} />
+      <Products />
+      <Pipeline />
+      <Personas />
+      <Capabilities />
+      <FAQ />
+      <FinalCTA />
+      <Footer />
+      <TweaksPanel>
+        <TweakSection label="Visual Tone">
+          <TweakRadio id="tone" label="Tone" value={tweaks.tone}
+          options={[{ label: 'Tactical', value: 'tactical' }, { label: 'Cinematic', value: 'cinematic' }, { label: 'Signal', value: 'signal' }]}
+          onChange={(v) => setTweak('tone', v)} />
+        </TweakSection>
+        <TweakSection label="Hero">
+          <TweakText id="heroHeadline" label="Headline" value={tweaks.heroHeadline} onChange={(v) => setTweak('heroHeadline', v)} />
+          <TweakText id="ctaLabel" label="CTA Label" value={tweaks.ctaLabel} onChange={(v) => setTweak('ctaLabel', v)} />
+        </TweakSection>
+        <TweakSection label="Components">
+          <TweakToggle id="showTicker" label="Live Signal Ticker" value={tweaks.showTicker} onChange={(v) => setTweak('showTicker', v)} />
+        </TweakSection>
+      </TweaksPanel>
+    </div>);
+
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
