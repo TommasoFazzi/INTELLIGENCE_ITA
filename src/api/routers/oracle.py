@@ -16,16 +16,42 @@ from ..schemas.oracle import OracleChatRequest, OracleChatResponse
 from ...llm.oracle_orchestrator import get_oracle_orchestrator_singleton
 
 _ORACLE_ADMIN_KEY = os.getenv("ORACLE_ADMIN_KEY")
+_ORACLE_WHITELIST_IPS = {
+    ip.strip() for ip in os.getenv("ORACLE_WHITELIST_IPS", "").split(",") if ip.strip()
+}
 
 
-def _oracle_key_func(request: Request) -> Optional[str]:
-    # slowapi skips rate limiting when key_func returns None
-    # Use secrets.compare_digest to prevent timing side-channel on admin key
+def _real_client_ip(request: Request) -> str:
+    """Extract original client IP from X-Forwarded-For (set by nginx + frontend proxy).
+
+    Falls back to direct peer address if XFF is missing — but in the production
+    chain (browser → nginx → next.js → fastapi) XFF is always present.
+    """
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return get_remote_address(request)
+
+
+def _is_bypass(request: Request) -> bool:
+    """Admin key OR whitelisted IP → skip all rate limits."""
     if _ORACLE_ADMIN_KEY and secrets.compare_digest(
         request.headers.get("X-API-Key", ""), _ORACLE_ADMIN_KEY
     ):
+        return True
+    return _real_client_ip(request) in _ORACLE_WHITELIST_IPS
+
+
+def _oracle_per_ip_key(request: Request) -> Optional[str]:
+    if _is_bypass(request):
         return None
-    return get_remote_address(request)
+    return _real_client_ip(request)
+
+
+def _oracle_global_key(request: Request) -> Optional[str]:
+    if _is_bypass(request):
+        return None
+    return "oracle:global"
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +59,8 @@ router = APIRouter(prefix="/api/v1/oracle", tags=["Oracle"])
 
 
 @router.post("/chat")
-@limiter.limit("5/day", key_func=_oracle_key_func)
+@limiter.limit("3/day", key_func=_oracle_per_ip_key)
+@limiter.limit("15/day", key_func=_oracle_global_key)
 async def oracle_chat(
     request: Request,
     body: OracleChatRequest,
