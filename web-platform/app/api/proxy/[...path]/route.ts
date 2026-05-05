@@ -101,9 +101,14 @@ export async function POST(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s timeout
 
+    const xff = request.headers.get('x-forwarded-for');
+    const xRealIp = request.headers.get('x-real-ip');
+
     let body;
     let headers: HeadersInit = {
       ...(API_KEY && { 'X-API-Key': API_KEY }),
+      ...(xff && { 'X-Forwarded-For': xff }),
+      ...(xRealIp && { 'X-Real-IP': xRealIp }),
     };
 
     // Handle multipart/form-data (file uploads)
