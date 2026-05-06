@@ -105,7 +105,7 @@ DEFAULT_STEPS = [
         name="nlp_processing",
         command="python scripts/process_nlp.py",
         description="Elaborazione NLP degli articoli",
-        timeout_seconds=1800,  # 30 min
+        timeout_seconds=3600,  # 60 min — bullet gen degrada a ~8s/article su 504 Gemini
         continue_on_failure=False
     ),
     PipelineStep(
