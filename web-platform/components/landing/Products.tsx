@@ -8,7 +8,7 @@ import DemoGraph from './DemoGraph';
 import DemoOracle from './DemoOracle';
 import DemoBriefing from './DemoBriefing';
 
-const DEMOS = [DemoMap, DemoGraph, DemoOracle, DemoBriefing];
+const DEMOS = [DemoBriefing, DemoOracle, DemoGraph, DemoMap];
 
 export default function Products() {
   const [active, setActive] = useState(0);
