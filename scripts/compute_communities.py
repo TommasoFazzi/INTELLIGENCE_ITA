@@ -96,8 +96,9 @@ def _name_community(cid: int, nodes_in_community: list, conn) -> str | None:
 
 def compute_and_save_communities(
     min_weight: float = 0.05,
-    resolution: float = 0.2,
+    resolution: float = 0.8,
     dry_run: bool = False,
+    max_name: int = 60,
 ) -> dict:
     """
     Load edge graph from DB, run Louvain, save community_id to storylines.
@@ -206,14 +207,22 @@ def compute_and_save_communities(
 
     # Generate LLM community names (one call per community, resilient to failures)
     if GEMINI_AVAILABLE:
-        logger.info("Generating LLM community names (%d communities)...", len(freq))
         community_nodes: dict[int, list] = {}
         for node, cid in partition.items():
             community_nodes.setdefault(cid, []).append(node)
 
+        # Name only the largest max_name communities — singletons already skipped below
+        communities_to_name = sorted(
+            community_nodes.keys(), key=lambda c: len(community_nodes[c]), reverse=True
+        )[:max_name]
+        logger.info(
+            "Generating LLM community names (%d/%d communities, max_name=%d)...",
+            len(communities_to_name), len(freq), max_name,
+        )
+
         with db.get_connection() as conn:
             named = 0
-            for cid in sorted(community_nodes.keys()):
+            for cid in communities_to_name:
                 nodes = community_nodes[cid]
                 if len(nodes) < 2:
                     # Skip singletons — no meaningful macro-theme from a single storyline
@@ -244,8 +253,12 @@ def main():
         help="Min edge weight to include in community graph (default: 0.05)"
     )
     parser.add_argument(
-        "--resolution", type=float, default=0.2,
-        help="Louvain resolution: lower = larger communities (default: 0.2)"
+        "--resolution", type=float, default=0.8,
+        help="Louvain resolution: lower = larger communities (default: 0.8)"
+    )
+    parser.add_argument(
+        "--max-name", type=int, default=60,
+        help="Max number of communities to name with LLM (largest first, default: 60)"
     )
     parser.add_argument(
         "--dry-run", action="store_true",
@@ -258,6 +271,7 @@ def main():
     print("=" * 60)
     print(f"  Min edge weight: {args.min_weight}")
     print(f"  Resolution:      {args.resolution}")
+    print(f"  Max LLM names:   {args.max_name}")
     print(f"  Dry run:         {args.dry_run}")
     print()
 
@@ -266,6 +280,7 @@ def main():
             min_weight=args.min_weight,
             resolution=args.resolution,
             dry_run=args.dry_run,
+            max_name=args.max_name,
         )
     except RuntimeError as e:
         print(f"ERROR: {e}")

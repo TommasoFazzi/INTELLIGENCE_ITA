@@ -124,9 +124,9 @@ DEFAULT_STEPS = [
     ),
     PipelineStep(
         name="community_detection",
-        command="python scripts/compute_communities.py --min-weight 0.25",
+        command="python scripts/compute_communities.py --min-weight 0.25 --resolution 0.8 --max-name 60",
         description="Community detection (Louvain) sul grafo narrativo",
-        timeout_seconds=300,  # 5 min safety net
+        timeout_seconds=600,  # 10 min: ~60 LLM calls × ~5s each
         continue_on_failure=True  # Non blocca il report se fallisce
     ),
     PipelineStep(

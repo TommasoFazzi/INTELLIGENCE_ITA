@@ -88,7 +88,7 @@ def _build_data_quality_flags(metadata: dict) -> list:
     for key, meta in metadata.items():
         if meta.get("is_stale"):
             last_updated = meta.get("last_updated", "unknown")
-            staleness = meta.get("staleness_days", 0)
+            staleness = meta.get("staleness_days") or 0
             freq = meta.get("expected_frequency", "daily")
             flags.append(
                 f"{key}: data from {last_updated}"
